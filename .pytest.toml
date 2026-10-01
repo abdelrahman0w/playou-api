@@ -1,0 +1,17 @@
+[pytest]
+asyncio_mode = "auto"
+env = [
+    "D:DATABASE_HOST=127.0.0.1",
+    "D:DATABASE_PORT=5433",
+    "D:DATABASE_USER=playou",
+    "D:DATABASE_PASSWORD=playou",
+    "DATABASE_NAME=playou_test",
+    "D:APP_LOG_LEVEL=WARNING",
+    "D:APP_WEB_URL=https://web.example",
+    'D:CORS_ORIGINS=["https://web.example"]',
+    "D:AUTH_COOKIE_SECURE=false",
+    "D:RESEND_API_KEY=",
+    "D:ENCRYPTION_KEYS=[\"bm90LWEtcmVhbC1rZXktb25seS1mb3ItdGhlLXRlc3Q=\"]",
+    "D:SPOTIFY_CLIENT_ID=spotify-client",
+    "D:SPOTIFY_REDIRECT_URI=https://api.example/accounts/spotify/callback",
+]

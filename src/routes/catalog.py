@@ -1,0 +1,38 @@
+from typing import Annotated
+
+from fastapi import APIRouter
+from fastapi import Query
+
+from src.controllers import catalog as catalog_controller
+from src.dependencies import DBSessionDep
+from src.dependencies import NowDep
+from src.dependencies import PlatformsDep
+from src.dependencies import RedisDep
+from src.dependencies import SessionFactoryDep
+from src.dependencies import UserIDDep
+from src.structs.models.requests import SearchRequest
+from src.structs.models.responses import SearchResults
+
+
+router = APIRouter(prefix="/catalog")
+
+
+@router.get("/search")
+async def search(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    session_factory: SessionFactoryDep,
+    redis: RedisDep,
+    platforms: PlatformsDep,
+    now: NowDep,
+    request: Annotated[SearchRequest, Query()],
+) -> SearchResults:
+    return await catalog_controller.search(
+        session,
+        session_factory,
+        redis,
+        platforms,
+        request,
+        user_id=user_id,
+        now=now,
+    )

@@ -1,0 +1,80 @@
+# linter configuration
+[lint]
+select = [
+    # pyflakes rules
+    "F", # all pyflakes rules
+    # pycodestyle rules
+    "E",  # all pycodestyle errors
+    "W2", # trailing spaces and newlines
+    # "W3", # too many newlines at end of file
+    "W6", # invalid escape sequences
+    # flake8-bugbear rules
+    "B", # all flake8-bugbear rules
+    # pep8-naming rules
+    "N", # all pep8-naming rules
+    # isort rules
+    "I", # all isort rules
+    # flake8-unused-arguments rules
+    "ARG", # all flake8-unused-arguments rules
+    # flake8-return rules
+    "RET508", # superfluous else break
+    "RET507", # superfluous else continue
+    "RET506", # superfluous else raise
+    "RET505", # superfluous else return
+    "RET503", # implicit return
+    "RET502", # implicit return value
+    # flake8-quotes rules
+    "Q", # all flake8-quotes rules
+    # flake8-print rules
+    "T20", # all flake8-print rules
+    # flake8-implicit-str-concat rules
+    "ISC", # all flake8-implicit-str-concat rules
+    # flake8-datetimez rules
+    "DTZ", # all flake8-datetimez rules
+    # # flake8-commas rules
+    # "COM", # all flake8-commas rules
+    # flake8-boolean-trap rules
+    "FBT", # all flake8-boolean-trap rules
+    # flake8-bandit rules
+    "S", # all flake8-bandit rules
+    # flake8-async rules
+    "ASYNC", # all flake8-async rules
+    # fastapi rules
+    "FAST002", # missing dependency annotation
+    "FAST003", # unused path parameter
+    # ruff rules
+    "RUF200", # failed to parse `pyproject.toml` file
+    "RUF102", # invalid `noqa` directive
+    "RUF100", # unnecessary `noqa` directives
+    "RUF060", # unnecessary membership test on empty collection
+    "RUF059", # unused unpacked variable
+    "RUF057", # value being rounded is already an integer
+    "RUF034", # useless if else
+    "RUF032", # decimal from float literal
+    "RUF030", # assert with print message
+    "RUF023", # unsorted `__slots__`
+    "RUF022", # unsorted `__all__`
+    "RUF021", # unparenthesized chained operators
+    "RUF019", # unnecessary key check
+    "RUF018", # assignment in assert
+    "RUF016", # invalid index type
+    "RUF015", # unnecessary iterable allocation for first element
+    "RUF013", # implicit optional
+    "RUF001", # ambiguous unicode character string
+    # "RUF029", # unused async
+    # "RUF036", # `None` is not at end of union
+    # "RUF047", # unnecessary else
+    # "RUF050", # unnecessary if
+    # "RUF066", # `@property` without a return stmt
+    # "RUF068", # duplicate entry in `__all__`
+    # "RUF069", # float equality comparison
+    # "RUF072", # useless `finally` clause
+    # "RUF073", # % operator used on an f-string
+]
+# isort configuration
+[lint.isort]
+force-single-line = true
+lines-after-imports = 2
+[lint.per-file-ignores]
+# asserts are what a test is, and its tokens are fake
+"tests/**" = ["S101", "S105", "S106", "S107"]

@@ -1,0 +1,102 @@
+from typing import Annotated
+
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import Query
+from fastapi import Response
+from fastapi import status
+from fastapi.responses import RedirectResponse
+
+from src.controllers import accounts as accounts_controller
+from src.dependencies import DBSessionDep
+from src.dependencies import NowDep
+from src.dependencies import OptionalUserIDDep
+from src.dependencies import PlatformsDep
+from src.dependencies import RedisDep
+from src.dependencies import UserIDDep
+from src.dependencies import require_trusted_origin
+from src.structs.enums import Platforms
+from src.structs.models.responses import LinkedAccount
+
+
+router = APIRouter(prefix="/accounts")
+
+
+@router.get("")
+async def list_accounts(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    platforms: PlatformsDep,
+) -> list[LinkedAccount]:
+    return await accounts_controller.list_accounts(
+        session,
+        platforms,
+        user_id,
+    )
+
+
+@router.get("/{platform}/connect")
+async def connect(
+    platform: Platforms,
+    user_id: UserIDDep,
+    redis: RedisDep,
+    platforms: PlatformsDep,
+) -> RedirectResponse:
+    return RedirectResponse(
+        await accounts_controller.connect(
+            redis,
+            platforms,
+            platform,
+            user_id=user_id,
+        ),
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    )
+
+
+@router.get("/{platform}/callback")
+async def finish_connect(
+    platform: Platforms,
+    user_id: OptionalUserIDDep,
+    session: DBSessionDep,
+    redis: RedisDep,
+    platforms: PlatformsDep,
+    now: NowDep,
+    code: Annotated[str | None, Query(max_length=2048)] = None,
+    state: Annotated[str | None, Query(max_length=256)] = None,
+    error: Annotated[str | None, Query(max_length=256)] = None,
+) -> RedirectResponse:
+    return RedirectResponse(
+        await accounts_controller.finish_connect(
+            session,
+            redis,
+            platforms,
+            platform,
+            user_id=user_id,
+            code=code,
+            state=state,
+            error=error,
+            now=now,
+        ),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.delete(
+    "/{platform}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def disconnect(
+    platform: Platforms,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> Response:
+    await accounts_controller.disconnect(
+        session,
+        platform,
+        user_id=user_id,
+    )
+
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT,
+    )

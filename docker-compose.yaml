@@ -1,0 +1,70 @@
+services:
+  playou-api:
+    image: playou-api:local
+    container_name: playou-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        INSTALL_DEV: "true"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - DATABASE_HOST=playou-db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=playou
+      - DATABASE_PASSWORD=playou
+      - DATABASE_NAME=playou
+      - REDIS_HOST=playou-redis
+      - REDIS_PORT=6379
+      - APP_LOG_JSON=false
+      - APP_PORT=${APP_PORT:-8081}
+      - APP_WEB_URL=${APP_WEB_URL:-http://localhost:5173}
+      - AUTH_COOKIE_SECURE=false
+      - 'CORS_ORIGINS=["http://localhost:5173","http://localhost:4173","http://localhost:3000"]'
+    volumes:
+      - .:/app
+    depends_on:
+      playou-db:
+        condition: service_healthy
+      playou-redis:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8081}:${APP_PORT:-8081}"
+    entrypoint: ["/app/bin/entrypoint.sh", "--dev"]
+
+  playou-db:
+    image: postgres:18
+    container_name: playou-db
+    environment:
+      - POSTGRES_USER=playou
+      - POSTGRES_PASSWORD=playou
+      - POSTGRES_DB=playou
+    volumes:
+      - playou_postgres_data:/var/lib/postgresql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test:
+        ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "playou", "-d", "playou"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  playou-redis:
+    image: redis:8-alpine
+    container_name: playou-redis
+    volumes:
+      - playou_redis_data:/data
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  playou_postgres_data:
+  playou_redis_data:

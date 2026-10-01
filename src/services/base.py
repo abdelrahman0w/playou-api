@@ -1,0 +1,58 @@
+from datetime import timedelta
+from typing import Protocol
+
+from src.structs.enums import Platforms
+from src.structs.models import Capabilities
+from src.structs.models import PlatformProfile
+from src.structs.models import PlatformTokens
+from src.structs.models import Track
+
+
+class MusicPlatform(Protocol):
+    @property
+    def platform(self) -> Platforms: ...
+
+    @property
+    def capabilities(self) -> Capabilities: ...
+
+    @property
+    def refresh_token_lifetime(self) -> timedelta | None: ...
+
+    @property
+    def refresh_extends_lifetime(self) -> bool: ...
+
+    async def search(
+        self,
+        access_token: str,
+        query: str,
+        *,
+        limit: int,
+    ) -> list[Track]: ...
+
+    async def close(self) -> None: ...
+
+
+class OAuthPlatform(MusicPlatform, Protocol):
+    def authorize_url(
+        self,
+        *,
+        state: str,
+        challenge: str,
+    ) -> str: ...
+
+    async def exchange_code(
+        self,
+        code: str,
+        *,
+        verifier: str,
+    ) -> PlatformTokens: ...
+
+    async def refresh(
+        self,
+        refresh_token: str,
+    ) -> PlatformTokens: ...
+
+    async def profile(
+        self,
+        access_token: str,
+    ) -> PlatformProfile: ...
