@@ -1,3 +1,4 @@
+from collections.abc import Awaitable
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -12,6 +13,7 @@ from src.actions.accounts.sealing import seal
 from src.actions.accounts.sealing import unseal
 from src.exceptions import PlatformNotLinkedError
 from src.exceptions import PlatformReconnectRequiredError
+from src.exceptions import PlatformTokenRejectedError
 from src.providers import logger
 from src.repositories import accounts as accounts_repositories
 from src.services import OAuthPlatform
@@ -63,11 +65,12 @@ async def access_token(
     account: StoredAccount,
     *,
     now: datetime,
+    rejected: str | None = None,
 ) -> str:
     if account.status_at(now) is AccountStatuses.NEEDS_RECONNECT:
         raise PlatformReconnectRequiredError("The account has to be linked again")
 
-    if _is_fresh(account, now=now):
+    if rejected is None and _is_fresh(account, now=now):
         return unseal(account.access_token)
 
     refreshed = await _refresh_when_due(
@@ -75,12 +78,45 @@ async def access_token(
         platform,
         account,
         now=now,
-        is_due=lambda locked: not _is_fresh(locked, now=now),
+        is_due=lambda locked: (
+            unseal(locked.access_token) == rejected
+            if rejected is not None
+            else not _is_fresh(locked, now=now)
+        ),
     )
     if refreshed.access_token is None:
         raise PlatformReconnectRequiredError("The account has to be linked again")
 
     return refreshed.access_token
+
+
+async def with_token[T](
+    session_factory: async_sessionmaker[AsyncSession],
+    platform: OAuthPlatform,
+    account: StoredAccount,
+    call: Callable[[str], Awaitable[T]],
+    *,
+    now: datetime,
+) -> T:
+    token = await access_token(session_factory, platform, account, now=now)
+    try:
+        return await call(token)
+    except PlatformTokenRejectedError:
+        logger.info(
+            "[Accounts] Token Rejected - Refreshing",
+            platform=account.platform,
+            account_id=str(account.id),
+        )
+
+    return await call(
+        await access_token(
+            session_factory,
+            platform,
+            account,
+            now=now,
+            rejected=token,
+        ),
+    )
 
 
 async def keep_alive(

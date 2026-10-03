@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter
+from fastapi import BackgroundTasks
 from fastapi import Depends
 from fastapi import Query
 from fastapi import Response
@@ -8,11 +9,13 @@ from fastapi import status
 from fastapi.responses import RedirectResponse
 
 from src.controllers import accounts as accounts_controller
+from src.controllers import library as library_controller
 from src.dependencies import DBSessionDep
 from src.dependencies import NowDep
 from src.dependencies import OptionalUserIDDep
 from src.dependencies import PlatformsDep
 from src.dependencies import RedisDep
+from src.dependencies import SessionFactoryDep
 from src.dependencies import UserIDDep
 from src.dependencies import require_trusted_origin
 from src.structs.enums import Platforms
@@ -64,11 +67,22 @@ async def finish_connect(
     session: DBSessionDep,
     redis: RedisDep,
     platforms: PlatformsDep,
+    session_factory: SessionFactoryDep,
+    background: BackgroundTasks,
     now: NowDep,
     code: Annotated[str | None, Query(max_length=2048)] = None,
     state: Annotated[str | None, Query(max_length=256)] = None,
     error: Annotated[str | None, Query(max_length=256)] = None,
 ) -> RedirectResponse:
+    if user_id is not None:
+        background.add_task(
+            library_controller.import_now,
+            session_factory,
+            platforms,
+            user_id=user_id,
+            now=now,
+        )
+
     return RedirectResponse(
         await accounts_controller.finish_connect(
             session,

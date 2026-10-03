@@ -26,7 +26,7 @@ from src.structs.models import ExpiringAccount
 from src.structs.models import OutgoingEmail
 
 
-def _reconnect_url(
+def reconnect_url(
     platform: Platforms,
 ) -> str:
     query = urlencode({"reconnect": platform})
@@ -44,7 +44,7 @@ def _warning(
     email = reconnect_email(
         platform.title(),
         days=max(1, math.ceil((expires_at - now) / timedelta(days=1))),
-        url=_reconnect_url(platform),
+        url=reconnect_url(platform),
         locale=item.owner.locale,
     )
 

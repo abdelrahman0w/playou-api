@@ -67,6 +67,18 @@ class PlatformTimeoutError(PlatformError):
     error_type = ErrorTypes.PLATFORM_TIMEOUT
 
 
+class PlatformPremiumRequiredError(PlatformError):
+    error_type = ErrorTypes.PLATFORM_PREMIUM_REQUIRED
+
+
+class NoActiveDeviceError(PlatformError):
+    error_type = ErrorTypes.NO_ACTIVE_DEVICE
+
+
+class PlatformScopesMissingError(AppError):
+    error_type = ErrorTypes.PLATFORM_SCOPES_MISSING
+
+
 class PlatformRateLimitedError(PlatformUnavailableError):
     error_type = ErrorTypes.PLATFORM_RATE_LIMITED
 
@@ -81,3 +93,7 @@ class PlatformNotLinkedError(AppError):
 
 class PlatformReconnectRequiredError(AppError):
     error_type = ErrorTypes.PLATFORM_RECONNECT_REQUIRED
+
+
+class PlatformTokenRejectedError(PlatformReconnectRequiredError):
+    pass

@@ -21,5 +21,6 @@ JOBS: dict[str, Job] = {
         run=prune_auth,
         help="drop the expired sessions, and the codes used or expired",
         monitor_every_seconds=24 * 60 * 60,
+        cron="30 0 * * *",
     ),
 }

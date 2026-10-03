@@ -6,6 +6,8 @@ from src.structs.models import Capabilities
 from src.structs.models import PlatformPlaylist
 from src.structs.models import PlatformProfile
 from src.structs.models import PlatformTokens
+from src.structs.models import PlaybackDevice
+from src.structs.models import PlaybackRequest
 from src.structs.models import RemotePlaylist
 from src.structs.models import SavedTracksPage
 from src.structs.models import Track
@@ -20,6 +22,12 @@ class MusicPlatform(Protocol):
 
     @property
     def refresh_token_lifetime(self) -> timedelta | None: ...
+
+    @property
+    def scopes(self) -> list[str]: ...
+
+    @property
+    def playback_scopes(self) -> list[str]: ...
 
     @property
     def refresh_extends_lifetime(self) -> bool: ...
@@ -104,6 +112,17 @@ class MusicPlatform(Protocol):
         platform_playlist_id: str,
         platform_ids: list[str],
     ) -> str | None: ...
+
+    async def devices(
+        self,
+        access_token: str,
+    ) -> list[PlaybackDevice]: ...
+
+    async def play(
+        self,
+        access_token: str,
+        request: PlaybackRequest,
+    ) -> None: ...
 
     async def close(self) -> None: ...
 

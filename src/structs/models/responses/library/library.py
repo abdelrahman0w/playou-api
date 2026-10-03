@@ -74,8 +74,19 @@ class PushPreferences(BaseModel):
     push_playlists: bool
 
 
+class Progress(BaseModel):
+    done: int
+    total: int
+
+
+class ImportProgress(BaseModel):
+    likes: Progress | None = None
+    playlists: Progress | None = None
+
+
 class AccountSync(BaseModel):
     platform: Platforms
     status: ImportStatuses
     imported_at: datetime | None = None
     error: str | None = None
+    progress: ImportProgress | None = None

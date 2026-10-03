@@ -202,3 +202,22 @@ async def track_exists(session: AsyncSession, track_id: UUID) -> bool:
         await session.scalar(select(tables.Track.id).where(tables.Track.id == track_id))
         is not None
     )
+
+
+async def platform_track_ids(
+    session: AsyncSession,
+    track_ids: Collection[UUID],
+    platform: Platforms,
+) -> dict[UUID, str]:
+    source = tables.TrackSource
+    rows = await session.execute(
+        select(source.track_id, source.platform_id)
+        .where(source.track_id.in_(track_ids), source.platform == platform)
+        .order_by(source.created_at),
+    )
+
+    found: dict[UUID, str] = {}
+    for track_id, platform_id in rows:
+        found.setdefault(track_id, platform_id)
+
+    return found

@@ -132,6 +132,18 @@ async def finish(
     )
 
 
+async def save_progress(
+    session: AsyncSession,
+    operation_id: int,
+    progress: dict[str, Any],
+) -> None:
+    await session.execute(
+        update(tables.SyncOperation)
+        .where(tables.SyncOperation.id == operation_id)
+        .values(progress=progress),
+    )
+
+
 async def retry_later(
     session: AsyncSession,
     operation_id: int,
@@ -199,6 +211,7 @@ async def lease_imports(
     now: datetime,
     until: datetime,
     limit: int,
+    user_id: UUID | None = None,
 ) -> list[SyncTask]:
     operation = tables.SyncOperation
     rows = list(
@@ -208,6 +221,7 @@ async def lease_imports(
                 operation.status == SyncStatuses.PENDING,
                 operation.next_attempt_at <= now,
                 operation.subject == SyncSubjects.IMPORT,
+                *([operation.user_id == user_id] if user_id is not None else []),
             )
             .order_by(operation.next_attempt_at, operation.id)
             .limit(limit)
@@ -258,10 +272,15 @@ async def pending_subject_ids(
 async def latest_imports(
     session: AsyncSession,
     user_id: UUID,
-) -> dict[UUID, tuple[SyncStatuses, str | None]]:
+) -> dict[UUID, tuple[SyncStatuses, str | None, dict[str, Any] | None]]:
     operation = tables.SyncOperation
     rows = await session.execute(
-        select(operation.subject_id, operation.status, operation.last_error)
+        select(
+            operation.subject_id,
+            operation.status,
+            operation.last_error,
+            operation.progress,
+        )
         .where(
             operation.user_id == user_id,
             operation.subject == SyncSubjects.IMPORT,
@@ -270,4 +289,7 @@ async def latest_imports(
         .order_by(operation.subject_id, operation.id.desc()),
     )
 
-    return {account_id: (status, error) for account_id, status, error in rows}
+    return {
+        account_id: (status, error, progress)
+        for account_id, status, error, progress in rows
+    }

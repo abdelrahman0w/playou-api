@@ -1,5 +1,6 @@
 from .client_ip import client_key
 from .client_ip import resolve_client_ip
+from .cron import cron_matches
 from .encryption import DecryptionError
 from .encryption import decrypt
 from .encryption import encrypt
@@ -20,6 +21,7 @@ __all__ = [
     "challenge_for",
     "client_key",
     "connect_singletons",
+    "cron_matches",
     "decrypt",
     "encrypt",
     "make_key",

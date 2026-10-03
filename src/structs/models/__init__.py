@@ -11,6 +11,8 @@ from .platforms import PendingLink
 from .platforms import PlatformPlaylist
 from .platforms import PlatformProfile
 from .platforms import PlatformTokens
+from .platforms import PlaybackDevice
+from .platforms import PlaybackRequest
 from .platforms import PlaylistSyncState
 from .platforms import RemotePlaylist
 from .platforms import SavedTrack
@@ -34,6 +36,8 @@ __all__ = [
     "PlatformPlaylist",
     "PlatformProfile",
     "PlatformTokens",
+    "PlaybackDevice",
+    "PlaybackRequest",
     "PlaylistSyncState",
     "RemotePlaylist",
     "SavedTrack",

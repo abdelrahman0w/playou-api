@@ -51,6 +51,7 @@ async def list_accounts(
             platforms[account.platform].capabilities,
             now=now,
             warn_within=timedelta(days=settings.accounts.expiry_warning_days),
+            scopes=platforms[account.platform].scopes,
         )
         for account in accounts
         if account.platform in platforms

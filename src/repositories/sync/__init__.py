@@ -8,6 +8,7 @@ from .operations import lease_imports
 from .operations import pending_subject_ids
 from .operations import prune_finished
 from .operations import retry_later
+from .operations import save_progress
 
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "pending_subject_ids",
     "prune_finished",
     "retry_later",
+    "save_progress",
 ]

@@ -9,15 +9,20 @@ from pydantic import SecretStr
 from pydantic import ValidationError
 
 from src.exceptions import InvalidOAuthStateError
+from src.exceptions import NoActiveDeviceError
 from src.exceptions import PlatformError
 from src.exceptions import PlatformNotFoundError
+from src.exceptions import PlatformPremiumRequiredError
 from src.exceptions import PlatformRateLimitedError
 from src.exceptions import PlatformReconnectRequiredError
 from src.exceptions import PlatformTimeoutError
+from src.exceptions import PlatformTokenRejectedError
 from src.exceptions import PlatformUnavailableError
 from src.providers import RedisConnection
 from src.services.limits import PlatformPause
+from src.services.spotify.models import SpotifyDevices
 from src.services.spotify.models import SpotifyError
+from src.services.spotify.models import SpotifyErrorDetail
 from src.services.spotify.models import SpotifyPlaylist
 from src.services.spotify.models import SpotifyPlaylistItems
 from src.services.spotify.models import SpotifyPlaylistTracks
@@ -35,6 +40,8 @@ from src.structs.models import Capabilities
 from src.structs.models import PlatformPlaylist
 from src.structs.models import PlatformProfile
 from src.structs.models import PlatformTokens
+from src.structs.models import PlaybackDevice
+from src.structs.models import PlaybackRequest
 from src.structs.models import RemotePlaylist
 from src.structs.models import SavedTrack
 from src.structs.models import SavedTracksPage
@@ -52,6 +59,12 @@ CAPABILITIES = Capabilities(
 )
 
 INVALID_GRANT = "invalid_grant"
+PREMIUM_REQUIRED = "PREMIUM_REQUIRED"
+PLAYBACK_SCOPES = [
+    "streaming",
+    "user-read-playback-state",
+    "user-modify-playback-state",
+]
 
 LIBRARY_BATCH = 40
 PLAYLIST_BATCH = 100
@@ -74,25 +87,35 @@ def _check(
     response: httpx.Response,
 ) -> httpx.Response:
     if response.status_code == httpx.codes.UNAUTHORIZED:
-        raise PlatformReconnectRequiredError("Spotify no longer accepts the account")
+        raise PlatformTokenRejectedError("Spotify no longer accepts the account")
     if response.status_code == httpx.codes.NOT_FOUND:
         raise PlatformNotFoundError("Spotify does not have it anymore")
     if response.is_error:
         raise PlatformError(
             f"Spotify responded with status {response.status_code}"
-            + (f", {reason}" if (reason := _reason(response)) else ""),
+            + (f", {message}" if (message := _message(response)) else ""),
         )
 
     return response
 
 
-def _reason(
-    response: httpx.Response,
-) -> str | None:
+def _error(response: httpx.Response) -> SpotifyErrorDetail | None:
     try:
-        return SpotifyError.model_validate_json(response.content).error.message
+        return SpotifyError.model_validate_json(response.content).error
     except ValidationError:
         return None
+
+
+def _reason(response: httpx.Response) -> str | None:
+    error = _error(response)
+
+    return error.reason if error else None
+
+
+def _message(response: httpx.Response) -> str | None:
+    error = _error(response)
+
+    return error.message if error else None
 
 
 def _retry_after(response: httpx.Response) -> int:
@@ -146,6 +169,7 @@ def _to_track(
 class SpotifyService:
     platform = Platforms.SPOTIFY
     capabilities = CAPABILITIES
+    playback_scopes = PLAYBACK_SCOPES
     refresh_extends_lifetime = False
 
     def __init__(
@@ -164,7 +188,7 @@ class SpotifyService:
         self._api = api
         self._client_id = client_id
         self._redirect_uri = redirect_uri
-        self._scopes = scopes
+        self.scopes = scopes
         self._search_max_limit = search_max_limit
         self.refresh_token_lifetime = refresh_token_lifetime
         self._pause = pause
@@ -221,7 +245,7 @@ class SpotifyService:
                 "code_challenge_method": "S256",
                 "code_challenge": challenge,
                 "state": state,
-                "scope": " ".join(self._scopes),
+                "scope": " ".join(self.scopes),
             },
         )
 
@@ -599,6 +623,56 @@ class SpotifyService:
             snapshot = _parse(response, SpotifySnapshot).snapshot_id
 
         return snapshot
+
+    async def devices(
+        self,
+        access_token: str,
+    ) -> list[PlaybackDevice]:
+        response = await self._call(
+            self._api.get("/me/player/devices", headers=_bearer(access_token)),
+        )
+
+        return [
+            PlaybackDevice(
+                id=device.id,
+                name=device.name,
+                type=device.type,
+                is_active=device.is_active,
+                is_restricted=device.is_restricted,
+                volume_percent=device.volume_percent,
+            )
+            for device in _parse(response, SpotifyDevices).devices
+            if device.id is not None
+        ]
+
+    async def play(
+        self,
+        access_token: str,
+        request: PlaybackRequest,
+    ) -> None:
+        body: dict[str, object] = {"position_ms": request.position_ms}
+        if request.playlist_id is not None:
+            body["context_uri"] = f"spotify:playlist:{request.playlist_id}"
+        else:
+            body["uris"] = [_track_uri(track_id) for track_id in request.track_ids]
+        if request.offset_track_id is not None:
+            body["offset"] = {"uri": _track_uri(request.offset_track_id)}
+
+        response = await self._send(
+            self._api.put(
+                "/me/player/play",
+                params={"device_id": request.device_id} if request.device_id else None,
+                json=body,
+                headers=_bearer(access_token),
+            ),
+        )
+        if response.status_code == httpx.codes.FORBIDDEN:
+            if _reason(response) == PREMIUM_REQUIRED:
+                raise PlatformPremiumRequiredError("Spotify only plays for Premium")
+        if response.status_code == httpx.codes.NOT_FOUND:
+            raise NoActiveDeviceError("Spotify has no device to play on, open it first")
+
+        _check(response)
 
     async def close(self) -> None:
         await self._accounts.aclose()

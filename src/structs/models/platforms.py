@@ -72,6 +72,23 @@ class RemotePlaylist(BaseModel):
     url: str | None = None
 
 
+class PlaybackDevice(BaseModel):
+    id: str
+    name: str
+    type: str
+    is_active: bool = False
+    is_restricted: bool = False
+    volume_percent: int | None = None
+
+
+class PlaybackRequest(BaseModel):
+    device_id: str | None = None
+    track_ids: list[str] = Field(default_factory=list)
+    playlist_id: str | None = None
+    offset_track_id: str | None = None
+    position_ms: int = 0
+
+
 class PlatformPlaylist(BaseModel):
     platform_id: str
     snapshot_id: str | None = None
@@ -106,6 +123,7 @@ class StoredAccount(BaseModel):
     expires_at: datetime | None = None
     refresh_expires_at: datetime | None = None
     expiry_warned_at: datetime | None = None
+    disconnect_warned_at: datetime | None = None
     reconnect_required_at: datetime | None = None
     imported_at: datetime | None = None
     likes_read_at: datetime | None = None

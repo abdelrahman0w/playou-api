@@ -96,7 +96,7 @@ class PlaylistLink(Base):
     __tablename__ = "playlist_links"
     __table_args__ = (
         UniqueConstraint("playlist_id", "platform"),
-        UniqueConstraint("platform", "platform_playlist_id"),
+        UniqueConstraint("user_id", "platform", "platform_playlist_id"),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -107,6 +107,10 @@ class PlaylistLink(Base):
     playlist_id: Mapped[UUID] = mapped_column(
         Uuid,
         ForeignKey("playlists.id", ondelete="CASCADE"),
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
     )
     platform: Mapped[Platforms] = mapped_column(
         Enum(Platforms, native_enum=False, length=32, values_callable=_values),

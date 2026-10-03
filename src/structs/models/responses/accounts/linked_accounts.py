@@ -2,6 +2,7 @@ from datetime import datetime
 from datetime import timedelta
 
 from pydantic import BaseModel
+from pydantic import Field
 
 from src.structs.enums import AccountStatuses
 from src.structs.enums import Platforms
@@ -17,6 +18,7 @@ class LinkedAccount(BaseModel):
     linked_at: datetime
     refresh_expires_at: datetime | None = None
     expires_soon: bool = False
+    missing_scopes: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_stored(
@@ -26,6 +28,7 @@ class LinkedAccount(BaseModel):
         *,
         now: datetime,
         warn_within: timedelta,
+        scopes: list[str],
     ) -> LinkedAccount:
         status = account.status_at(now)
         expires_at = account.refresh_expires_at
@@ -36,6 +39,7 @@ class LinkedAccount(BaseModel):
             expires_soon=status is AccountStatuses.ACTIVE
             and expires_at is not None
             and expires_at - now <= warn_within,
+            missing_scopes=[scope for scope in scopes if scope not in account.scopes],
             display_name=account.display_name,
             capabilities=capabilities,
             linked_at=account.created_at,

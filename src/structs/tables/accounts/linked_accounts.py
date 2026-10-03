@@ -58,6 +58,9 @@ class LinkedAccount(Base):
     expiry_warned_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
     )
+    disconnect_warned_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+    )
     scopes: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     imported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     likes_read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

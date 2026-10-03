@@ -9,11 +9,14 @@ from src.exceptions.custom_exceptions import ForbiddenError
 from src.exceptions.custom_exceptions import InvalidCodeError
 from src.exceptions.custom_exceptions import InvalidEmailError
 from src.exceptions.custom_exceptions import InvalidOAuthStateError
+from src.exceptions.custom_exceptions import NoActiveDeviceError
 from src.exceptions.custom_exceptions import NotFoundError
 from src.exceptions.custom_exceptions import PlatformError
 from src.exceptions.custom_exceptions import PlatformNotLinkedError
+from src.exceptions.custom_exceptions import PlatformPremiumRequiredError
 from src.exceptions.custom_exceptions import PlatformRateLimitedError
 from src.exceptions.custom_exceptions import PlatformReconnectRequiredError
+from src.exceptions.custom_exceptions import PlatformScopesMissingError
 from src.exceptions.custom_exceptions import PlatformTimeoutError
 from src.exceptions.custom_exceptions import PlatformUnavailableError
 from src.exceptions.custom_exceptions import TooManyRequestsError
@@ -37,6 +40,9 @@ STATUS_CODES: dict[type[AppError], int] = {
     UnsupportedError: status.HTTP_400_BAD_REQUEST,
     PlatformNotLinkedError: status.HTTP_409_CONFLICT,
     PlatformReconnectRequiredError: status.HTTP_409_CONFLICT,
+    PlatformScopesMissingError: status.HTTP_409_CONFLICT,
+    PlatformPremiumRequiredError: status.HTTP_403_FORBIDDEN,
+    NoActiveDeviceError: status.HTTP_409_CONFLICT,
     PlatformTimeoutError: status.HTTP_504_GATEWAY_TIMEOUT,
     PlatformRateLimitedError: status.HTTP_503_SERVICE_UNAVAILABLE,
     PlatformUnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,

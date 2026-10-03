@@ -1,3 +1,5 @@
+from collections.abc import Awaitable
+from collections.abc import Callable
 from datetime import datetime
 from datetime import timedelta
 from uuid import UUID
@@ -31,6 +33,37 @@ from src.structs.models import SavedTrack
 from src.structs.models import StoredAccount
 from src.structs.models import SyncTask
 from src.structs.models.responses import AccountSync
+from src.structs.models.responses import ImportProgress
+from src.structs.models.responses import Progress
+
+
+type OnPage = Callable[[int, int], Awaitable[None]]
+
+
+class _Reporter:
+    def __init__(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        task_id: int | None,
+    ) -> None:
+        self.session_factory = session_factory
+        self.task_id = task_id
+        self.progress = ImportProgress()
+
+    async def report(self, **changes: Progress) -> None:
+        if self.task_id is None:
+            return
+
+        self.progress = self.progress.model_copy(update=changes)
+        async with self.session_factory() as session, session.begin():
+            await sync_repositories.save_progress(
+                session,
+                self.task_id,
+                self.progress.model_dump(mode="json"),
+            )
+
+    async def likes(self, done: int, total: int) -> None:
+        await self.report(likes=Progress(done=done, total=total))
 
 
 def _imports(platform: OAuthPlatform) -> bool:
@@ -44,6 +77,7 @@ async def _read_saved(
     token: str,
     *,
     stop_at: set[str] | None,
+    on_page: OnPage,
 ) -> tuple[list[SavedTrack], int, bool]:
     saved: list[SavedTrack] = []
     total = 0
@@ -58,7 +92,9 @@ async def _read_saved(
 
             saved.append(item)
 
-        if not page.has_more:
+        if stop_at is None:
+            await on_page(len(saved), total)
+        if not page.has_more or not page.items:
             return saved, total, True
 
         offset += len(page.items)
@@ -72,6 +108,7 @@ async def _import_likes(
     *,
     full: bool,
     now: datetime,
+    reporter: _Reporter,
 ) -> tuple[bool, int]:
     async with session_factory() as session:
         known = await library_repositories.liked_platform_ids(
@@ -84,11 +121,17 @@ async def _import_likes(
         platform,
         token,
         stop_at=None if full else set(known),
+        on_page=reporter.likes,
     )
     if not read_all and (
         account.likes_total is None or total != account.likes_total + len(saved)
     ):
-        saved, total, read_all = await _read_saved(platform, token, stop_at=None)
+        saved, total, read_all = await _read_saved(
+            platform,
+            token,
+            stop_at=None,
+            on_page=reporter.likes,
+        )
 
     async with session_factory() as session, session.begin():
         pending = await sync_repositories.pending_subject_ids(
@@ -135,6 +178,7 @@ async def _import_playlists(
     token: str,
     *,
     now: datetime,
+    reporter: _Reporter,
 ) -> None:
     remote = await platform.user_playlists(token)
 
@@ -151,7 +195,7 @@ async def _import_playlists(
             subject=SyncSubjects.PLAYLIST,
         )
 
-    for playlist in remote:
+    for done, playlist in enumerate(remote, start=1):
         kind = (
             PlaylistKinds.OWNED
             if playlist.owner_id == account.external_id or playlist.collaborative
@@ -210,6 +254,9 @@ async def _import_playlists(
                 ),
             )
 
+        if tracks is not None:
+            await reporter.report(playlists=Progress(done=done, total=len(remote)))
+
     there = {playlist.platform_id for playlist in remote}
     async with session_factory() as session, session.begin():
         await library_repositories.remove_playlists(
@@ -232,6 +279,7 @@ async def import_account(
     account_id: UUID,
     *,
     now: datetime,
+    task_id: int | None = None,
 ) -> SyncOutcomes:
     async with session_factory() as session:
         account = await accounts_repositories.get_account_by_id(session, account_id)
@@ -243,29 +291,43 @@ async def import_account(
     if platform is None or not _imports(platform):
         return SyncOutcomes.SKIPPED
 
-    token = await accounts_actions.access_token(
+    every = timedelta(hours=settings.imports.full_every_hours)
+    full = account.likes_read_at is None or account.likes_read_at <= now - every
+    reporter = _Reporter(session_factory, task_id)
+
+    async def read(token: str) -> tuple[bool, int | None]:
+        likes = (
+            await _import_likes(
+                session_factory,
+                platform,
+                account,
+                token,
+                full=full,
+                now=now,
+                reporter=reporter,
+            )
+            if platform.capabilities.like
+            else (False, None)
+        )
+        if platform.capabilities.playlists_read:
+            await _import_playlists(
+                session_factory,
+                platform,
+                account,
+                token,
+                now=now,
+                reporter=reporter,
+            )
+
+        return likes
+
+    likes_read, likes_total = await accounts_actions.with_token(
         session_factory,
         platform,
         account,
+        read,
         now=now,
     )
-    every = timedelta(hours=settings.imports.full_every_hours)
-    full = account.likes_read_at is None or account.likes_read_at <= now - every
-
-    likes_read, likes_total = (
-        await _import_likes(
-            session_factory,
-            platform,
-            account,
-            token,
-            full=full,
-            now=now,
-        )
-        if platform.capabilities.like
-        else (False, None)
-    )
-    if platform.capabilities.playlists_read:
-        await _import_playlists(session_factory, platform, account, token, now=now)
 
     async with session_factory() as session, session.begin():
         await accounts_repositories.mark_imported(
@@ -324,17 +386,21 @@ async def library_sync(
         if platform is None or not _imports(platform):
             continue
 
-        status, error = latest.get(account.id, (None, None))
+        status, error, progress = latest.get(account.id, (None, None, None))
+        syncing = status is SyncStatuses.PENDING
         synced.append(
             AccountSync(
                 platform=account.platform,
                 status=ImportStatuses.SYNCING
-                if status is SyncStatuses.PENDING
+                if syncing
                 else ImportStatuses.FAILED
                 if status is SyncStatuses.FAILED
                 else ImportStatuses.IDLE,
                 imported_at=account.imported_at,
                 error=error if status is not SyncStatuses.DONE else None,
+                progress=ImportProgress.model_validate(progress)
+                if syncing and progress
+                else None,
             ),
         )
 
@@ -354,6 +420,7 @@ async def _settle(
             platforms,
             task.subject_id,
             now=now,
+            task_id=task.id,
         )
     except PlatformReconnectRequiredError, PlatformNotLinkedError:
         async with session_factory() as session, session.begin():
@@ -393,6 +460,26 @@ async def _settle(
         await sync_repositories.finish(session, task.id, outcome, now=now)
 
     return outcome
+
+
+async def import_user(
+    session_factory: async_sessionmaker[AsyncSession],
+    platforms: dict[Platforms, OAuthPlatform],
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    async with session_factory() as session, session.begin():
+        tasks = await sync_repositories.lease_imports(
+            session,
+            now=now,
+            until=now + timedelta(minutes=settings.imports.lease_minutes),
+            limit=settings.imports.batch_size,
+            user_id=user_id,
+        )
+
+    for task in tasks:
+        await _settle(session_factory, platforms, task, now=now)
 
 
 async def run_imports(

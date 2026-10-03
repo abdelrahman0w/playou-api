@@ -16,3 +16,4 @@ class Job:
     help: str
     arguments: Callable[[argparse.ArgumentParser], None] = _no_arguments
     monitor_every_seconds: int | None = None
+    cron: str | None = None

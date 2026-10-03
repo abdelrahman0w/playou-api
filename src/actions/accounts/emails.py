@@ -29,6 +29,34 @@ COPY = {
 }
 
 
+DISCONNECTED = {
+    "en": {
+        "subject": "{platform} was disconnected from Playou",
+        "lead": "Playou can no longer reach your {platform} account.",
+        "why": (
+            "The access was removed on {platform}'s side, or it ended. "
+            "Until you reconnect, your likes and playlists stop syncing with it, "
+            "and playing from it is paused."
+        ),
+        "button": "Reconnect {platform}",
+        "after": "If you removed it on purpose, you can unlink {platform} in Playou.",
+        "dir": "ltr",
+    },
+    "ar": {
+        "subject": "تم فصل {platform} عن Playou",
+        "lead": "لم يعد بإمكان Playou الوصول إلى حسابك على {platform}.",
+        "why": (
+            "أُزيل الإذن من جهة {platform} أو انتهى. "
+            "إلى أن تعيد الربط، تتوقف مزامنة إعجاباتك وقوائم التشغيل معه، "
+            "ويتوقف التشغيل منه."
+        ),
+        "button": "أعد ربط {platform}",
+        "after": "إن أزلته عن قصد، يمكنك إلغاء ربط {platform} في Playou.",
+        "dir": "rtl",
+    },
+}
+
+
 def days_left(days: int, *, locale: str) -> str:
     if locale == "ar":
         if days == 1:
@@ -50,8 +78,32 @@ def reconnect_email(
     url: str,
     locale: str,
 ) -> Email:
-    copy = COPY.get(locale, COPY["en"])
-    values = {"platform": platform, "days": days_left(days, locale=locale)}
+    return _email(
+        COPY.get(locale, COPY["en"]),
+        {"platform": platform, "days": days_left(days, locale=locale)},
+        url=url,
+    )
+
+
+def disconnected_email(
+    platform: str,
+    *,
+    url: str,
+    locale: str,
+) -> Email:
+    return _email(
+        DISCONNECTED.get(locale, DISCONNECTED["en"]),
+        {"platform": platform},
+        url=url,
+    )
+
+
+def _email(
+    copy: dict[str, str],
+    values: dict[str, str],
+    *,
+    url: str,
+) -> Email:
     lead, why, button, after = (
         copy[key].format(**values) for key in ("lead", "why", "button", "after")
     )

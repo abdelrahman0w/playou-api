@@ -42,7 +42,7 @@ class AppSettings(BaseAppSettings):
     version: str | None = Field(default_factory=_built_version)
     log_level: str = "INFO"
     log_json: bool = True
-    web_url: str = "http://localhost:5173"
+    web_url: str = "http://127.0.0.1:5173"
 
 
 class DatabaseSettings(BaseAppSettings):
@@ -212,6 +212,9 @@ class SpotifySettings(BaseAppSettings):
             "playlist-read-collaborative",
             "playlist-modify-private",
             "playlist-modify-public",
+            "streaming",
+            "user-read-playback-state",
+            "user-modify-playback-state",
         ],
     )
     refresh_token_days: int | None = Field(default=180, ge=1)

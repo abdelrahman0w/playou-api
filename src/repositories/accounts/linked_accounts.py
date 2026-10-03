@@ -32,6 +32,7 @@ def _to_account(row: tables.LinkedAccount) -> StoredAccount:
         expires_at=row.expires_at,
         refresh_expires_at=row.refresh_expires_at,
         expiry_warned_at=row.expiry_warned_at,
+        disconnect_warned_at=row.disconnect_warned_at,
         reconnect_required_at=row.reconnect_required_at,
         imported_at=row.imported_at,
         likes_read_at=row.likes_read_at,
@@ -68,6 +69,7 @@ async def upsert_account(
         "expiry_warned_at": None,
         "scopes": scopes,
         "reconnect_required_at": None,
+        "disconnect_warned_at": None,
     }
     statement = insert(account).values(user_id=user_id, platform=platform, **values)
     row = (
@@ -195,6 +197,46 @@ async def mark_warned(
     )
 
 
+async def list_disconnected_to_warn(
+    session: AsyncSession,
+    *,
+    limit: int,
+) -> list[ExpiringAccount]:
+    account = tables.LinkedAccount
+    user = tables.User
+    rows = await session.execute(
+        select(account, user.email, user.locale)
+        .join(user, user.id == account.user_id)
+        .where(
+            account.reconnect_required_at.is_not(None),
+            account.disconnect_warned_at.is_(None),
+        )
+        .order_by(account.reconnect_required_at)
+        .limit(limit),
+    )
+
+    return [
+        ExpiringAccount(
+            account=_to_account(row),
+            owner=AccountOwner(email=email, locale=locale),
+        )
+        for row, email, locale in rows
+    ]
+
+
+async def mark_disconnect_warned(
+    session: AsyncSession,
+    account_ids: list[UUID],
+    *,
+    now: datetime,
+) -> None:
+    await session.execute(
+        update(tables.LinkedAccount)
+        .where(tables.LinkedAccount.id.in_(account_ids))
+        .values(disconnect_warned_at=now),
+    )
+
+
 async def update_tokens(
     session: AsyncSession,
     account_id: UUID,
@@ -214,6 +256,7 @@ async def update_tokens(
             expires_at=expires_at,
             refresh_expires_at=refresh_expires_at,
             reconnect_required_at=None,
+            disconnect_warned_at=None,
             expiry_warned_at=case(
                 (
                     account.refresh_expires_at.is_distinct_from(refresh_expires_at),

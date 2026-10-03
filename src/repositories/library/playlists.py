@@ -323,6 +323,9 @@ async def save_link(
         insert(link)
         .values(
             playlist_id=playlist_id,
+            user_id=select(tables.Playlist.user_id)
+            .where(tables.Playlist.id == playlist_id)
+            .scalar_subquery(),
             platform=platform,
             platform_playlist_id=remote.platform_id,
             snapshot_id=remote.snapshot_id,

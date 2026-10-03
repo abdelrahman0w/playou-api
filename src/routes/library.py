@@ -59,6 +59,20 @@ class Pusher:
 PusherDep = Annotated[Pusher, Depends()]
 
 
+class Importer(Pusher):
+    def run(self) -> None:
+        self._background.add_task(
+            library_controller.import_now,
+            self._session_factory,
+            self._platforms,
+            user_id=self._user_id,
+            now=self._now,
+        )
+
+
+ImporterDep = Annotated[Importer, Depends()]
+
+
 @router.get("/likes")
 async def list_likes(
     user_id: UserIDDep,
@@ -158,14 +172,18 @@ async def request_import(
     user_id: UserIDDep,
     session: DBSessionDep,
     platforms: PlatformsDep,
+    importer: ImporterDep,
     now: NowDep,
 ) -> list[AccountSync]:
-    return await library_controller.request_import(
+    synced = await library_controller.request_import(
         session,
         platforms,
         user_id=user_id,
         now=now,
     )
+    importer.run()
+
+    return synced
 
 
 @router.post(

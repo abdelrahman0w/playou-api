@@ -22,7 +22,9 @@
     - [Search](#search)
     - [Library](#library)
     - [Imports](#imports)
+    - [Playback](#playback)
   - [Usage](#usage)
+    - [Clients](#clients)
     - [Available Endpoints](#available-endpoints)
     - [Errors](#errors)
     - [Rate Limiting](#rate-limiting)
@@ -57,10 +59,12 @@ so a new domain is a new folder in each layer rather than changes all over the p
 playou-api/
 ├── bin/
 │   ├── entrypoint.sh               the api entrypoint (--dev for reload)
-│   └── jobs.sh                     runs a single job by name
+│   ├── jobs.sh                     runs a single job by name, or every job on its cron with schedule
+│   └── openapi.sh                  writes the api's schema, for the web client's types
 ├── docs/
 │   └── plan.md                     what was agreed, and what comes next
 ├── migrations/                     alembic migrations
+├── openapi.json                    the api's schema, written by bin/openapi.sh
 ├── src/
 │   ├── main.py                     app, lifespan, middlewares, exception handlers, routers
 │   ├── settings.py                 settings read from the environment
@@ -134,7 +138,7 @@ and declares its `Capabilities`, what it can search, like, and change:
 
 | Platform | Linking | Search | Like | Playlists | Status |
 | --- | --- | --- | --- | --- | --- |
-| Spotify | OAuth with PKCE, no client secret | Yes | Yes | Yes | Linking, search, and syncing the library both ways |
+| Spotify | OAuth with PKCE, no client secret | Yes | Yes | Yes | Linking, search, syncing the library both ways, and playback |
 
 > Spotify answers a search with 10 results at most, it refuses a bigger `limit`, so it is capped by `SPOTIFY_SEARCH_MAX_LIMIT`
 
@@ -175,6 +179,10 @@ when it expires within `ACCOUNTS_REFRESH_MARGIN_SECONDS`.
     the others wait, then find it fresh. A platform that rotates refresh tokens would refuse a second refresh,
     Spotify keeps the same one, there it only saves a call
 - A refused refresh sets the account's `reconnect_required_at`, it is not tried again until it is linked again
+- A call Spotify answers `401`, a token it no longer takes, refreshes the token once and is tried again, `with_token`,
+    so an access removed on Spotify's side is caught on the first call, not once the token expires,
+    and the `warn_disconnected_accounts` job emails the owner, once, to reconnect.
+    The browser's player does the same through `POST /playback/{platform}/token`, sending the token it was refused
 - Tokens are sealed with `ENCRYPTION_KEYS`, a token sealed with a key that is gone needs reconnecting too
 
 Refresh tokens expire too, so every account keeps when its refresh token expires,
@@ -250,6 +258,11 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
 - An import is a row in the same queue, `IMPORT`, asked for when an account is linked, when the library is opened
     and the last import is older than `IMPORT_STALE_MINUTES`, by `POST /library/import`, and by the `import_libraries` job
     for the accounts not imported for `IMPORT_EVERY_MINUTES`
+- Linking and `POST /library/import` import right after the response, without waiting for the job,
+    which still takes the scheduled ones, and the ones a crash left
+- A full read reports how far it got, `progress` in `GET /library/sync`, the liked songs read, then the playlists,
+    a refresh, which stops at the first known like, reports none
+- A playlist is linked once per user, two users following the same one each have their own
 - The job takes `IMPORT_BATCH_SIZE` at a time, each under a lease of `IMPORT_LEASE_MINUTES`, so one account is imported once at a time,
     a run that crashes is taken again once its lease is up, and asking again while it runs joins it
 - Liked songs are read newest first, up to the first one already liked, and Spotify's count is compared with the last import's,
@@ -260,7 +273,33 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
 - A like or a playlist waiting to be pushed wins, the import leaves it, and an import never asks for a push
 - `GET /library/sync` answers each account's import, `IDLE`, `SYNCING`, or `FAILED`, and when it was last imported
 
+### Playback
+
+The API never streams audio, each platform plays its own, the API tells it what, and on which device.
+
+- `GET /playback/{platform}/token` answers the account's access token, refreshed if it has to be, never cached,
+    for the Web Playback SDK, which makes the browser a Spotify Connect device
+- `GET /playback/{platform}/devices` answers the user's devices, the browser's, their phone's, their desktop app's
+- `POST /playback/{platform}/play` plays on one, the tracks given, by their ids here, or a playlist, from the `offset`th track
+    - A playlist on the platform is played as itself, so a followed one plays too, though its tracks are never read
+    - A playlist not pushed yet is played by its tracks, those the platform has
+- Spotify plays for Premium only, and `GET /me` no longer says who has it, so a refusal is `PLATFORM_PREMIUM_REQUIRED`,
+    and no open device is `NO_ACTIVE_DEVICE`
+- Playing needs the `streaming`, `user-read-playback-state`, and `user-modify-playback-state` scopes,
+    an account linked without them answers `PLATFORM_SCOPES_MISSING`, and lists them in `missing_scopes`, linking it again grants them
+- Pausing, seeking, skipping, and the queue are the client's, through the SDK, so a queue can span platforms
+
 ## Usage
+
+### Clients
+
+Every client opens on the same rule, a signed in user starts on Home, and only a signed out one sees the landing, or the sign in.
+There is no separate home route, `/` is Home or the landing, whichever fits.
+
+- The web asks `GET /auth/me`, with a hint kept in the browser so a signed in visitor never sees the landing page flash,
+    see [playou-web](../playou-web#authentication)
+- A native client keeps its own session, the bearer token from `POST /auth/email/verify`, and opens on Home while it has one,
+    a `401` signs it out
 
 ### Available Endpoints
 
@@ -272,7 +311,7 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
 | `POST` | `/auth/email/verify` | Signs in with the code, and sets the session cookie, or answers the token with `"transport": "bearer"` |
 | `POST` | `/auth/sign-out` | Ends the session |
 | `GET` | `/auth/me` | The signed in user |
-| `GET` | `/accounts` | The linked accounts, with what each platform can do, and `expires_soon`, within `ACCOUNTS_EXPIRY_WARNING_DAYS` |
+| `GET` | `/accounts` | The linked accounts, with what each platform can do, `expires_soon`, within `ACCOUNTS_EXPIRY_WARNING_DAYS`, and `missing_scopes` |
 | `GET` | `/accounts/{platform}/connect` | Starts linking, redirects to the platform |
 | `GET` | `/accounts/{platform}/callback` | Where the platform sends the browser back, redirects to the web app |
 | `DELETE` | `/accounts/{platform}` | Unlinks the account |
@@ -285,6 +324,9 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
 | `GET` | `/library/playlists?page=&page_size=&include_removed=&kind=` | The playlists, newest first, `OWNED` or `FOLLOWED` |
 | `GET` | `/library/sync` | Each linked account's import, `IDLE`, `SYNCING`, or `FAILED` |
 | `POST` | `/library/import` | Asks for an import of every linked account now |
+| `GET` | `/playback/{platform}/token` | The access token for the platform's web player, never cached |
+| `GET` | `/playback/{platform}/devices` | The user's devices on the platform |
+| `POST` | `/playback/{platform}/play` | Plays `{"track_ids": [...]}` or `{"playlist_id": ...}`, with `device_id`, `offset`, and `position_ms` |
 | `POST` | `/library/playlists` | Makes one, `{"name": "Road", "description": "Trip"}` |
 | `GET` | `/library/playlists/{id}?include_removed=` | A playlist, with its tracks in order |
 | `PATCH` | `/library/playlists/{id}` | Renames it, or changes its description, a followed one is `UNSUPPORTED` |
@@ -358,6 +400,9 @@ Errors share a single shape:
 | `404` | `NOT_FOUND` | The requested item does not exist |
 | `409` | `PLATFORM_NOT_LINKED` | The user has not linked that platform |
 | `409` | `PLATFORM_RECONNECT_REQUIRED` | The platform no longer accepts the account, it has to be linked again |
+| `409` | `PLATFORM_SCOPES_MISSING` | The account was linked without what playing needs, it has to be linked again |
+| `409` | `NO_ACTIVE_DEVICE` | The platform has no device to play on |
+| `403` | `PLATFORM_PREMIUM_REQUIRED` | The platform only plays for its paying users |
 | `429` | `RATE_LIMITED` | Too many requests, see [rate limiting](#rate-limiting) |
 | `502` | `PLATFORM_ERROR` | The platform responded with an error or with something unusable |
 | `503` | `PLATFORM_UNAVAILABLE` | The platform could not be reached |
@@ -398,6 +443,7 @@ Jobs are run once by name through `bin/jobs.sh`, `bin/jobs.sh <job> --help` list
 | `import_libraries` | `* * * * *` | Asks for the imports that are due, and imports the asked for, `IMPORT_BATCH_SIZE` a run, see [imports](#imports) |
 | `prune_sync_operations` | `0 1 * * *` | Drops the sync operations finished more than `SYNC_RETENTION_DAYS` ago |
 | `check_expiring_accounts` | `0 3 * * *` | Emails the users of the accounts expiring within `ACCOUNTS_EXPIRY_WARNING_DAYS` to reconnect, once, then refreshes the ones expiring within `ACCOUNTS_KEEP_ALIVE_DAYS`, on the platforms whose refresh extends the lifetime, the soonest first, `ACCOUNTS_KEEP_ALIVE_BATCH_SIZE` a run, one at a time. A refused refresh sets `reconnect_required_at`, a failed one is tried again the next run |
+| `warn_disconnected_accounts` | `*/5 * * * *` | Emails the users whose platform refused their account, once, until it is linked again |
 | `prune_auth` | `30 0 * * *` | Drops the expired sessions, and the codes used or expired |
 
 In production, each job is a schedule in dokploy, in the api's application, under **Schedules**,
@@ -405,13 +451,11 @@ with the `sh` shell, running `/app/bin/jobs.sh <job>` in the api's container, wi
 
 | Name | Cron | Command | Enabled |
 | --- | --- | --- | --- |
-| `push_library_changes` | `* * * * *` | Pushes the library's changes that are due, the ones the push after a request did not finish, `SYNC_PUSH_BATCH_SIZE` a run |
-| `import_libraries` | `* * * * *` | Asks for the imports that are due, and imports the asked for, `IMPORT_BATCH_SIZE` a run, see [imports](#imports) |
-| `prune_sync_operations` | `0 1 * * *` | Drops the sync operations finished more than `SYNC_RETENTION_DAYS` ago |
 | `push_library_changes` | `* * * * *` | `/app/bin/jobs.sh push_library_changes` | Yes |
 | `import_libraries` | `* * * * *` | `/app/bin/jobs.sh import_libraries` | Yes |
 | `prune_sync_operations` | `0 1 * * *` | `/app/bin/jobs.sh prune_sync_operations` | Yes |
 | `check_expiring_accounts` | `0 3 * * *` | `/app/bin/jobs.sh check_expiring_accounts` | Yes |
+| `warn_disconnected_accounts` | `*/5 * * * *` | `/app/bin/jobs.sh warn_disconnected_accounts` | Yes |
 | `prune_auth` | `30 0 * * *` | `/app/bin/jobs.sh prune_auth` | Yes |
 
 > Any hour does for them, they follow the server's clock, and a day missed is made up the next one,
@@ -421,7 +465,14 @@ with the `sh` shell, running `/app/bin/jobs.sh <job>` in the api's container, wi
 
 Every run logs `[Jobs] Job Started` and `[Jobs] Job Finished` with its `duration_ms`, or `[Jobs] Job Failed` with the error.
 With error tracking on, each job with a cron also checks in with a [sentry cron monitor](https://docs.sentry.io/product/crons/),
-`jobs-push-library-changes`, `jobs-import-libraries`, `jobs-prune-sync-operations`, `jobs-check-expiring-accounts`, and `jobs-prune-auth`.
+`jobs-push-library-changes`, `jobs-import-libraries`, `jobs-prune-sync-operations`, `jobs-check-expiring-accounts`, `jobs-warn-disconnected-accounts`, and `jobs-prune-auth`.
+
+Locally, one process runs every job on its cron, the same as the table, until it is stopped,
+a job still running when its minute comes again is left to finish:
+
+```shell
+uv run bin/jobs.sh schedule
+```
 
 Run a job by hand when you need one:
 
@@ -544,7 +595,7 @@ reloading on changes.
 
 ### Spotify
 
-1. Create an app in the [Spotify developer dashboard](https://developer.spotify.com/dashboard), with the Web API
+1. Create an app in the [Spotify developer dashboard](https://developer.spotify.com/dashboard), with the Web API and the Web Playback SDK
 1. Add `http://127.0.0.1:8081/accounts/spotify/callback` to its redirect uris, Spotify takes loopback ips, never `localhost`
 1. Put its client id in `.env` as `SPOTIFY_CLIENT_ID`, there is no secret, the link is made with PKCE
 1. In development mode, only the users added in the dashboard can link their accounts
@@ -575,6 +626,16 @@ Each layer is tested where its behaviour shows best:
     ```shell
     uv run pytest
     ```
+
+The web client's types are generated from the API's schema, `openapi.json`,
+so whenever an endpoint, a request, or a response changes, write it again, then regenerate the web's types:
+
+```shell
+uv run bin/openapi.sh > openapi.json   # here
+bun run api:types                      # in playou-web
+```
+
+> The schema is not served, `/docs` and `/openapi.json` stay off, it is written by the script
 
 To lint, format, and type check:
 

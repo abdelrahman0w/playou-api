@@ -4,7 +4,9 @@ from .linked_accounts import get_account_by_id
 from .linked_accounts import list_accounts
 from .linked_accounts import list_accounts_to_import
 from .linked_accounts import list_accounts_to_warn
+from .linked_accounts import list_disconnected_to_warn
 from .linked_accounts import list_expiring_accounts
+from .linked_accounts import mark_disconnect_warned
 from .linked_accounts import mark_imported
 from .linked_accounts import mark_warned
 from .linked_accounts import require_reconnect
@@ -20,7 +22,9 @@ __all__ = [
     "list_accounts",
     "list_accounts_to_import",
     "list_accounts_to_warn",
+    "list_disconnected_to_warn",
     "list_expiring_accounts",
+    "mark_disconnect_warned",
     "mark_imported",
     "mark_warned",
     "require_reconnect",

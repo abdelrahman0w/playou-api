@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import BigInteger
@@ -11,6 +12,7 @@ from sqlalchemy import Integer
 from sqlalchemy import Text
 from sqlalchemy import Uuid
 from sqlalchemy import text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
@@ -64,6 +66,7 @@ class SyncOperation(Base):
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_error: Mapped[str | None] = mapped_column(Text)
+    progress: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     outcome: Mapped[SyncOutcomes | None] = mapped_column(
         Enum(SyncOutcomes, native_enum=False, length=32, values_callable=_values),

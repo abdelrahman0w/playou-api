@@ -259,6 +259,21 @@ async def remove_playlist_item(
         )
 
 
+async def import_now(
+    session_factory: async_sessionmaker[AsyncSession],
+    platforms: dict[Platforms, OAuthPlatform],
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    await sync_actions.import_user(
+        session_factory,
+        platforms,
+        user_id=user_id,
+        now=now,
+    )
+
+
 async def push_changes(
     session_factory: async_sessionmaker[AsyncSession],
     platforms: dict[Platforms, OAuthPlatform],

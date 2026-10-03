@@ -227,25 +227,28 @@ async def _push(
     if not wanted:
         return every(_Outcome(SyncOutcomes.SKIPPED, "Pushing it was turned off"))
 
-    token = await accounts_actions.access_token(
+    async def dispatch(token: str) -> list[_Outcome]:
+        if first.subject is SyncSubjects.LIKE:
+            return await _push_likes(session, platform, token, tasks)
+
+        return [
+            await _push_playlist(
+                session,
+                session_factory,
+                platform,
+                token,
+                first,
+                now=now,
+            ),
+        ]
+
+    return await accounts_actions.with_token(
         session_factory,
         platform,
         account,
+        dispatch,
         now=now,
     )
-    if first.subject is SyncSubjects.LIKE:
-        return await _push_likes(session, platform, token, tasks)
-
-    return [
-        await _push_playlist(
-            session,
-            session_factory,
-            platform,
-            token,
-            first,
-            now=now,
-        ),
-    ]
 
 
 async def fail_attempt(

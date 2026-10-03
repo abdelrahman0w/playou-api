@@ -19,6 +19,7 @@ class SpotifyTokenError(BaseModel):
 
 class SpotifyErrorDetail(BaseModel):
     message: str | None = None
+    reason: str | None = None
 
 
 class SpotifyError(BaseModel):
@@ -135,3 +136,16 @@ class SpotifyPlaylistTrackEntry(BaseModel):
 class SpotifyPlaylistTracks(BaseModel):
     items: list[SpotifyPlaylistTrackEntry] = Field(default_factory=list)
     next: str | None = None
+
+
+class SpotifyDevice(BaseModel):
+    id: str | None = None
+    name: str = ""
+    type: str = ""
+    is_active: bool = False
+    is_restricted: bool = False
+    volume_percent: int | None = None
+
+
+class SpotifyDevices(BaseModel):
+    devices: list[SpotifyDevice] = Field(default_factory=list)

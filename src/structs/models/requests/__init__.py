@@ -7,6 +7,8 @@ from .library import PlaylistItemsRequest
 from .library import PlaylistListRequest
 from .library import PushPreferencesRequest
 from .library import UpdatePlaylistRequest
+from .playback import PlayRequest
+from .playback import RejectedTokenRequest
 
 
 __all__ = [
@@ -14,9 +16,11 @@ __all__ = [
     "EmailCodeRequest",
     "EmailVerifyRequest",
     "LibraryListRequest",
+    "PlayRequest",
     "PlaylistItemsRequest",
     "PlaylistListRequest",
     "PushPreferencesRequest",
+    "RejectedTokenRequest",
     "SearchRequest",
     "UpdatePlaylistRequest",
 ]

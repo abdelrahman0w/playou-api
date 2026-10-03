@@ -42,15 +42,18 @@ JOBS: dict[str, Job] = {
         run=push_library_changes,
         help="push the library's changes the platforms do not have yet",
         monitor_every_seconds=60,
+        cron="* * * * *",
     ),
     "import_libraries": Job(
         run=import_libraries,
         help="import the linked accounts' libraries that are due, and the asked for",
         monitor_every_seconds=60,
+        cron="* * * * *",
     ),
     "prune_sync_operations": Job(
         run=prune_sync_operations,
         help="drop the sync operations finished longer ago than SYNC_RETENTION_DAYS",
         monitor_every_seconds=24 * 60 * 60,
+        cron="0 1 * * *",
     ),
 }

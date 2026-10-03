@@ -41,17 +41,12 @@ async def _search_platform(
     now: datetime,
 ) -> list[Track]:
     async def produce() -> list[Track]:
-        token = await accounts_actions.access_token(
+        return await accounts_actions.with_token(
             session_factory,
             platform,
             account,
+            lambda token: platform.search(token, request.q, limit=request.limit),
             now=now,
-        )
-
-        return await platform.search(
-            token,
-            request.q,
-            limit=request.limit,
         )
 
     body = await cached_json(
