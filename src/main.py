@@ -99,7 +99,11 @@ app.add_middleware(
         "PATCH",
         "DELETE",
     ],
-    allow_headers=["Content-Type"],
+    allow_headers=[
+        "Content-Type",
+        "sentry-trace",
+        "baggage",
+    ],
     expose_headers=[
         "RateLimit-Limit",
         "RateLimit-Remaining",
