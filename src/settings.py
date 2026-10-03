@@ -183,6 +183,18 @@ class SyncSettings(BaseAppSettings):
     retention_days: int = Field(default=30, ge=1)
 
 
+class ImportSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="IMPORT_",
+    )
+
+    stale_minutes: int = Field(default=10, ge=1)
+    every_minutes: int = Field(default=30, ge=1)
+    full_every_hours: int = Field(default=24, ge=1)
+    lease_minutes: int = Field(default=15, ge=1)
+    batch_size: int = Field(default=10, ge=1)
+
+
 class SpotifySettings(BaseAppSettings):
     model_config = SettingsConfigDict(
         env_prefix="SPOTIFY_",
@@ -204,6 +216,7 @@ class SpotifySettings(BaseAppSettings):
     )
     refresh_token_days: int | None = Field(default=180, ge=1)
     search_max_limit: int = Field(default=10, ge=1, le=50)
+    rate_limit_seconds: int = Field(default=30, ge=1)
     accounts_url: str = "https://accounts.spotify.com"
     api_url: str = "https://api.spotify.com/v1"
     timeout_seconds: float = Field(default=10.0, gt=0)
@@ -224,6 +237,7 @@ class Settings(BaseAppSettings):
     accounts: AccountsSettings = Field(default_factory=AccountsSettings)
     search: SearchSettings = Field(default_factory=SearchSettings)
     sync: SyncSettings = Field(default_factory=SyncSettings)
+    imports: ImportSettings = Field(default_factory=ImportSettings)
     spotify: SpotifySettings = Field(default_factory=SpotifySettings)
 
 

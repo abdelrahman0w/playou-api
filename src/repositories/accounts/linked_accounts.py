@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import case
 from sqlalchemy import delete
 from sqlalchemy import func
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert
@@ -13,7 +14,6 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.structs import tables
-from src.structs.enums import AccountStatuses
 from src.structs.enums import Platforms
 from src.structs.models import AccountOwner
 from src.structs.models import ExpiringAccount
@@ -25,7 +25,6 @@ def _to_account(row: tables.LinkedAccount) -> StoredAccount:
         id=row.id,
         user_id=row.user_id,
         platform=row.platform,
-        status=row.status,
         external_id=row.external_id,
         display_name=row.display_name,
         access_token=row.access_token,
@@ -33,6 +32,10 @@ def _to_account(row: tables.LinkedAccount) -> StoredAccount:
         expires_at=row.expires_at,
         refresh_expires_at=row.refresh_expires_at,
         expiry_warned_at=row.expiry_warned_at,
+        reconnect_required_at=row.reconnect_required_at,
+        imported_at=row.imported_at,
+        likes_read_at=row.likes_read_at,
+        likes_total=row.likes_total,
         scopes=list(row.scopes),
         push_likes=row.push_likes,
         push_playlists=row.push_playlists,
@@ -62,10 +65,9 @@ async def upsert_account(
         "refresh_token": refresh_token,
         "expires_at": expires_at,
         "refresh_expires_at": refresh_expires_at,
-        # linking again is a new expiry, so a new warning
         "expiry_warned_at": None,
         "scopes": scopes,
-        "status": AccountStatuses.ACTIVE,
+        "reconnect_required_at": None,
     }
     statement = insert(account).values(user_id=user_id, platform=platform, **values)
     row = (
@@ -125,10 +127,10 @@ async def list_expiring_accounts(
     session: AsyncSession,
     *,
     platforms: Collection[Platforms],
+    now: datetime,
     before: datetime,
     limit: int,
 ) -> list[StoredAccount]:
-    """The active accounts whose refresh token expires before then, the soonest first"""
     if not platforms:
         return []
 
@@ -137,8 +139,9 @@ async def list_expiring_accounts(
         select(account)
         .where(
             account.platform.in_(platforms),
-            account.status == AccountStatuses.ACTIVE,
+            account.reconnect_required_at.is_(None),
             account.refresh_token.is_not(None),
+            account.refresh_expires_at > now,
             account.refresh_expires_at <= before,
         )
         .order_by(account.refresh_expires_at)
@@ -155,14 +158,13 @@ async def list_accounts_to_warn(
     before: datetime,
     limit: int,
 ) -> list[ExpiringAccount]:
-    """The active accounts expiring before then, not yet warned, the soonest first"""
     account = tables.LinkedAccount
     user = tables.User
     rows = await session.execute(
         select(account, user.email, user.locale)
         .join(user, user.id == account.user_id)
         .where(
-            account.status == AccountStatuses.ACTIVE,
+            account.reconnect_required_at.is_(None),
             account.refresh_expires_at > now,
             account.refresh_expires_at <= before,
             account.expiry_warned_at.is_(None),
@@ -182,34 +184,15 @@ async def list_accounts_to_warn(
 
 async def mark_warned(
     session: AsyncSession,
-    account_id: UUID,
+    account_ids: list[UUID],
     *,
     now: datetime,
 ) -> None:
     await session.execute(
         update(tables.LinkedAccount)
-        .where(tables.LinkedAccount.id == account_id)
+        .where(tables.LinkedAccount.id.in_(account_ids))
         .values(expiry_warned_at=now),
     )
-
-
-async def mark_expired_accounts(
-    session: AsyncSession,
-    *,
-    now: datetime,
-) -> int:
-    """Marks the active accounts whose refresh token expired, to be linked again"""
-    account = tables.LinkedAccount
-    result: CursorResult[Any] = await session.execute(  # type: ignore[assignment]
-        update(account)
-        .where(
-            account.status == AccountStatuses.ACTIVE,
-            account.refresh_expires_at <= now,
-        )
-        .values(status=AccountStatuses.NEEDS_RECONNECT),
-    )
-
-    return result.rowcount
 
 
 async def update_tokens(
@@ -230,7 +213,7 @@ async def update_tokens(
             refresh_token=refresh_token,
             expires_at=expires_at,
             refresh_expires_at=refresh_expires_at,
-            # an expiry that moved on is a new one, so a new warning
+            reconnect_required_at=None,
             expiry_warned_at=case(
                 (
                     account.refresh_expires_at.is_distinct_from(refresh_expires_at),
@@ -238,20 +221,20 @@ async def update_tokens(
                 ),
                 else_=account.expiry_warned_at,
             ),
-            status=AccountStatuses.ACTIVE,
         ),
     )
 
 
-async def set_status(
+async def require_reconnect(
     session: AsyncSession,
     account_id: UUID,
-    status: AccountStatuses,
+    *,
+    now: datetime,
 ) -> None:
     await session.execute(
         update(tables.LinkedAccount)
         .where(tables.LinkedAccount.id == account_id)
-        .values(status=status),
+        .values(reconnect_required_at=now),
     )
 
 
@@ -293,3 +276,51 @@ async def set_push_preferences(
         )
 
     return await get_account(session, user_id, platform)
+
+
+async def mark_imported(
+    session: AsyncSession,
+    account_id: UUID,
+    *,
+    now: datetime,
+    likes_read: bool,
+    likes_total: int | None,
+) -> None:
+    values: dict[str, datetime | int] = {"imported_at": now}
+    if likes_read:
+        values["likes_read_at"] = now
+    if likes_total is not None:
+        values["likes_total"] = likes_total
+
+    await session.execute(
+        update(tables.LinkedAccount)
+        .where(tables.LinkedAccount.id == account_id)
+        .values(**values),
+    )
+
+
+async def list_accounts_to_import(
+    session: AsyncSession,
+    *,
+    platforms: Collection[Platforms],
+    now: datetime,
+    before: datetime,
+    limit: int,
+) -> list[StoredAccount]:
+    if not platforms:
+        return []
+
+    account = tables.LinkedAccount
+    rows = await session.scalars(
+        select(account)
+        .where(
+            account.platform.in_(platforms),
+            account.reconnect_required_at.is_(None),
+            or_(account.refresh_expires_at.is_(None), account.refresh_expires_at > now),
+            or_(account.imported_at.is_(None), account.imported_at < before),
+        )
+        .order_by(account.imported_at.nulls_first())
+        .limit(limit),
+    )
+
+    return [_to_account(row) for row in rows]

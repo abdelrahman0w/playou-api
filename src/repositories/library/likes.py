@@ -134,31 +134,99 @@ async def list_likes(
     )
 
 
-async def like_sync_state(
+async def like_sync_states(
     session: AsyncSession,
     user_id: UUID,
-    track_id: UUID,
+    track_ids: list[UUID],
     platform: Platforms,
-) -> LikeSyncState | None:
+) -> dict[UUID, LikeSyncState]:
     like = tables.Like
     source = tables.TrackSource
-    row = (
-        await session.execute(
-            select(like.removed_at, source.platform_id)
-            .select_from(like)
-            .outerjoin(
-                source,
-                (source.track_id == like.track_id) & (source.platform == platform),
-            )
-            .where(like.user_id == user_id, like.track_id == track_id),
+    rows = await session.execute(
+        select(like.track_id, like.removed_at, source.platform_id)
+        .select_from(like)
+        .outerjoin(
+            source,
+            (source.track_id == like.track_id) & (source.platform == platform),
         )
-    ).first()
-    if row is None:
-        return None
+        .where(like.user_id == user_id, like.track_id.in_(track_ids)),
+    )
 
-    removed_at, platform_id = row
+    return {
+        track_id: LikeSyncState(liked=removed_at is None, platform_id=platform_id)
+        for track_id, removed_at, platform_id in rows
+    }
 
-    return LikeSyncState(
-        liked=removed_at is None,
-        platform_id=platform_id,
+
+async def liked_platform_ids(
+    session: AsyncSession,
+    user_id: UUID,
+    platform: Platforms,
+) -> dict[str, UUID]:
+    like = tables.Like
+    source = tables.TrackSource
+    rows = await session.execute(
+        select(source.platform_id, like.track_id)
+        .select_from(like)
+        .join(
+            source,
+            (source.track_id == like.track_id) & (source.platform == platform),
+        )
+        .where(like.user_id == user_id, like.removed_at.is_(None)),
+    )
+
+    return {platform_id: track_id for platform_id, track_id in rows}
+
+
+async def import_likes(
+    session: AsyncSession,
+    user_id: UUID,
+    likes: list[tuple[UUID, datetime]],
+) -> None:
+    if not likes:
+        return
+
+    like = tables.Like
+    statement = insert(like).values(
+        [
+            {"user_id": user_id, "track_id": track_id, "liked_at": liked_at}
+            for track_id, liked_at in dict(likes).items()
+        ],
+    )
+    await session.execute(
+        statement.on_conflict_do_update(
+            index_elements=["user_id", "track_id"],
+            set_={
+                "liked_at": case(
+                    (like.removed_at.is_(None), like.liked_at),
+                    else_=statement.excluded.liked_at,
+                ),
+                "removed_at": None,
+                "removed_by": None,
+                "updated_at": func.now(),
+            },
+        ),
+    )
+
+
+async def remove_likes(
+    session: AsyncSession,
+    user_id: UUID,
+    track_ids: list[UUID],
+    *,
+    now: datetime,
+    removed_by: RemovedBy,
+) -> None:
+    if not track_ids:
+        return
+
+    like = tables.Like
+    await session.execute(
+        update(like)
+        .where(
+            like.user_id == user_id,
+            like.track_id.in_(track_ids),
+            like.removed_at.is_(None),
+        )
+        .values(removed_at=now, removed_by=removed_by),
     )

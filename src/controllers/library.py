@@ -1,4 +1,5 @@
 from datetime import datetime
+from datetime import timedelta
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,24 +10,47 @@ from src.actions import sync as sync_actions
 from src.exceptions import NotFoundError
 from src.repositories import library as library_repositories
 from src.services import OAuthPlatform
+from src.settings import settings
 from src.structs.enums import Platforms
 from src.structs.models import Page
 from src.structs.models.requests import CreatePlaylistRequest
 from src.structs.models.requests import LibraryListRequest
 from src.structs.models.requests import PlaylistItemsRequest
+from src.structs.models.requests import PlaylistListRequest
 from src.structs.models.requests import UpdatePlaylistRequest
+from src.structs.models.responses import AccountSync
 from src.structs.models.responses import LikedTrack
 from src.structs.models.responses import Playlist
 from src.structs.models.responses import PlaylistDetail
 
 
+async def _refresh_when_stale(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    await sync_actions.request_imports(
+        session,
+        platforms,
+        user_id=user_id,
+        now=now,
+        stale_before=now - timedelta(minutes=settings.imports.stale_minutes),
+    )
+
+
 async def list_likes(
     session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
     request: LibraryListRequest,
     *,
     user_id: UUID,
+    now: datetime,
 ) -> Page[LikedTrack]:
     async with session.begin():
+        await _refresh_when_stale(session, platforms, user_id=user_id, now=now)
+
         return await library_repositories.list_likes(
             session,
             user_id,
@@ -74,18 +98,46 @@ async def unlike(
 
 async def list_playlists(
     session: AsyncSession,
-    request: LibraryListRequest,
+    platforms: dict[Platforms, OAuthPlatform],
+    request: PlaylistListRequest,
     *,
     user_id: UUID,
+    now: datetime,
 ) -> Page[Playlist]:
     async with session.begin():
+        await _refresh_when_stale(session, platforms, user_id=user_id, now=now)
+
         return await library_repositories.list_playlists(
             session,
             user_id,
             page=request.page,
             page_size=request.page_size,
             include_removed=request.include_removed,
+            kind=request.kind,
         )
+
+
+async def request_import(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> list[AccountSync]:
+    async with session.begin():
+        await sync_actions.request_imports(session, platforms, user_id=user_id, now=now)
+
+        return await sync_actions.library_sync(session, platforms, user_id=user_id)
+
+
+async def get_sync(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    *,
+    user_id: UUID,
+) -> list[AccountSync]:
+    async with session.begin():
+        return await sync_actions.library_sync(session, platforms, user_id=user_id)
 
 
 async def get_playlist(

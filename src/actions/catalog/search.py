@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from src.actions import accounts as accounts_actions
 from src.actions.cache import cached_json
 from src.exceptions import PlatformError
+from src.exceptions import PlatformRateLimitedError
 from src.exceptions import PlatformReconnectRequiredError
 from src.providers import logger
 from src.repositories import catalog as catalog_repositories
@@ -89,7 +90,7 @@ async def _search_one(
             tracks=tracks or [],
         )
 
-    if account.status is AccountStatuses.NEEDS_RECONNECT:
+    if account.status_at(now) is AccountStatuses.NEEDS_RECONNECT:
         return result(SearchStatuses.NEEDS_RECONNECT)
 
     try:
@@ -111,6 +112,8 @@ async def _search_one(
         return result(SearchStatuses.TIMED_OUT)
     except PlatformReconnectRequiredError:
         return result(SearchStatuses.NEEDS_RECONNECT)
+    except PlatformRateLimitedError:
+        return result(SearchStatuses.RATE_LIMITED)
     except PlatformError as error:
         logger.warning(
             "[Search] Platform Failed",

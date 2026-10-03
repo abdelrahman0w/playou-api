@@ -6,6 +6,8 @@ from src.structs.models import Capabilities
 from src.structs.models import PlatformPlaylist
 from src.structs.models import PlatformProfile
 from src.structs.models import PlatformTokens
+from src.structs.models import RemotePlaylist
+from src.structs.models import SavedTracksPage
 from src.structs.models import Track
 
 
@@ -28,6 +30,24 @@ class MusicPlatform(Protocol):
         query: str,
         *,
         limit: int,
+    ) -> list[Track]: ...
+
+    async def saved_tracks(
+        self,
+        access_token: str,
+        *,
+        offset: int,
+    ) -> SavedTracksPage: ...
+
+    async def user_playlists(
+        self,
+        access_token: str,
+    ) -> list[RemotePlaylist]: ...
+
+    async def playlist_tracks(
+        self,
+        access_token: str,
+        platform_playlist_id: str,
     ) -> list[Track]: ...
 
     async def save_tracks(

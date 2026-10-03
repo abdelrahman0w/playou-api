@@ -12,6 +12,7 @@ from src.exceptions.custom_exceptions import InvalidOAuthStateError
 from src.exceptions.custom_exceptions import NotFoundError
 from src.exceptions.custom_exceptions import PlatformError
 from src.exceptions.custom_exceptions import PlatformNotLinkedError
+from src.exceptions.custom_exceptions import PlatformRateLimitedError
 from src.exceptions.custom_exceptions import PlatformReconnectRequiredError
 from src.exceptions.custom_exceptions import PlatformTimeoutError
 from src.exceptions.custom_exceptions import PlatformUnavailableError
@@ -37,6 +38,7 @@ STATUS_CODES: dict[type[AppError], int] = {
     PlatformNotLinkedError: status.HTTP_409_CONFLICT,
     PlatformReconnectRequiredError: status.HTTP_409_CONFLICT,
     PlatformTimeoutError: status.HTTP_504_GATEWAY_TIMEOUT,
+    PlatformRateLimitedError: status.HTTP_503_SERVICE_UNAVAILABLE,
     PlatformUnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,
     PlatformError: status.HTTP_502_BAD_GATEWAY,
 }
@@ -79,7 +81,7 @@ async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
 
     headers = (
         {"Retry-After": str(exc.retry_after_seconds)}
-        if isinstance(exc, TooManyRequestsError)
+        if isinstance(exc, TooManyRequestsError | PlatformRateLimitedError)
         else None
     )
 

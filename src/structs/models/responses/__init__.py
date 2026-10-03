@@ -6,6 +6,7 @@ from .catalog import PlatformSearchResult
 from .catalog import SearchResults
 from .health import LivenessResponse
 from .health import ReadinessResponse
+from .library import AccountSync
 from .library import CatalogTrack
 from .library import LikedTrack
 from .library import Playlist
@@ -17,6 +18,7 @@ from .library import TrackSource
 
 
 __all__ = [
+    "AccountSync",
     "AuthUser",
     "BearerSession",
     "CatalogTrack",

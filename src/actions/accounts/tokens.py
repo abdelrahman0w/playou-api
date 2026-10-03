@@ -64,7 +64,7 @@ async def access_token(
     *,
     now: datetime,
 ) -> str:
-    if account.status is AccountStatuses.NEEDS_RECONNECT:
+    if account.status_at(now) is AccountStatuses.NEEDS_RECONNECT:
         raise PlatformReconnectRequiredError("The account has to be linked again")
 
     if _is_fresh(account, now=now):
@@ -128,10 +128,10 @@ async def _refresh_when_due(
 
         if refreshed.reconnect is not None:
             async with session.begin():
-                await accounts_repositories.set_status(
+                await accounts_repositories.require_reconnect(
                     session,
                     account.id,
-                    AccountStatuses.NEEDS_RECONNECT,
+                    now=now,
                 )
 
             logger.warning(

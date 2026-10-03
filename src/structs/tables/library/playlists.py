@@ -15,12 +15,13 @@ from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
 from src.structs.enums import Platforms
+from src.structs.enums import PlaylistKinds
 from src.structs.enums import RemovedBy
 from src.structs.tables.base import Base
 
 
 def _values(
-    enum: type[RemovedBy] | type[Platforms],
+    enum: type[RemovedBy] | type[Platforms] | type[PlaylistKinds],
 ) -> list[str]:
     return [member.value for member in enum]
 
@@ -38,8 +39,20 @@ class Playlist(Base):
         Uuid,
         ForeignKey("users.id", ondelete="CASCADE"),
     )
+    kind: Mapped[PlaylistKinds] = mapped_column(
+        Enum(
+            PlaylistKinds,
+            native_enum=False,
+            length=32,
+            values_callable=_values,
+        ),
+        server_default=PlaylistKinds.OWNED.value,
+    )
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text)
+    owner_name: Mapped[str | None] = mapped_column(String(255))
+    cover_url: Mapped[str | None] = mapped_column(Text)
+    url: Mapped[str | None] = mapped_column(Text)
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     removed_by: Mapped[RemovedBy | None] = mapped_column(
         Enum(

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 from pydantic import Field
 
@@ -29,7 +31,7 @@ class SpotifyUser(BaseModel):
 
 
 class SpotifyNamed(BaseModel):
-    name: str
+    name: str | None = None
 
 
 class SpotifyImage(BaseModel):
@@ -51,7 +53,8 @@ class SpotifyExternalUrls(BaseModel):
 
 class SpotifyTrack(BaseModel):
     id: str
-    name: str
+    name: str | None = None
+    type: str = "track"
     artists: list[SpotifyNamed] = Field(default_factory=list)
     album: SpotifyAlbum | None = None
     duration_ms: int | None = None
@@ -89,4 +92,46 @@ class SpotifyPlaylistEntry(BaseModel):
 
 class SpotifyPlaylistItems(BaseModel):
     items: list[SpotifyPlaylistEntry] = Field(default_factory=list)
+    next: str | None = None
+
+
+class SpotifySavedTrack(BaseModel):
+    added_at: datetime | None = None
+    track: SpotifyTrack | None = None
+
+
+class SpotifySavedTracks(BaseModel):
+    total: int = 0
+    items: list[SpotifySavedTrack] = Field(default_factory=list)
+    next: str | None = None
+
+
+class SpotifyOwner(BaseModel):
+    id: str | None = None
+    display_name: str | None = None
+
+
+class SpotifyUserPlaylist(BaseModel):
+    id: str
+    name: str = ""
+    description: str | None = None
+    collaborative: bool = False
+    owner: SpotifyOwner = Field(default_factory=SpotifyOwner)
+    snapshot_id: str | None = None
+    images: list[SpotifyImage] | None = None
+    external_urls: SpotifyExternalUrls = Field(default_factory=SpotifyExternalUrls)
+
+
+class SpotifyUserPlaylists(BaseModel):
+    items: list[SpotifyUserPlaylist | None] = Field(default_factory=list)
+    next: str | None = None
+
+
+class SpotifyPlaylistTrackEntry(BaseModel):
+    is_local: bool = False
+    item: SpotifyTrack | None = None
+
+
+class SpotifyPlaylistTracks(BaseModel):
+    items: list[SpotifyPlaylistTrackEntry] = Field(default_factory=list)
     next: str | None = None

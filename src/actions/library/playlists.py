@@ -5,10 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.actions.sync import enqueue_push
 from src.exceptions import NotFoundError
+from src.exceptions import UnsupportedError
 from src.repositories import catalog as catalog_repositories
 from src.repositories import library as library_repositories
 from src.services import OAuthPlatform
 from src.structs.enums import Platforms
+from src.structs.enums import PlaylistKinds
 from src.structs.enums import RemovedBy
 from src.structs.enums import SyncSubjects
 from src.structs.models.responses import PlaylistDetail
@@ -18,6 +20,8 @@ async def _active_playlist(
     session: AsyncSession,
     user_id: UUID,
     playlist_id: UUID,
+    *,
+    editing: bool = False,
 ) -> PlaylistDetail:
     playlist = await library_repositories.get_playlist(
         session,
@@ -26,6 +30,8 @@ async def _active_playlist(
     )
     if playlist is None or playlist.removed_at is not None:
         raise NotFoundError("The playlist does not exist")
+    if editing and playlist.kind is PlaylistKinds.FOLLOWED:
+        raise UnsupportedError("A followed playlist is its owner's to change")
 
     return playlist
 
@@ -85,7 +91,7 @@ async def update_playlist(
     description: str | None,
     now: datetime,
 ) -> PlaylistDetail:
-    await _active_playlist(session, user_id, playlist_id)
+    await _active_playlist(session, user_id, playlist_id, editing=True)
     await library_repositories.update_playlist(
         session,
         playlist_id,
@@ -136,7 +142,7 @@ async def add_playlist_items(
     track_ids: list[UUID],
     now: datetime,
 ) -> PlaylistDetail:
-    await _active_playlist(session, user_id, playlist_id)
+    await _active_playlist(session, user_id, playlist_id, editing=True)
 
     found = await catalog_repositories.get_tracks(session, track_ids)
     if missing := [track_id for track_id in track_ids if track_id not in found]:
@@ -164,7 +170,7 @@ async def remove_playlist_item(
     track_id: UUID,
     now: datetime,
 ) -> None:
-    await _active_playlist(session, user_id, playlist_id)
+    await _active_playlist(session, user_id, playlist_id, editing=True)
 
     removed = await library_repositories.remove_item(
         session,

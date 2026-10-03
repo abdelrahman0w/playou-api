@@ -8,6 +8,7 @@ from .custom_exceptions import NotFoundError
 from .custom_exceptions import PlatformError
 from .custom_exceptions import PlatformNotFoundError
 from .custom_exceptions import PlatformNotLinkedError
+from .custom_exceptions import PlatformRateLimitedError
 from .custom_exceptions import PlatformReconnectRequiredError
 from .custom_exceptions import PlatformTimeoutError
 from .custom_exceptions import PlatformUnavailableError
@@ -28,6 +29,7 @@ __all__ = [
     "PlatformError",
     "PlatformNotFoundError",
     "PlatformNotLinkedError",
+    "PlatformRateLimitedError",
     "PlatformReconnectRequiredError",
     "PlatformTimeoutError",
     "PlatformUnavailableError",

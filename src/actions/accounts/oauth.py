@@ -10,6 +10,7 @@ from src.actions.accounts.sealing import seal
 from src.exceptions import InvalidOAuthStateError
 from src.providers import logger
 from src.repositories import accounts as accounts_repositories
+from src.repositories import sync as sync_repositories
 from src.services import OAuthPlatform
 from src.settings import settings
 from src.structs.enums import CacheKeys
@@ -106,6 +107,13 @@ async def finish_link(
             expires_at=expires_at(tokens, now=now),
             refresh_expires_at=refresh_expires_at(platform, tokens, now=now),
             scopes=tokens.scopes,
+        )
+        await sync_repositories.enqueue_import(
+            session,
+            user_id=user_id,
+            platform=platform.platform,
+            account_id=account.id,
+            now=now,
         )
 
     logger.info(

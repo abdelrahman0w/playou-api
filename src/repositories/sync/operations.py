@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -7,12 +8,14 @@ from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy import text
 from sqlalchemy import update
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.structs import tables
 from src.structs.enums import Platforms
+from src.structs.enums import SyncOutcomes
 from src.structs.enums import SyncStatuses
 from src.structs.enums import SyncSubjects
 from src.structs.models import SyncTask
@@ -35,7 +38,6 @@ async def enqueue(
             platform=platform,
             subject=subject,
             subject_id=subject_id,
-            status=SyncStatuses.PENDING,
             attempts=0,
             next_attempt_at=now,
         )
@@ -51,13 +53,14 @@ async def claim_next(
     session: AsyncSession,
     *,
     now: datetime,
+    subjects: Collection[SyncSubjects],
     user_id: UUID | None = None,
 ) -> SyncTask | None:
-    """The oldest due operation, locked until the transaction ends, skipping taken"""
     operation = tables.SyncOperation
     statement = select(operation).where(
         operation.status == SyncStatuses.PENDING,
         operation.next_attempt_at <= now,
+        operation.subject.in_(subjects),
     )
     if user_id is not None:
         statement = statement.where(operation.user_id == user_id)
@@ -78,10 +81,46 @@ async def claim_next(
     )
 
 
+async def claim_alike(
+    session: AsyncSession,
+    task: SyncTask,
+    *,
+    now: datetime,
+    limit: int,
+) -> list[SyncTask]:
+    operation = tables.SyncOperation
+    rows = await session.scalars(
+        select(operation)
+        .where(
+            operation.status == SyncStatuses.PENDING,
+            operation.next_attempt_at <= now,
+            operation.user_id == task.user_id,
+            operation.platform == task.platform,
+            operation.subject == task.subject,
+            operation.id != task.id,
+        )
+        .order_by(operation.id)
+        .limit(limit)
+        .with_for_update(skip_locked=True),
+    )
+
+    return [
+        SyncTask(
+            id=row.id,
+            user_id=row.user_id,
+            platform=row.platform,
+            subject=row.subject,
+            subject_id=row.subject_id,
+            attempts=row.attempts,
+        )
+        for row in rows
+    ]
+
+
 async def finish(
     session: AsyncSession,
     operation_id: int,
-    status: SyncStatuses,
+    outcome: SyncOutcomes,
     *,
     now: datetime,
     error: str | None = None,
@@ -89,7 +128,7 @@ async def finish(
     await session.execute(
         update(tables.SyncOperation)
         .where(tables.SyncOperation.id == operation_id)
-        .values(status=status, finished_at=now, last_error=error),
+        .values(outcome=outcome, finished_at=now, last_error=error),
     )
 
 
@@ -127,3 +166,108 @@ async def prune_finished(
     )
 
     return result.rowcount
+
+
+async def enqueue_import(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    platform: Platforms,
+    account_id: UUID,
+    now: datetime,
+) -> None:
+    await session.execute(
+        insert(tables.SyncOperation)
+        .values(
+            user_id=user_id,
+            platform=platform,
+            subject=SyncSubjects.IMPORT,
+            subject_id=account_id,
+            attempts=0,
+            next_attempt_at=now,
+        )
+        .on_conflict_do_nothing(
+            index_elements=["user_id", "platform", "subject", "subject_id"],
+            index_where=text("status = 'PENDING'"),
+        ),
+    )
+
+
+async def lease_imports(
+    session: AsyncSession,
+    *,
+    now: datetime,
+    until: datetime,
+    limit: int,
+) -> list[SyncTask]:
+    operation = tables.SyncOperation
+    rows = list(
+        await session.scalars(
+            select(operation)
+            .where(
+                operation.status == SyncStatuses.PENDING,
+                operation.next_attempt_at <= now,
+                operation.subject == SyncSubjects.IMPORT,
+            )
+            .order_by(operation.next_attempt_at, operation.id)
+            .limit(limit)
+            .with_for_update(skip_locked=True),
+        ),
+    )
+    if rows:
+        await session.execute(
+            update(operation)
+            .where(operation.id.in_([row.id for row in rows]))
+            .values(next_attempt_at=until),
+        )
+
+    return [
+        SyncTask(
+            id=row.id,
+            user_id=row.user_id,
+            platform=row.platform,
+            subject=row.subject,
+            subject_id=row.subject_id,
+            attempts=row.attempts,
+        )
+        for row in rows
+    ]
+
+
+async def pending_subject_ids(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    platform: Platforms,
+    subject: SyncSubjects,
+) -> set[UUID]:
+    operation = tables.SyncOperation
+
+    return set(
+        await session.scalars(
+            select(operation.subject_id).where(
+                operation.user_id == user_id,
+                operation.platform == platform,
+                operation.subject == subject,
+                operation.status == SyncStatuses.PENDING,
+            ),
+        ),
+    )
+
+
+async def latest_imports(
+    session: AsyncSession,
+    user_id: UUID,
+) -> dict[UUID, tuple[SyncStatuses, str | None]]:
+    operation = tables.SyncOperation
+    rows = await session.execute(
+        select(operation.subject_id, operation.status, operation.last_error)
+        .where(
+            operation.user_id == user_id,
+            operation.subject == SyncSubjects.IMPORT,
+        )
+        .ext(distinct_on(operation.subject_id))
+        .order_by(operation.subject_id, operation.id.desc()),
+    )
+
+    return {account_id: (status, error) for account_id, status, error in rows}

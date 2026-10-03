@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import BigInteger
+from sqlalchemy import Computed
 from sqlalchemy import DateTime
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
@@ -14,13 +15,17 @@ from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
 from src.structs.enums import Platforms
+from src.structs.enums import SyncOutcomes
 from src.structs.enums import SyncStatuses
 from src.structs.enums import SyncSubjects
 from src.structs.tables.base import Base
 
 
 def _values(
-    enum: type[Platforms] | type[SyncStatuses] | type[SyncSubjects],
+    enum: type[Platforms]
+    | type[SyncOutcomes]
+    | type[SyncStatuses]
+    | type[SyncSubjects],
 ) -> list[str]:
     return [member.value for member in enum]
 
@@ -37,7 +42,11 @@ class SyncOperation(Base):
             unique=True,
             postgresql_where=text("status = 'PENDING'"),
         ),
-        Index(None, "status", "next_attempt_at"),
+        Index(
+            None,
+            "next_attempt_at",
+            postgresql_where=text("status = 'PENDING'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -52,11 +61,18 @@ class SyncOperation(Base):
         Enum(SyncSubjects, native_enum=False, length=32, values_callable=_values),
     )
     subject_id: Mapped[UUID] = mapped_column(Uuid)
-    status: Mapped[SyncStatuses] = mapped_column(
-        Enum(SyncStatuses, native_enum=False, length=32, values_callable=_values),
-        default=SyncStatuses.PENDING,
-    )
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_error: Mapped[str | None] = mapped_column(Text)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    outcome: Mapped[SyncOutcomes | None] = mapped_column(
+        Enum(SyncOutcomes, native_enum=False, length=32, values_callable=_values),
+    )
+    status: Mapped[SyncStatuses] = mapped_column(
+        Enum(SyncStatuses, native_enum=False, length=32, values_callable=_values),
+        Computed(
+            f"CASE WHEN finished_at IS NULL THEN '{SyncStatuses.PENDING}' "
+            "ELSE outcome END",
+            persisted=True,
+        ),
+    )

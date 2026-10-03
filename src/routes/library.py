@@ -19,7 +19,9 @@ from src.structs.models import Page
 from src.structs.models.requests import CreatePlaylistRequest
 from src.structs.models.requests import LibraryListRequest
 from src.structs.models.requests import PlaylistItemsRequest
+from src.structs.models.requests import PlaylistListRequest
 from src.structs.models.requests import UpdatePlaylistRequest
+from src.structs.models.responses import AccountSync
 from src.structs.models.responses import LikedTrack
 from src.structs.models.responses import Playlist
 from src.structs.models.responses import PlaylistDetail
@@ -61,12 +63,16 @@ PusherDep = Annotated[Pusher, Depends()]
 async def list_likes(
     user_id: UserIDDep,
     session: DBSessionDep,
+    platforms: PlatformsDep,
+    now: NowDep,
     request: Annotated[LibraryListRequest, Query()],
 ) -> Page[LikedTrack]:
     return await library_controller.list_likes(
         session,
+        platforms,
         request,
         user_id=user_id,
+        now=now,
     )
 
 
@@ -125,12 +131,40 @@ async def unlike(
 async def list_playlists(
     user_id: UserIDDep,
     session: DBSessionDep,
-    request: Annotated[LibraryListRequest, Query()],
+    platforms: PlatformsDep,
+    now: NowDep,
+    request: Annotated[PlaylistListRequest, Query()],
 ) -> Page[Playlist]:
     return await library_controller.list_playlists(
         session,
+        platforms,
         request,
         user_id=user_id,
+        now=now,
+    )
+
+
+@router.get("/sync")
+async def get_sync(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    platforms: PlatformsDep,
+) -> list[AccountSync]:
+    return await library_controller.get_sync(session, platforms, user_id=user_id)
+
+
+@router.post("/import", status_code=status.HTTP_202_ACCEPTED, dependencies=writes)
+async def request_import(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    platforms: PlatformsDep,
+    now: NowDep,
+) -> list[AccountSync]:
+    return await library_controller.request_import(
+        session,
+        platforms,
+        user_id=user_id,
+        now=now,
     )
 
 

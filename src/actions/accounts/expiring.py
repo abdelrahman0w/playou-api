@@ -1,7 +1,10 @@
+import hashlib
 import math
+from dataclasses import asdict
 from datetime import datetime
 from datetime import timedelta
 from urllib.parse import urlencode
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -16,8 +19,11 @@ from src.providers import logger
 from src.repositories import accounts as accounts_repositories
 from src.services import OAuthPlatform
 from src.services import ResendService
+from src.services.resend.client import BATCH_SIZE as RESEND_BATCH_SIZE
 from src.settings import settings
 from src.structs.enums import Platforms
+from src.structs.models import ExpiringAccount
+from src.structs.models import OutgoingEmail
 
 
 def _reconnect_url(
@@ -26,6 +32,23 @@ def _reconnect_url(
     query = urlencode({"reconnect": platform})
 
     return f"{settings.app.web_url.rstrip('/')}/accounts?{query}"
+
+
+def _warning(
+    item: ExpiringAccount,
+    expires_at: datetime,
+    *,
+    now: datetime,
+) -> OutgoingEmail:
+    platform = item.account.platform
+    email = reconnect_email(
+        platform.title(),
+        days=max(1, math.ceil((expires_at - now) / timedelta(days=1))),
+        url=_reconnect_url(platform),
+        locale=item.owner.locale,
+    )
+
+    return OutgoingEmail(to=item.owner.email, **asdict(email))
 
 
 async def warn_expiring_accounts(
@@ -52,43 +75,48 @@ async def warn_expiring_accounts(
             limit=accounts_settings.keep_alive_batch_size,
         )
 
+    warnings: list[tuple[UUID, OutgoingEmail, str]] = []
     for item in expiring:
         account = item.account
-        if account.refresh_expires_at is None:
-            continue
+        if account.refresh_expires_at is not None:
+            warnings.append(
+                (
+                    account.id,
+                    _warning(item, account.refresh_expires_at, now=now),
+                    f"{account.id}:{account.refresh_expires_at.isoformat()}",
+                ),
+            )
 
-        email = reconnect_email(
-            account.platform.title(),
-            days=max(
-                1, math.ceil((account.refresh_expires_at - now) / timedelta(days=1))
-            ),
-            url=_reconnect_url(account.platform),
-            locale=item.owner.locale,
-        )
+    for start in range(0, len(warnings), RESEND_BATCH_SIZE):
+        batch = warnings[start : start + RESEND_BATCH_SIZE]
+        key = hashlib.blake2b(
+            ",".join(sorted(expiry for _, _, expiry in batch)).encode(),
+            digest_size=16,
+        ).hexdigest()
 
         try:
-            await resend.send(
-                item.owner.email,
-                subject=email.subject,
-                html=email.html,
-                text=email.text,
+            await resend.send_batch(
+                [email for _, email, _ in batch],
+                idempotency_key=f"reconnect-warnings-{key}",
             )
         except EmailUnavailableError as error:
-            counts["warnings_failed"] += 1
-
+            counts["warnings_failed"] += len(batch)
             logger.warning(
-                "[Accounts] Warning Failed",
-                platform=account.platform,
-                account_id=str(account.id),
+                "[Accounts] Warnings Failed",
+                accounts=len(batch),
                 error=error.message,
             )
 
             continue
 
         async with session_factory() as session, session.begin():
-            await accounts_repositories.mark_warned(session, account.id, now=now)
+            await accounts_repositories.mark_warned(
+                session,
+                [account_id for account_id, _, _ in batch],
+                now=now,
+            )
 
-        counts["warned"] += 1
+        counts["warned"] += len(batch)
 
     return counts
 
@@ -109,15 +137,10 @@ async def check_expiring_accounts(
     ]
 
     async with session_factory() as session:
-        async with session.begin():
-            expired = await accounts_repositories.mark_expired_accounts(
-                session,
-                now=now,
-            )
-
         accounts = await accounts_repositories.list_expiring_accounts(
             session,
             platforms=extendable,
+            now=now,
             before=before,
             limit=accounts_settings.keep_alive_batch_size,
         )
@@ -125,7 +148,6 @@ async def check_expiring_accounts(
     warnings = await warn_expiring_accounts(session_factory, resend, now=now)
 
     counts = {
-        "expired": expired,
         **warnings,
         "due": len(accounts),
         "refreshed": 0,

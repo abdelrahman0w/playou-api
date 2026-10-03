@@ -8,6 +8,7 @@ from pydantic import SecretStr
 
 from src.structs.enums import AccountStatuses
 from src.structs.enums import Platforms
+from src.structs.enums import PlaylistKinds
 from src.structs.enums import SyncSubjects
 
 
@@ -48,9 +49,39 @@ class Track(BaseModel):
     url: str | None = None
 
 
+class SavedTrack(BaseModel):
+    track: Track
+    added_at: datetime | None = None
+
+
+class SavedTracksPage(BaseModel):
+    total: int
+    items: list[SavedTrack] = Field(default_factory=list)
+    has_more: bool = False
+
+
+class RemotePlaylist(BaseModel):
+    platform_id: str
+    name: str
+    description: str | None = None
+    owner_id: str | None = None
+    owner_name: str | None = None
+    collaborative: bool = False
+    snapshot_id: str | None = None
+    cover_url: str | None = None
+    url: str | None = None
+
+
 class PlatformPlaylist(BaseModel):
     platform_id: str
     snapshot_id: str | None = None
+
+
+class LinkedPlaylist(BaseModel):
+    playlist_id: UUID
+    kind: PlaylistKinds
+    snapshot_id: str | None = None
+    removed: bool
 
 
 class PendingLink(BaseModel):
@@ -68,7 +99,6 @@ class StoredAccount(BaseModel):
     id: UUID
     user_id: UUID
     platform: Platforms
-    status: AccountStatuses
     external_id: str
     display_name: str | None = None
     access_token: str
@@ -76,11 +106,22 @@ class StoredAccount(BaseModel):
     expires_at: datetime | None = None
     refresh_expires_at: datetime | None = None
     expiry_warned_at: datetime | None = None
+    reconnect_required_at: datetime | None = None
+    imported_at: datetime | None = None
+    likes_read_at: datetime | None = None
+    likes_total: int | None = None
     scopes: list[str] = Field(default_factory=list)
     push_likes: bool = True
     push_playlists: bool = True
     created_at: datetime
     updated_at: datetime
+
+    def status_at(self, now: datetime) -> AccountStatuses:
+        expired = self.refresh_expires_at is not None and self.refresh_expires_at <= now
+        if self.reconnect_required_at is not None or expired:
+            return AccountStatuses.NEEDS_RECONNECT
+
+        return AccountStatuses.ACTIVE
 
 
 class ExpiringAccount(BaseModel):
@@ -94,6 +135,7 @@ class LikeSyncState(BaseModel):
 
 
 class PlaylistSyncState(BaseModel):
+    kind: PlaylistKinds = PlaylistKinds.OWNED
     name: str
     description: str | None = None
     removed: bool

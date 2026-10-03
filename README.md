@@ -21,6 +21,7 @@
     - [Tokens](#tokens)
     - [Search](#search)
     - [Library](#library)
+    - [Imports](#imports)
   - [Usage](#usage)
     - [Available Endpoints](#available-endpoints)
     - [Errors](#errors)
@@ -133,7 +134,7 @@ and declares its `Capabilities`, what it can search, like, and change:
 
 | Platform | Linking | Search | Like | Playlists | Status |
 | --- | --- | --- | --- | --- | --- |
-| Spotify | OAuth with PKCE, no client secret | Yes | Yes | Yes | Linking, search, and pushing the library |
+| Spotify | OAuth with PKCE, no client secret | Yes | Yes | Yes | Linking, search, and syncing the library both ways |
 
 > Spotify answers a search with 10 results at most, it refuses a bigger `limit`, so it is capped by `SPOTIFY_SEARCH_MAX_LIMIT`
 
@@ -173,7 +174,7 @@ when it expires within `ACCOUNTS_REFRESH_MARGIN_SECONDS`.
 - The account's row is locked while it is refreshed, so concurrent requests refresh once,
     the others wait, then find it fresh. A platform that rotates refresh tokens would refuse a second refresh,
     Spotify keeps the same one, there it only saves a call
-- A refused refresh marks the account `NEEDS_RECONNECT`, it is not tried again until it is linked again
+- A refused refresh sets the account's `reconnect_required_at`, it is not tried again until it is linked again
 - Tokens are sealed with `ENCRYPTION_KEYS`, a token sealed with a key that is gone needs reconnecting too
 
 Refresh tokens expire too, so every account keeps when its refresh token expires,
@@ -186,11 +187,13 @@ its user links it again.
 
 - A refresh only moves the expiry on when the platform says the new one, or when its refresh starts the lifetime over,
     `refresh_extends_lifetime`, which Spotify's does not
-- The [`check_expiring_accounts`](#jobs) job marks the accounts past their expiry `NEEDS_RECONNECT`,
-    so the web app and the search know before a request fails,
-    and refreshes the ones expiring within `ACCOUNTS_KEEP_ALIVE_DAYS` on the platforms whose refresh extends it
+- An account's status is never stored, it is `NEEDS_RECONNECT` once `reconnect_required_at` is set,
+    or its refresh token's expiry has passed, the moment it passes, so the web app and the search know before a request fails
+- The [`check_expiring_accounts`](#jobs) job refreshes the ones expiring within `ACCOUNTS_KEEP_ALIVE_DAYS`,
+    on the platforms whose refresh extends it
 - It emails the users whose account expires within `ACCOUNTS_EXPIRY_WARNING_DAYS` to reconnect it,
     once an expiry, in their language, linking to `APP_WEB_URL/accounts?reconnect=<platform>`,
+    a hundred a call through Resend's batch, under an idempotency key, so a run that fails after sending never sends twice,
     a new expiry, linking again or a refresh that moves it on, is warned about again
 - `GET /accounts` answers `refresh_expires_at`, so the web app can ask for a reconnect before it is too late
 
@@ -233,7 +236,29 @@ PUT /library/likes/{id} → postgres   (the like, and its operation, one transac
 - A failed push waits `SYNC_RETRY_SECONDS`, doubled each attempt up to `SYNC_LONGEST_RETRY_SECONDS`,
     and gives up after `SYNC_MAX_ATTEMPTS`, an account that has to be linked again waits without using an attempt
 - Operations are claimed with `FOR UPDATE SKIP LOCKED`, so the push after a request and the job never take the same one
+- A user's due likes are pushed together, 40 a call, a playlist's tracks 100 a call
+- The catalog stores tracks in bulk, a few queries for a batch of 500, whatever its size
+- An operation's `status` is a column postgres computes, `PENDING` until `finished_at` is set, then its `outcome`, `DONE`, `SKIPPED`, or `FAILED`, it is never written, so it never disagrees with them
+- An account's status is not a column, it depends on the time, and a computed column cannot, it is `status_at(now)`, from `reconnect_required_at` and the refresh token's expiry
 - `PATCH /accounts/{platform}/preferences` turns pushing likes or playlists to a platform off, or on
+
+### Imports
+
+The platforms' libraries come in too, the user's liked songs, their own and collaborative playlists with their tracks,
+and the ones they follow, without their tracks, which Spotify does not give, as `FOLLOWED`, read only, with their owner, cover, and link.
+
+- An import is a row in the same queue, `IMPORT`, asked for when an account is linked, when the library is opened
+    and the last import is older than `IMPORT_STALE_MINUTES`, by `POST /library/import`, and by the `import_libraries` job
+    for the accounts not imported for `IMPORT_EVERY_MINUTES`
+- The job takes `IMPORT_BATCH_SIZE` at a time, each under a lease of `IMPORT_LEASE_MINUTES`, so one account is imported once at a time,
+    a run that crashes is taken again once its lease is up, and asking again while it runs joins it
+- Liked songs are read newest first, up to the first one already liked, and Spotify's count is compared with the last import's,
+    `likes_total`, a count that does not add up reads them all, and so does the first import of the day, `IMPORT_FULL_EVERY_HOURS`,
+    a song unliked there is `removed_by` `PLATFORM` here, only once none of its recordings' ids is still liked
+- An owned playlist's tracks are read only when its `snapshot_id` changed, and follow Spotify's, in its order,
+    a playlist gone from Spotify is `removed_by` `PLATFORM`
+- A like or a playlist waiting to be pushed wins, the import leaves it, and an import never asks for a push
+- `GET /library/sync` answers each account's import, `IDLE`, `SYNCING`, or `FAILED`, and when it was last imported
 
 ## Usage
 
@@ -247,7 +272,7 @@ PUT /library/likes/{id} → postgres   (the like, and its operation, one transac
 | `POST` | `/auth/email/verify` | Signs in with the code, and sets the session cookie, or answers the token with `"transport": "bearer"` |
 | `POST` | `/auth/sign-out` | Ends the session |
 | `GET` | `/auth/me` | The signed in user |
-| `GET` | `/accounts` | The linked accounts, with what each platform can do |
+| `GET` | `/accounts` | The linked accounts, with what each platform can do, and `expires_soon`, within `ACCOUNTS_EXPIRY_WARNING_DAYS` |
 | `GET` | `/accounts/{platform}/connect` | Starts linking, redirects to the platform |
 | `GET` | `/accounts/{platform}/callback` | Where the platform sends the browser back, redirects to the web app |
 | `DELETE` | `/accounts/{platform}` | Unlinks the account |
@@ -257,10 +282,12 @@ PUT /library/likes/{id} → postgres   (the like, and its operation, one transac
 | `GET` | `/library/likes?page=&page_size=&include_removed=` | The liked tracks, newest first |
 | `PUT` | `/library/likes/{track_id}` | Likes a track |
 | `DELETE` | `/library/likes/{track_id}` | Unlikes it, the like is kept as removed |
-| `GET` | `/library/playlists?page=&page_size=&include_removed=` | The playlists, newest first |
+| `GET` | `/library/playlists?page=&page_size=&include_removed=&kind=` | The playlists, newest first, `OWNED` or `FOLLOWED` |
+| `GET` | `/library/sync` | Each linked account's import, `IDLE`, `SYNCING`, or `FAILED` |
+| `POST` | `/library/import` | Asks for an import of every linked account now |
 | `POST` | `/library/playlists` | Makes one, `{"name": "Road", "description": "Trip"}` |
 | `GET` | `/library/playlists/{id}?include_removed=` | A playlist, with its tracks in order |
-| `PATCH` | `/library/playlists/{id}` | Renames it, or changes its description |
+| `PATCH` | `/library/playlists/{id}` | Renames it, or changes its description, a followed one is `UNSUPPORTED` |
 | `DELETE` | `/library/playlists/{id}` | Removes it, it is kept as removed |
 | `POST` | `/library/playlists/{id}/items` | Appends tracks, `{"track_ids": [...]}`, up to 100, a track there stays put |
 | `DELETE` | `/library/playlists/{id}/items/{track_id}` | Removes a track from it |
@@ -280,7 +307,7 @@ POST /auth/email/verify
 
 > The session is extended while it is used, so `expires_in_seconds` counts from the last use, no cookie is set for a bearer session
 
-A search answers each platform's results, and its status, `OK`, `FAILED`, `TIMED_OUT`, or `NEEDS_RECONNECT`:
+A search answers each platform's results, and its status, `OK`, `FAILED`, `TIMED_OUT`, `RATE_LIMITED`, or `NEEDS_RECONNECT`:
 
 ```json
 {
@@ -333,7 +360,8 @@ Errors share a single shape:
 | `409` | `PLATFORM_RECONNECT_REQUIRED` | The platform no longer accepts the account, it has to be linked again |
 | `429` | `RATE_LIMITED` | Too many requests, see [rate limiting](#rate-limiting) |
 | `502` | `PLATFORM_ERROR` | The platform responded with an error or with something unusable |
-| `503` | `PLATFORM_UNAVAILABLE` | The platform could not be reached, or is limiting the requests |
+| `503` | `PLATFORM_UNAVAILABLE` | The platform could not be reached |
+| `503` | `PLATFORM_RATE_LIMITED` | The platform is limiting the app's requests, with `Retry-After` |
 | `503` | `EMAIL_UNAVAILABLE` | The code could not be sent |
 | `504` | `PLATFORM_TIMEOUT` | The platform did not respond in time |
 
@@ -352,6 +380,14 @@ IPv6 clients are counted by their `/64`.
 > The health probes are never limited, and requests go through when redis is down,
 > or does not answer within `RATE_LIMIT_TIMEOUT_SECONDS`
 
+A platform limits the app's requests too, every user's together, so a `429` from it pauses that platform for everyone,
+for as long as its `Retry-After` says, or `SPOTIFY_RATE_LIMIT_SECONDS` without it, through a key in redis every replica and job shares.
+
+- While it is paused, nothing is sent to it, a call fails right away as `PLATFORM_RATE_LIMITED`
+- A search answers the platform as `RATE_LIMITED`, the others still answer
+- A push waits for the pause to end, without using an attempt
+- A longer pause is never cut short by a shorter one, and without redis nothing is paused
+
 ### Jobs
 
 Jobs are run once by name through `bin/jobs.sh`, `bin/jobs.sh <job> --help` lists their flags:
@@ -359,8 +395,9 @@ Jobs are run once by name through `bin/jobs.sh`, `bin/jobs.sh <job> --help` list
 | Job | Cron | Description |
 | --- | --- | --- |
 | `push_library_changes` | `* * * * *` | Pushes the library's changes that are due, the ones the push after a request did not finish, `SYNC_PUSH_BATCH_SIZE` a run |
+| `import_libraries` | `* * * * *` | Asks for the imports that are due, and imports the asked for, `IMPORT_BATCH_SIZE` a run, see [imports](#imports) |
 | `prune_sync_operations` | `0 1 * * *` | Drops the sync operations finished more than `SYNC_RETENTION_DAYS` ago |
-| `check_expiring_accounts` | `0 3 * * *` | Marks the accounts past their refresh token's expiry `NEEDS_RECONNECT`, emails the users of the ones expiring within `ACCOUNTS_EXPIRY_WARNING_DAYS` to reconnect, once, then refreshes the ones expiring within `ACCOUNTS_KEEP_ALIVE_DAYS`, on the platforms whose refresh extends the lifetime, the soonest first, `ACCOUNTS_KEEP_ALIVE_BATCH_SIZE` a run, one at a time. A refused refresh marks the account `NEEDS_RECONNECT`, a failed one is tried again the next run |
+| `check_expiring_accounts` | `0 3 * * *` | Emails the users of the accounts expiring within `ACCOUNTS_EXPIRY_WARNING_DAYS` to reconnect, once, then refreshes the ones expiring within `ACCOUNTS_KEEP_ALIVE_DAYS`, on the platforms whose refresh extends the lifetime, the soonest first, `ACCOUNTS_KEEP_ALIVE_BATCH_SIZE` a run, one at a time. A refused refresh sets `reconnect_required_at`, a failed one is tried again the next run |
 | `prune_auth` | `30 0 * * *` | Drops the expired sessions, and the codes used or expired |
 
 In production, each job is a schedule in dokploy, in the api's application, under **Schedules**,
@@ -369,8 +406,10 @@ with the `sh` shell, running `/app/bin/jobs.sh <job>` in the api's container, wi
 | Name | Cron | Command | Enabled |
 | --- | --- | --- | --- |
 | `push_library_changes` | `* * * * *` | Pushes the library's changes that are due, the ones the push after a request did not finish, `SYNC_PUSH_BATCH_SIZE` a run |
+| `import_libraries` | `* * * * *` | Asks for the imports that are due, and imports the asked for, `IMPORT_BATCH_SIZE` a run, see [imports](#imports) |
 | `prune_sync_operations` | `0 1 * * *` | Drops the sync operations finished more than `SYNC_RETENTION_DAYS` ago |
 | `push_library_changes` | `* * * * *` | `/app/bin/jobs.sh push_library_changes` | Yes |
+| `import_libraries` | `* * * * *` | `/app/bin/jobs.sh import_libraries` | Yes |
 | `prune_sync_operations` | `0 1 * * *` | `/app/bin/jobs.sh prune_sync_operations` | Yes |
 | `check_expiring_accounts` | `0 3 * * *` | `/app/bin/jobs.sh check_expiring_accounts` | Yes |
 | `prune_auth` | `30 0 * * *` | `/app/bin/jobs.sh prune_auth` | Yes |
@@ -382,7 +421,7 @@ with the `sh` shell, running `/app/bin/jobs.sh <job>` in the api's container, wi
 
 Every run logs `[Jobs] Job Started` and `[Jobs] Job Finished` with its `duration_ms`, or `[Jobs] Job Failed` with the error.
 With error tracking on, each job with a cron also checks in with a [sentry cron monitor](https://docs.sentry.io/product/crons/),
-`jobs-push-library-changes`, `jobs-prune-sync-operations`, `jobs-check-expiring-accounts`, and `jobs-prune-auth`.
+`jobs-push-library-changes`, `jobs-import-libraries`, `jobs-prune-sync-operations`, `jobs-check-expiring-accounts`, and `jobs-prune-auth`.
 
 Run a job by hand when you need one:
 

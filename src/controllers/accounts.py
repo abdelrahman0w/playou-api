@@ -1,4 +1,5 @@
 from datetime import datetime
+from datetime import timedelta
 from urllib.parse import urlencode
 from uuid import UUID
 
@@ -38,12 +39,19 @@ async def list_accounts(
     session: AsyncSession,
     platforms: dict[Platforms, OAuthPlatform],
     user_id: UUID,
+    *,
+    now: datetime,
 ) -> list[LinkedAccount]:
     async with session.begin():
         accounts = await accounts_repositories.list_accounts(session, user_id)
 
     return [
-        LinkedAccount.from_stored(account, platforms[account.platform].capabilities)
+        LinkedAccount.from_stored(
+            account,
+            platforms[account.platform].capabilities,
+            now=now,
+            warn_within=timedelta(days=settings.accounts.expiry_warning_days),
+        )
         for account in accounts
         if account.platform in platforms
     ]

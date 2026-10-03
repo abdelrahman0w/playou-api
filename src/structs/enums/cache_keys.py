@@ -7,3 +7,4 @@ class CacheKeys(StrEnum):
     AUTH_CODE_COOLDOWN = "auth:code-cooldown:{email}"
     ACCOUNTS_LINK = "accounts:link:{state}"
     CATALOG_SEARCH = "catalog:search:{platform}:{account_id}"
+    PLATFORM_PAUSED = "platform:{platform}:paused"

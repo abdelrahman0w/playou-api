@@ -1,3 +1,4 @@
+from .library import AccountSync
 from .library import CatalogTrack
 from .library import LikedTrack
 from .library import Playlist
@@ -9,6 +10,7 @@ from .library import TrackSource
 
 
 __all__ = [
+    "AccountSync",
     "CatalogTrack",
     "LikedTrack",
     "Playlist",

@@ -23,7 +23,7 @@ async def check_expiring_accounts(
 JOBS: dict[str, Job] = {
     "check_expiring_accounts": Job(
         run=check_expiring_accounts,
-        help="mark the expired accounts, warn the expiring, refresh what it extends",
+        help="warn the expiring accounts, and refresh the ones a refresh extends",
         monitor_every_seconds=24 * 60 * 60,
     ),
 }

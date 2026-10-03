@@ -4,7 +4,9 @@ from uuid import UUID
 from pydantic import BaseModel
 from pydantic import Field
 
+from src.structs.enums import ImportStatuses
 from src.structs.enums import Platforms
+from src.structs.enums import PlaylistKinds
 from src.structs.enums import RemovedBy
 
 
@@ -40,8 +42,12 @@ class PlaylistLink(BaseModel):
 
 class Playlist(BaseModel):
     id: UUID
+    kind: PlaylistKinds = PlaylistKinds.OWNED
     name: str
     description: str | None = None
+    owner_name: str | None = None
+    cover_url: str | None = None
+    url: str | None = None
     item_count: int = 0
     links: list[PlaylistLink] = Field(default_factory=list)
     created_at: datetime
@@ -66,3 +72,10 @@ class PushPreferences(BaseModel):
     platform: Platforms
     push_likes: bool
     push_playlists: bool
+
+
+class AccountSync(BaseModel):
+    platform: Platforms
+    status: ImportStatuses
+    imported_at: datetime | None = None
+    error: str | None = None

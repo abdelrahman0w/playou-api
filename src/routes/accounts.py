@@ -29,11 +29,13 @@ async def list_accounts(
     user_id: UserIDDep,
     session: DBSessionDep,
     platforms: PlatformsDep,
+    now: NowDep,
 ) -> list[LinkedAccount]:
     return await accounts_controller.list_accounts(
         session,
         platforms,
         user_id,
+        now=now,
     )
 
 

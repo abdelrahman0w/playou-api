@@ -67,6 +67,14 @@ class PlatformTimeoutError(PlatformError):
     error_type = ErrorTypes.PLATFORM_TIMEOUT
 
 
+class PlatformRateLimitedError(PlatformUnavailableError):
+    error_type = ErrorTypes.PLATFORM_RATE_LIMITED
+
+    def __init__(self, message: str, *, retry_after_seconds: int) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
+
 class PlatformNotLinkedError(AppError):
     error_type = ErrorTypes.PLATFORM_NOT_LINKED
 
