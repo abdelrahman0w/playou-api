@@ -189,6 +189,7 @@ class ImportSettings(BaseAppSettings):
     )
 
     stale_minutes: int = Field(default=10, ge=1)
+    cooldown_seconds: int = Field(default=60, ge=0)
     every_minutes: int = Field(default=30, ge=1)
     full_every_hours: int = Field(default=24, ge=1)
     lease_minutes: int = Field(default=15, ge=1)

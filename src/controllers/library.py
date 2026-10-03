@@ -125,7 +125,13 @@ async def request_import(
     now: datetime,
 ) -> list[AccountSync]:
     async with session.begin():
-        await sync_actions.request_imports(session, platforms, user_id=user_id, now=now)
+        await sync_actions.request_imports(
+            session,
+            platforms,
+            user_id=user_id,
+            now=now,
+            stale_before=now - timedelta(seconds=settings.imports.cooldown_seconds),
+        )
 
         return await sync_actions.library_sync(session, platforms, user_id=user_id)
 
