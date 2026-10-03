@@ -5,25 +5,25 @@ from src.actions.auth.emails import Email
 
 COPY = {
     "en": {
-        "subject": "Reconnect {platform} to keep it in Playou",
-        "lead": "Your {platform} connection to Playou ends in {days}.",
+        "subject": "Reconnect {platform} to keep it in PlaYou",
+        "lead": "Your {platform} connection to PlaYou ends in {days}.",
         "why": (
-            "{platform} asks you to approve Playou again from time to time, "
+            "{platform} asks you to approve PlaYou again from time to time, "
             "it takes a click, and nothing else changes."
         ),
         "button": "Reconnect {platform}",
-        "after": "If you do not, Playou stops syncing with {platform} until you do.",
+        "after": "If you do not, PlaYou stops syncing with {platform} until you do.",
         "dir": "ltr",
     },
     "ar": {
-        "subject": "أعد ربط {platform} ليبقى في Playou",
-        "lead": "ينتهي ربط {platform} بـ Playou خلال {days}.",
+        "subject": "أعد ربط {platform} ليبقى في PlaYou",
+        "lead": "ينتهي ربط {platform} بـ PlaYou خلال {days}.",
         "why": (
-            "يطلب {platform} موافقتك على Playou من حين لآخر، "
+            "يطلب {platform} موافقتك على PlaYou من حين لآخر، "
             "الأمر يستغرق نقرة، ولن يتغير شيء آخر."
         ),
         "button": "أعد ربط {platform}",
-        "after": "إن لم تفعل، يتوقف Playou عن المزامنة مع {platform} حتى تفعل.",
+        "after": "إن لم تفعل، يتوقف PlaYou عن المزامنة مع {platform} حتى تفعل.",
         "dir": "rtl",
     },
 }
@@ -31,27 +31,27 @@ COPY = {
 
 DISCONNECTED = {
     "en": {
-        "subject": "{platform} was disconnected from Playou",
-        "lead": "Playou can no longer reach your {platform} account.",
+        "subject": "{platform} was disconnected from PlaYou",
+        "lead": "PlaYou can no longer reach your {platform} account.",
         "why": (
             "The access was removed on {platform}'s side, or it ended. "
             "Until you reconnect, your likes and playlists stop syncing with it, "
             "and playing from it is paused."
         ),
         "button": "Reconnect {platform}",
-        "after": "If you removed it on purpose, you can unlink {platform} in Playou.",
+        "after": "If you removed it on purpose, you can unlink {platform} in PlaYou.",
         "dir": "ltr",
     },
     "ar": {
-        "subject": "تم فصل {platform} عن Playou",
-        "lead": "لم يعد بإمكان Playou الوصول إلى حسابك على {platform}.",
+        "subject": "تم فصل {platform} عن PlaYou",
+        "lead": "لم يعد بإمكان PlaYou الوصول إلى حسابك على {platform}.",
         "why": (
             "أُزيل الإذن من جهة {platform} أو انتهى. "
             "إلى أن تعيد الربط، تتوقف مزامنة إعجاباتك وقوائم التشغيل معه، "
             "ويتوقف التشغيل منه."
         ),
         "button": "أعد ربط {platform}",
-        "after": "إن أزلته عن قصد، يمكنك إلغاء ربط {platform} في Playou.",
+        "after": "إن أزلته عن قصد، يمكنك إلغاء ربط {platform} في PlaYou.",
         "dir": "rtl",
     },
 }

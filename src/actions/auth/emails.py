@@ -11,8 +11,8 @@ class Email:
 
 COPY = {
     "en": {
-        "subject": "{code} is your Playou code",
-        "lead": "Your code to sign in to Playou:",
+        "subject": "{code} is your PlaYou code",
+        "lead": "Your code to sign in to PlaYou:",
         "expires": "It works for {minutes} minutes, and only once.",
         "ignore": (
             "If you did not ask for it, ignore this email, "
@@ -21,8 +21,8 @@ COPY = {
         "dir": "ltr",
     },
     "ar": {
-        "subject": "{code} رمز الدخول إلى Playou",
-        "lead": "رمز الدخول إلى Playou:",
+        "subject": "{code} رمز الدخول إلى PlaYou",
+        "lead": "رمز الدخول إلى PlaYou:",
         "expires": "يعمل لمدة {minutes} دقائق، ومرة واحدة فقط.",
         "ignore": "إن لم تطلبه، تجاهل هذه الرسالة، فلا يمكن لأحد الدخول بدونه.",
         "dir": "rtl",
