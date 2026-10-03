@@ -34,6 +34,8 @@ def _to_account(row: tables.LinkedAccount) -> StoredAccount:
         refresh_expires_at=row.refresh_expires_at,
         expiry_warned_at=row.expiry_warned_at,
         scopes=list(row.scopes),
+        push_likes=row.push_likes,
+        push_playlists=row.push_playlists,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -264,3 +266,30 @@ async def delete_account(
     )
 
     return bool(result.rowcount)
+
+
+async def set_push_preferences(
+    session: AsyncSession,
+    user_id: UUID,
+    platform: Platforms,
+    *,
+    push_likes: bool | None,
+    push_playlists: bool | None,
+) -> StoredAccount | None:
+    account = tables.LinkedAccount
+    values = {
+        key: value
+        for key, value in (
+            ("push_likes", push_likes),
+            ("push_playlists", push_playlists),
+        )
+        if value is not None
+    }
+    if values:
+        await session.execute(
+            update(account)
+            .where(account.user_id == user_id, account.platform == platform)
+            .values(**values),
+        )
+
+    return await get_account(session, user_id, platform)

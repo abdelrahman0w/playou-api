@@ -66,3 +66,27 @@ class SpotifyTrackPage(BaseModel):
 
 class SpotifySearch(BaseModel):
     tracks: SpotifyTrackPage = Field(default_factory=SpotifyTrackPage)
+
+
+class SpotifyPlaylist(BaseModel):
+    id: str
+    snapshot_id: str | None = None
+
+
+class SpotifySnapshot(BaseModel):
+    snapshot_id: str | None = None
+
+
+class SpotifyPlaylistEntryItem(BaseModel):
+    id: str | None = None
+    type: str | None = None
+
+
+class SpotifyPlaylistEntry(BaseModel):
+    is_local: bool = False
+    item: SpotifyPlaylistEntryItem | None = None
+
+
+class SpotifyPlaylistItems(BaseModel):
+    items: list[SpotifyPlaylistEntry] = Field(default_factory=list)
+    next: str | None = None

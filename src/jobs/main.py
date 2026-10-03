@@ -7,6 +7,7 @@ import uvloop
 from src.jobs import Job
 from src.jobs import accounts
 from src.jobs import auth
+from src.jobs import sync
 from src.providers import DatabaseConnection
 from src.providers import DatabaseSessions
 from src.providers import RedisConnection
@@ -32,6 +33,7 @@ SINGLETONS = (
 JOBS: dict[str, Job] = {
     **accounts.JOBS,
     **auth.JOBS,
+    **sync.JOBS,
 }
 
 

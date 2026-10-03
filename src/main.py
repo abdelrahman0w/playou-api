@@ -19,6 +19,7 @@ from src.routes import accounts_router
 from src.routes import auth_router
 from src.routes import catalog_router
 from src.routes import health_router
+from src.routes import library_router
 from src.services import ResendConnection
 from src.services import SpotifyConnection
 from src.settings import settings
@@ -90,7 +91,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors.origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=[
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+    ],
     allow_headers=["Content-Type"],
     expose_headers=[
         "RateLimit-Limit",
@@ -105,3 +112,4 @@ app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(accounts_router)
 app.include_router(catalog_router)
+app.include_router(library_router)

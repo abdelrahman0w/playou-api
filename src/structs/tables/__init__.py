@@ -11,12 +11,26 @@ from .accounts import LinkedAccount  # noqa: E402
 from .auth import AuthEmailCode  # noqa: E402
 from .auth import AuthSession  # noqa: E402
 from .auth import User  # noqa: E402
+from .catalog import Track  # noqa: E402
+from .catalog import TrackSource  # noqa: E402
+from .library import Like  # noqa: E402
+from .library import Playlist  # noqa: E402
+from .library import PlaylistItem  # noqa: E402
+from .library import PlaylistLink  # noqa: E402
+from .sync import SyncOperation  # noqa: E402
 
 
 __all__ = [
     "AuthEmailCode",
     "AuthSession",
     "Base",
+    "Like",
     "LinkedAccount",
+    "Playlist",
+    "PlaylistItem",
+    "PlaylistLink",
+    "SyncOperation",
+    "Track",
+    "TrackSource",
     "User",
 ]

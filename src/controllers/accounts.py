@@ -15,7 +15,9 @@ from src.repositories import accounts as accounts_repositories
 from src.services import OAuthPlatform
 from src.settings import settings
 from src.structs.enums import Platforms
+from src.structs.models.requests import PushPreferencesRequest
 from src.structs.models.responses import LinkedAccount
+from src.structs.models.responses import PushPreferences
 
 
 def _service(
@@ -112,3 +114,52 @@ async def disconnect(
 
     if not deleted:
         raise PlatformNotLinkedError(f"{platform.title()} is not linked")
+
+
+async def get_preferences(
+    session: AsyncSession,
+    platform: Platforms,
+    *,
+    user_id: UUID,
+) -> PushPreferences:
+    async with session.begin():
+        account = await accounts_repositories.get_account(
+            session,
+            user_id,
+            platform,
+        )
+
+    if account is None:
+        raise PlatformNotLinkedError(f"{platform.title()} is not linked")
+
+    return PushPreferences(
+        platform=account.platform,
+        push_likes=account.push_likes,
+        push_playlists=account.push_playlists,
+    )
+
+
+async def set_preferences(
+    session: AsyncSession,
+    platform: Platforms,
+    request: PushPreferencesRequest,
+    *,
+    user_id: UUID,
+) -> PushPreferences:
+    async with session.begin():
+        account = await accounts_repositories.set_push_preferences(
+            session,
+            user_id,
+            platform,
+            push_likes=request.push_likes,
+            push_playlists=request.push_playlists,
+        )
+
+    if account is None:
+        raise PlatformNotLinkedError(f"{platform.title()} is not linked")
+
+    return PushPreferences(
+        platform=account.platform,
+        push_likes=account.push_likes,
+        push_playlists=account.push_playlists,
+    )

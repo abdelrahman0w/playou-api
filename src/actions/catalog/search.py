@@ -11,6 +11,7 @@ from src.actions.cache import cached_json
 from src.exceptions import PlatformError
 from src.exceptions import PlatformReconnectRequiredError
 from src.providers import logger
+from src.repositories import catalog as catalog_repositories
 from src.services import OAuthPlatform
 from src.settings import settings
 from src.structs.enums import AccountStatuses
@@ -20,6 +21,7 @@ from src.structs.enums import SearchStatuses
 from src.structs.models import StoredAccount
 from src.structs.models import Track
 from src.structs.models.requests import SearchRequest
+from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import PlatformSearchResult
 from src.structs.models.responses import SearchResults
 from src.utils import params_key
@@ -78,7 +80,8 @@ async def _search_one(
     now: datetime,
 ) -> PlatformSearchResult:
     def result(
-        status: SearchStatuses, tracks: list[Track] | None = None
+        status: SearchStatuses,
+        tracks: list[CatalogTrack] | None = None,
     ) -> PlatformSearchResult:
         return PlatformSearchResult(
             platform=account.platform,
@@ -117,7 +120,10 @@ async def _search_one(
 
         return result(SearchStatuses.FAILED)
 
-    return result(SearchStatuses.OK, tracks)
+    async with session_factory() as session, session.begin():
+        saved = await catalog_repositories.save_platform_tracks(session, tracks)
+
+    return result(SearchStatuses.OK, saved)
 
 
 async def search_tracks(

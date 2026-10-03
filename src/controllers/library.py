@@ -1,0 +1,222 @@
+from datetime import datetime
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
+from src.actions import library as library_actions
+from src.actions import sync as sync_actions
+from src.exceptions import NotFoundError
+from src.repositories import library as library_repositories
+from src.services import OAuthPlatform
+from src.structs.enums import Platforms
+from src.structs.models import Page
+from src.structs.models.requests import CreatePlaylistRequest
+from src.structs.models.requests import LibraryListRequest
+from src.structs.models.requests import PlaylistItemsRequest
+from src.structs.models.requests import UpdatePlaylistRequest
+from src.structs.models.responses import LikedTrack
+from src.structs.models.responses import Playlist
+from src.structs.models.responses import PlaylistDetail
+
+
+async def list_likes(
+    session: AsyncSession,
+    request: LibraryListRequest,
+    *,
+    user_id: UUID,
+) -> Page[LikedTrack]:
+    async with session.begin():
+        return await library_repositories.list_likes(
+            session,
+            user_id,
+            page=request.page,
+            page_size=request.page_size,
+            include_removed=request.include_removed,
+        )
+
+
+async def like(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    track_id: UUID,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> LikedTrack:
+    async with session.begin():
+        return await library_actions.like_track(
+            session,
+            platforms,
+            user_id=user_id,
+            track_id=track_id,
+            now=now,
+        )
+
+
+async def unlike(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    track_id: UUID,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    async with session.begin():
+        await library_actions.unlike_track(
+            session,
+            platforms,
+            user_id=user_id,
+            track_id=track_id,
+            now=now,
+        )
+
+
+async def list_playlists(
+    session: AsyncSession,
+    request: LibraryListRequest,
+    *,
+    user_id: UUID,
+) -> Page[Playlist]:
+    async with session.begin():
+        return await library_repositories.list_playlists(
+            session,
+            user_id,
+            page=request.page,
+            page_size=request.page_size,
+            include_removed=request.include_removed,
+        )
+
+
+async def get_playlist(
+    session: AsyncSession,
+    playlist_id: UUID,
+    *,
+    user_id: UUID,
+    include_removed: bool,
+) -> PlaylistDetail:
+    async with session.begin():
+        playlist = await library_repositories.get_playlist(
+            session,
+            user_id,
+            playlist_id,
+            include_removed=include_removed,
+        )
+
+    if playlist is None:
+        raise NotFoundError("The playlist does not exist")
+
+    return playlist
+
+
+async def create_playlist(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    request: CreatePlaylistRequest,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> PlaylistDetail:
+    async with session.begin():
+        return await library_actions.create_playlist(
+            session,
+            platforms,
+            user_id=user_id,
+            name=request.name,
+            description=request.description,
+            now=now,
+        )
+
+
+async def update_playlist(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    playlist_id: UUID,
+    request: UpdatePlaylistRequest,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> PlaylistDetail:
+    async with session.begin():
+        return await library_actions.update_playlist(
+            session,
+            platforms,
+            user_id=user_id,
+            playlist_id=playlist_id,
+            name=request.name,
+            description=request.description,
+            now=now,
+        )
+
+
+async def remove_playlist(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    playlist_id: UUID,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    async with session.begin():
+        await library_actions.remove_playlist(
+            session,
+            platforms,
+            user_id=user_id,
+            playlist_id=playlist_id,
+            now=now,
+        )
+
+
+async def add_playlist_items(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    playlist_id: UUID,
+    request: PlaylistItemsRequest,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> PlaylistDetail:
+    async with session.begin():
+        return await library_actions.add_playlist_items(
+            session,
+            platforms,
+            user_id=user_id,
+            playlist_id=playlist_id,
+            track_ids=request.track_ids,
+            now=now,
+        )
+
+
+async def remove_playlist_item(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    playlist_id: UUID,
+    track_id: UUID,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    async with session.begin():
+        await library_actions.remove_playlist_item(
+            session,
+            platforms,
+            user_id=user_id,
+            playlist_id=playlist_id,
+            track_id=track_id,
+            now=now,
+        )
+
+
+async def push_changes(
+    session_factory: async_sessionmaker[AsyncSession],
+    platforms: dict[Platforms, OAuthPlatform],
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    await sync_actions.push_pending(
+        session_factory,
+        platforms,
+        now=now,
+        user_id=user_id,
+    )

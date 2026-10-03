@@ -8,6 +8,7 @@ from pydantic import SecretStr
 
 from src.structs.enums import AccountStatuses
 from src.structs.enums import Platforms
+from src.structs.enums import SyncSubjects
 
 
 class Capabilities(BaseModel):
@@ -47,6 +48,11 @@ class Track(BaseModel):
     url: str | None = None
 
 
+class PlatformPlaylist(BaseModel):
+    platform_id: str
+    snapshot_id: str | None = None
+
+
 class PendingLink(BaseModel):
     user_id: UUID
     platform: Platforms
@@ -71,6 +77,8 @@ class StoredAccount(BaseModel):
     refresh_expires_at: datetime | None = None
     expiry_warned_at: datetime | None = None
     scopes: list[str] = Field(default_factory=list)
+    push_likes: bool = True
+    push_playlists: bool = True
     created_at: datetime
     updated_at: datetime
 
@@ -78,3 +86,26 @@ class StoredAccount(BaseModel):
 class ExpiringAccount(BaseModel):
     account: StoredAccount
     owner: AccountOwner
+
+
+class LikeSyncState(BaseModel):
+    liked: bool
+    platform_id: str | None = None
+
+
+class PlaylistSyncState(BaseModel):
+    name: str
+    description: str | None = None
+    removed: bool
+    link: PlatformPlaylist | None = None
+    platform_ids: list[str] = Field(default_factory=list)
+    removed_platform_ids: list[str] = Field(default_factory=list)
+
+
+class SyncTask(BaseModel):
+    id: int
+    user_id: UUID
+    platform: Platforms
+    subject: SyncSubjects
+    subject_id: UUID
+    attempts: int

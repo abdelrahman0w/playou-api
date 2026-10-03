@@ -3,6 +3,7 @@ from typing import Protocol
 
 from src.structs.enums import Platforms
 from src.structs.models import Capabilities
+from src.structs.models import PlatformPlaylist
 from src.structs.models import PlatformProfile
 from src.structs.models import PlatformTokens
 from src.structs.models import Track
@@ -28,6 +29,61 @@ class MusicPlatform(Protocol):
         *,
         limit: int,
     ) -> list[Track]: ...
+
+    async def save_tracks(
+        self,
+        access_token: str,
+        platform_ids: list[str],
+    ) -> None: ...
+
+    async def unsave_tracks(
+        self,
+        access_token: str,
+        platform_ids: list[str],
+    ) -> None: ...
+
+    async def create_playlist(
+        self,
+        access_token: str,
+        *,
+        name: str,
+        description: str | None,
+    ) -> PlatformPlaylist: ...
+
+    async def update_playlist(
+        self,
+        access_token: str,
+        platform_playlist_id: str,
+        *,
+        name: str,
+        description: str | None,
+    ) -> None: ...
+
+    async def delete_playlist(
+        self,
+        access_token: str,
+        platform_playlist_id: str,
+    ) -> None: ...
+
+    async def playlist_track_ids(
+        self,
+        access_token: str,
+        platform_playlist_id: str,
+    ) -> list[str]: ...
+
+    async def add_to_playlist(
+        self,
+        access_token: str,
+        platform_playlist_id: str,
+        platform_ids: list[str],
+    ) -> str | None: ...
+
+    async def remove_from_playlist(
+        self,
+        access_token: str,
+        platform_playlist_id: str,
+        platform_ids: list[str],
+    ) -> str | None: ...
 
     async def close(self) -> None: ...
 

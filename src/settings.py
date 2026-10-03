@@ -146,7 +146,6 @@ class EncryptionSettings(BaseAppSettings):
         env_prefix="ENCRYPTION_",
     )
 
-    # the first one encrypts, all of them decrypt, so a new key goes first
     keys: list[SecretStr] = Field(default_factory=list)
 
 
@@ -157,10 +156,8 @@ class AccountsSettings(BaseAppSettings):
 
     link_minutes: int = Field(default=10, ge=1)
     refresh_margin_seconds: int = Field(default=60, ge=0)
-    # the job refreshes the accounts whose refresh token expires within this many days
     keep_alive_days: int = Field(default=14, ge=1)
     keep_alive_batch_size: int = Field(default=500, ge=1)
-    # the accounts expiring within this many days are emailed to reconnect, once
     expiry_warning_days: int = Field(default=7, ge=1)
 
 
@@ -173,16 +170,26 @@ class SearchSettings(BaseAppSettings):
     cache_seconds: int = Field(default=60, ge=1)
 
 
+class SyncSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="SYNC_",
+    )
+
+    push_batch_size: int = Field(default=100, ge=1)
+    max_attempts: int = Field(default=8, ge=1)
+    retry_seconds: int = Field(default=30, ge=1)
+    longest_retry_seconds: int = Field(default=60 * 60, ge=1)
+    reconnect_retry_seconds: int = Field(default=60 * 60, ge=1)
+    retention_days: int = Field(default=30, ge=1)
+
+
 class SpotifySettings(BaseAppSettings):
     model_config = SettingsConfigDict(
         env_prefix="SPOTIFY_",
     )
 
-    # a pkce client, so there is no secret
     client_id: str | None = None
-    # spotify only allows loopback ips, not localhost, over plain http
     redirect_uri: str = "http://127.0.0.1:8081/accounts/spotify/callback"
-    # every scope sync needs, so users are not asked again later
     scopes: list[str] = Field(
         default_factory=lambda: [
             "user-read-email",
@@ -195,9 +202,7 @@ class SpotifySettings(BaseAppSettings):
             "playlist-modify-public",
         ],
     )
-    # how long a refresh token lasts, as the app's dashboard says, if spotify does not
     refresh_token_days: int | None = Field(default=180, ge=1)
-    # spotify refuses a search for more, it answers 400, invalid limit
     search_max_limit: int = Field(default=10, ge=1, le=50)
     accounts_url: str = "https://accounts.spotify.com"
     api_url: str = "https://api.spotify.com/v1"
@@ -218,6 +223,7 @@ class Settings(BaseAppSettings):
     encryption: EncryptionSettings = Field(default_factory=EncryptionSettings)
     accounts: AccountsSettings = Field(default_factory=AccountsSettings)
     search: SearchSettings = Field(default_factory=SearchSettings)
+    sync: SyncSettings = Field(default_factory=SyncSettings)
     spotify: SpotifySettings = Field(default_factory=SpotifySettings)
 
 

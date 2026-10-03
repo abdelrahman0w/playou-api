@@ -2,6 +2,7 @@ from .accounts import router as accounts_router
 from .auth import router as auth_router
 from .catalog import router as catalog_router
 from .health import router as health_router
+from .library import router as library_router
 
 
 __all__ = [
@@ -9,4 +10,5 @@ __all__ = [
     "auth_router",
     "catalog_router",
     "health_router",
+    "library_router",
 ]

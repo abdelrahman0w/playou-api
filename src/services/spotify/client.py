@@ -9,11 +9,15 @@ from pydantic import ValidationError
 
 from src.exceptions import InvalidOAuthStateError
 from src.exceptions import PlatformError
+from src.exceptions import PlatformNotFoundError
 from src.exceptions import PlatformReconnectRequiredError
 from src.exceptions import PlatformTimeoutError
 from src.exceptions import PlatformUnavailableError
 from src.services.spotify.models import SpotifyError
+from src.services.spotify.models import SpotifyPlaylist
+from src.services.spotify.models import SpotifyPlaylistItems
 from src.services.spotify.models import SpotifySearch
+from src.services.spotify.models import SpotifySnapshot
 from src.services.spotify.models import SpotifyToken
 from src.services.spotify.models import SpotifyTokenError
 from src.services.spotify.models import SpotifyTrack
@@ -21,6 +25,7 @@ from src.services.spotify.models import SpotifyUser
 from src.settings import settings
 from src.structs.enums import Platforms
 from src.structs.models import Capabilities
+from src.structs.models import PlatformPlaylist
 from src.structs.models import PlatformProfile
 from src.structs.models import PlatformTokens
 from src.structs.models import Track
@@ -37,6 +42,21 @@ CAPABILITIES = Capabilities(
 )
 
 INVALID_GRANT = "invalid_grant"
+
+LIBRARY_BATCH = 40
+PLAYLIST_BATCH = 100
+PLAYLIST_PAGE = 50
+
+
+def _chunks[T](
+    items: list[T],
+    size: int,
+) -> list[list[T]]:
+    return [items[start : start + size] for start in range(0, len(items), size)]
+
+
+def _track_uri(platform_id: str) -> str:
+    return f"spotify:track:{platform_id}"
 
 
 async def _send(
@@ -55,6 +75,8 @@ def _check(
 ) -> httpx.Response:
     if response.status_code == httpx.codes.UNAUTHORIZED:
         raise PlatformReconnectRequiredError("Spotify no longer accepts the account")
+    if response.status_code == httpx.codes.NOT_FOUND:
+        raise PlatformNotFoundError("Spotify does not have it anymore")
     if response.status_code == httpx.codes.TOO_MANY_REQUESTS:
         raise PlatformUnavailableError("Spotify is limiting the requests, try later")
     if response.is_error:
@@ -262,6 +284,181 @@ class SpotifyService:
         page = _parse(response, SpotifySearch).tracks
 
         return [_to_track(track) for track in page.items if track is not None]
+
+    async def _library(
+        self,
+        method: str,
+        access_token: str,
+        uris: list[str],
+    ) -> None:
+        for chunk in _chunks(uris, LIBRARY_BATCH):
+            await _call(
+                self._api.request(
+                    method,
+                    "/me/library",
+                    params={"uris": ",".join(chunk)},
+                    headers=_bearer(access_token),
+                ),
+            )
+
+    async def save_tracks(
+        self,
+        access_token: str,
+        platform_ids: list[str],
+    ) -> None:
+        await self._library(
+            "PUT",
+            access_token,
+            [_track_uri(platform_id) for platform_id in platform_ids],
+        )
+
+    async def unsave_tracks(
+        self,
+        access_token: str,
+        platform_ids: list[str],
+    ) -> None:
+        await self._library(
+            "DELETE",
+            access_token,
+            [_track_uri(platform_id) for platform_id in platform_ids],
+        )
+
+    async def create_playlist(
+        self,
+        access_token: str,
+        *,
+        name: str,
+        description: str | None,
+    ) -> PlatformPlaylist:
+        response = await _call(
+            self._api.post(
+                "/me/playlists",
+                json={
+                    "name": name,
+                    "description": description or "",
+                    "public": False,
+                },
+                headers=_bearer(access_token),
+            ),
+        )
+        playlist = _parse(response, SpotifyPlaylist)
+
+        return PlatformPlaylist(
+            platform_id=playlist.id,
+            snapshot_id=playlist.snapshot_id,
+        )
+
+    async def update_playlist(
+        self,
+        access_token: str,
+        platform_playlist_id: str,
+        *,
+        name: str,
+        description: str | None,
+    ) -> None:
+        await _call(
+            self._api.put(
+                f"/playlists/{platform_playlist_id}",
+                json={
+                    "name": name,
+                    "description": description or "",
+                },
+                headers=_bearer(access_token),
+            ),
+        )
+
+    async def delete_playlist(
+        self,
+        access_token: str,
+        platform_playlist_id: str,
+    ) -> None:
+        await self._library(
+            "DELETE",
+            access_token,
+            [f"spotify:playlist:{platform_playlist_id}"],
+        )
+
+    async def playlist_track_ids(
+        self,
+        access_token: str,
+        platform_playlist_id: str,
+    ) -> list[str]:
+        ids: list[str] = []
+        offset = 0
+
+        while True:
+            response = await _call(
+                self._api.get(
+                    f"/playlists/{platform_playlist_id}/items",
+                    params={
+                        "fields": "items(is_local,item(id,type)),next",
+                        "limit": PLAYLIST_PAGE,
+                        "offset": offset,
+                    },
+                    headers=_bearer(access_token),
+                ),
+            )
+            page = _parse(response, SpotifyPlaylistItems)
+            ids.extend(
+                entry.item.id
+                for entry in page.items
+                if entry.item is not None
+                and entry.item.type == "track"
+                and entry.item.id is not None
+                and not entry.is_local
+            )
+
+            if page.next is None or not page.items:
+                return ids
+
+            offset += len(page.items)
+
+    async def add_to_playlist(
+        self,
+        access_token: str,
+        platform_playlist_id: str,
+        platform_ids: list[str],
+    ) -> str | None:
+        snapshot: str | None = None
+
+        for chunk in _chunks(platform_ids, PLAYLIST_BATCH):
+            response = await _call(
+                self._api.post(
+                    f"/playlists/{platform_playlist_id}/items",
+                    json={
+                        "uris": [_track_uri(platform_id) for platform_id in chunk],
+                    },
+                    headers=_bearer(access_token),
+                ),
+            )
+            snapshot = _parse(response, SpotifySnapshot).snapshot_id
+
+        return snapshot
+
+    async def remove_from_playlist(
+        self,
+        access_token: str,
+        platform_playlist_id: str,
+        platform_ids: list[str],
+    ) -> str | None:
+        snapshot: str | None = None
+
+        for chunk in _chunks(platform_ids, PLAYLIST_BATCH):
+            response = await _call(
+                self._api.request(
+                    "DELETE",
+                    f"/playlists/{platform_playlist_id}/items",
+                    json={
+                        "items": [
+                            {"uri": _track_uri(platform_id)} for platform_id in chunk
+                        ],
+                    },
+                    headers=_bearer(access_token),
+                ),
+            )
+            snapshot = _parse(response, SpotifySnapshot).snapshot_id
+
+        return snapshot
 
     async def close(self) -> None:
         await self._accounts.aclose()

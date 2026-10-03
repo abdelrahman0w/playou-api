@@ -16,7 +16,9 @@ from src.dependencies import RedisDep
 from src.dependencies import UserIDDep
 from src.dependencies import require_trusted_origin
 from src.structs.enums import Platforms
+from src.structs.models.requests import PushPreferencesRequest
 from src.structs.models.responses import LinkedAccount
+from src.structs.models.responses import PushPreferences
 
 
 router = APIRouter(prefix="/accounts")
@@ -99,4 +101,35 @@ async def disconnect(
 
     return Response(
         status_code=status.HTTP_204_NO_CONTENT,
+    )
+
+
+@router.get("/{platform}/preferences")
+async def get_preferences(
+    platform: Platforms,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> PushPreferences:
+    return await accounts_controller.get_preferences(
+        session,
+        platform,
+        user_id=user_id,
+    )
+
+
+@router.patch(
+    "/{platform}/preferences",
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def set_preferences(
+    platform: Platforms,
+    body: PushPreferencesRequest,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> PushPreferences:
+    return await accounts_controller.set_preferences(
+        session,
+        platform,
+        body,
+        user_id=user_id,
     )

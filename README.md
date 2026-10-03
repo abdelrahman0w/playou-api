@@ -20,6 +20,7 @@
     - [Linking An Account](#linking-an-account)
     - [Tokens](#tokens)
     - [Search](#search)
+    - [Library](#library)
   - [Usage](#usage)
     - [Available Endpoints](#available-endpoints)
     - [Errors](#errors)
@@ -132,7 +133,7 @@ and declares its `Capabilities`, what it can search, like, and change:
 
 | Platform | Linking | Search | Like | Playlists | Status |
 | --- | --- | --- | --- | --- | --- |
-| Spotify | OAuth with PKCE, no client secret | Yes | Yes | Yes | Linking and search |
+| Spotify | OAuth with PKCE, no client secret | Yes | Yes | Yes | Linking, search, and pushing the library |
 
 > Spotify answers a search with 10 results at most, it refuses a bigger `limit`, so it is capped by `SPOTIFY_SEARCH_MAX_LIMIT`
 
@@ -205,6 +206,35 @@ its user links it again.
 1. Each platform's results are cached for `SEARCH_CACHE_SECONDS`, per account and query
 1. A platform that fails, times out, or needs reconnecting is reported with its status, never failing the rest
 
+### Library
+
+The library is the app's, likes and playlists live here, and are pushed to the platforms the user turned it on for.
+
+- Search stores what it finds in the catalog, a track once, merged across platforms by its ISRC,
+    so every result has an `id` to like it or add it to a playlist by
+- Nothing is deleted, an unliked track, a removed playlist, or a track removed from one is kept,
+    with `removed_at` and `removed_by`, `USER` or `PLATFORM`, so the library mirrors the platforms,
+    the lists leave them out, unless `include_removed=true`, and liking or adding it again brings it back
+- A change and its push are stored in one transaction, a row in `sync_operations`, the outbox
+
+```
+PUT /library/likes/{id} → postgres   (the like, and its operation, one transaction)
+                        ← 200
+          after the response → spotify   (pushed now, the job retries what fails)
+```
+
+- An operation holds what to match, not the change, a like or a playlist,
+    the push reads the library when it runs, so changes in a row become one push,
+    a like then an unlike push the unlike only, and a retry is never a step behind
+- A playlist's push makes it on the platform first, then renames it, and adds what is missing,
+    it only removes there what was removed here, never what was added in the platform's app
+- A playlist made on the platform is remembered right away, on its own, so a push that fails after it never makes a second copy
+- A playlist deleted in the platform's app is removed here too, by `PLATFORM`
+- A failed push waits `SYNC_RETRY_SECONDS`, doubled each attempt up to `SYNC_LONGEST_RETRY_SECONDS`,
+    and gives up after `SYNC_MAX_ATTEMPTS`, an account that has to be linked again waits without using an attempt
+- Operations are claimed with `FOR UPDATE SKIP LOCKED`, so the push after a request and the job never take the same one
+- `PATCH /accounts/{platform}/preferences` turns pushing likes or playlists to a platform off, or on
+
 ## Usage
 
 ### Available Endpoints
@@ -222,6 +252,18 @@ its user links it again.
 | `GET` | `/accounts/{platform}/callback` | Where the platform sends the browser back, redirects to the web app |
 | `DELETE` | `/accounts/{platform}` | Unlinks the account |
 | `GET` | `/catalog/search?q=&limit=` | Searches every linked platform, `limit` up to 50, 20 by default |
+| `GET` | `/accounts/{platform}/preferences` | What the library pushes to the platform |
+| `PATCH` | `/accounts/{platform}/preferences` | Turns pushing likes or playlists on or off, `{"push_likes": false}` |
+| `GET` | `/library/likes?page=&page_size=&include_removed=` | The liked tracks, newest first |
+| `PUT` | `/library/likes/{track_id}` | Likes a track |
+| `DELETE` | `/library/likes/{track_id}` | Unlikes it, the like is kept as removed |
+| `GET` | `/library/playlists?page=&page_size=&include_removed=` | The playlists, newest first |
+| `POST` | `/library/playlists` | Makes one, `{"name": "Road", "description": "Trip"}` |
+| `GET` | `/library/playlists/{id}?include_removed=` | A playlist, with its tracks in order |
+| `PATCH` | `/library/playlists/{id}` | Renames it, or changes its description |
+| `DELETE` | `/library/playlists/{id}` | Removes it, it is kept as removed |
+| `POST` | `/library/playlists/{id}/items` | Appends tracks, `{"track_ids": [...]}`, up to 100, a track there stays put |
+| `DELETE` | `/library/playlists/{id}/items/{track_id}` | Removes a track from it |
 
 Everything but the health probes and signing in needs a session.
 The web sends it as the HttpOnly `playou_session` cookie, apps send the same token as `Authorization: Bearer <token>`,
@@ -316,6 +358,8 @@ Jobs are run once by name through `bin/jobs.sh`, `bin/jobs.sh <job> --help` list
 
 | Job | Cron | Description |
 | --- | --- | --- |
+| `push_library_changes` | `* * * * *` | Pushes the library's changes that are due, the ones the push after a request did not finish, `SYNC_PUSH_BATCH_SIZE` a run |
+| `prune_sync_operations` | `0 1 * * *` | Drops the sync operations finished more than `SYNC_RETENTION_DAYS` ago |
 | `check_expiring_accounts` | `0 3 * * *` | Marks the accounts past their refresh token's expiry `NEEDS_RECONNECT`, emails the users of the ones expiring within `ACCOUNTS_EXPIRY_WARNING_DAYS` to reconnect, once, then refreshes the ones expiring within `ACCOUNTS_KEEP_ALIVE_DAYS`, on the platforms whose refresh extends the lifetime, the soonest first, `ACCOUNTS_KEEP_ALIVE_BATCH_SIZE` a run, one at a time. A refused refresh marks the account `NEEDS_RECONNECT`, a failed one is tried again the next run |
 | `prune_auth` | `30 0 * * *` | Drops the expired sessions, and the codes used or expired |
 
@@ -324,6 +368,10 @@ with the `sh` shell, running `/app/bin/jobs.sh <job>` in the api's container, wi
 
 | Name | Cron | Command | Enabled |
 | --- | --- | --- | --- |
+| `push_library_changes` | `* * * * *` | Pushes the library's changes that are due, the ones the push after a request did not finish, `SYNC_PUSH_BATCH_SIZE` a run |
+| `prune_sync_operations` | `0 1 * * *` | Drops the sync operations finished more than `SYNC_RETENTION_DAYS` ago |
+| `push_library_changes` | `* * * * *` | `/app/bin/jobs.sh push_library_changes` | Yes |
+| `prune_sync_operations` | `0 1 * * *` | `/app/bin/jobs.sh prune_sync_operations` | Yes |
 | `check_expiring_accounts` | `0 3 * * *` | `/app/bin/jobs.sh check_expiring_accounts` | Yes |
 | `prune_auth` | `30 0 * * *` | `/app/bin/jobs.sh prune_auth` | Yes |
 
@@ -334,7 +382,7 @@ with the `sh` shell, running `/app/bin/jobs.sh <job>` in the api's container, wi
 
 Every run logs `[Jobs] Job Started` and `[Jobs] Job Finished` with its `duration_ms`, or `[Jobs] Job Failed` with the error.
 With error tracking on, each job with a cron also checks in with a [sentry cron monitor](https://docs.sentry.io/product/crons/),
-`jobs-check-expiring-accounts` and `jobs-prune-auth`.
+`jobs-push-library-changes`, `jobs-prune-sync-operations`, `jobs-check-expiring-accounts`, and `jobs-prune-auth`.
 
 Run a job by hand when you need one:
 

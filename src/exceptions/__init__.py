@@ -6,6 +6,7 @@ from .custom_exceptions import InvalidEmailError
 from .custom_exceptions import InvalidOAuthStateError
 from .custom_exceptions import NotFoundError
 from .custom_exceptions import PlatformError
+from .custom_exceptions import PlatformNotFoundError
 from .custom_exceptions import PlatformNotLinkedError
 from .custom_exceptions import PlatformReconnectRequiredError
 from .custom_exceptions import PlatformTimeoutError
@@ -25,6 +26,7 @@ __all__ = [
     "InvalidOAuthStateError",
     "NotFoundError",
     "PlatformError",
+    "PlatformNotFoundError",
     "PlatformNotLinkedError",
     "PlatformReconnectRequiredError",
     "PlatformTimeoutError",

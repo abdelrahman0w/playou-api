@@ -59,6 +59,10 @@ class PlatformUnavailableError(PlatformError):
     error_type = ErrorTypes.PLATFORM_UNAVAILABLE
 
 
+class PlatformNotFoundError(PlatformError):
+    error_type = ErrorTypes.PLATFORM_ERROR
+
+
 class PlatformTimeoutError(PlatformError):
     error_type = ErrorTypes.PLATFORM_TIMEOUT
 

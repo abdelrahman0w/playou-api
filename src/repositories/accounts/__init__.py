@@ -6,6 +6,7 @@ from .linked_accounts import list_accounts_to_warn
 from .linked_accounts import list_expiring_accounts
 from .linked_accounts import mark_expired_accounts
 from .linked_accounts import mark_warned
+from .linked_accounts import set_push_preferences
 from .linked_accounts import set_status
 from .linked_accounts import update_tokens
 from .linked_accounts import upsert_account
@@ -20,6 +21,7 @@ __all__ = [
     "list_expiring_accounts",
     "mark_expired_accounts",
     "mark_warned",
+    "set_push_preferences",
     "set_status",
     "update_tokens",
     "upsert_account",

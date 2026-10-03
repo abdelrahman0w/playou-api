@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import ARRAY
+from sqlalchemy import Boolean
 from sqlalchemy import DateTime
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
@@ -11,6 +12,7 @@ from sqlalchemy import Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import Uuid
 from sqlalchemy import text
+from sqlalchemy import true
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
@@ -58,3 +60,5 @@ class LinkedAccount(Base):
         DateTime(timezone=True),
     )
     scopes: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    push_likes: Mapped[bool] = mapped_column(Boolean, server_default=true())
+    push_playlists: Mapped[bool] = mapped_column(Boolean, server_default=true())

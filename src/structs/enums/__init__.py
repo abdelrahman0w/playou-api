@@ -2,6 +2,9 @@ from .auth import SessionTransports
 from .cache_keys import CacheKeys
 from .error_types import ErrorTypes
 from .health import CheckStatuses
+from .library import RemovedBy
+from .library import SyncStatuses
+from .library import SyncSubjects
 from .platforms import AccountStatuses
 from .platforms import Platforms
 from .platforms import SearchStatuses
@@ -13,6 +16,9 @@ __all__ = [
     "CheckStatuses",
     "ErrorTypes",
     "Platforms",
+    "RemovedBy",
     "SearchStatuses",
     "SessionTransports",
+    "SyncStatuses",
+    "SyncSubjects",
 ]

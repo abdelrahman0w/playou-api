@@ -3,13 +3,13 @@ from pydantic import Field
 
 from src.structs.enums import Platforms
 from src.structs.enums import SearchStatuses
-from src.structs.models.platforms import Track
+from src.structs.models.responses.library import CatalogTrack
 
 
 class PlatformSearchResult(BaseModel):
     platform: Platforms
     status: SearchStatuses
-    tracks: list[Track] = Field(default_factory=list)
+    tracks: list[CatalogTrack] = Field(default_factory=list)
 
 
 class SearchResults(BaseModel):
