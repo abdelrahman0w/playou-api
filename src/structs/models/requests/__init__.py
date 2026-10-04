@@ -7,13 +7,16 @@ from .library import PlaylistItemsRequest
 from .library import PlaylistListRequest
 from .library import PushPreferencesRequest
 from .library import UpdatePlaylistRequest
+from .playback import DeviceRequest
 from .playback import EmbedBlockedRequest
 from .playback import PlayRequest
 from .playback import RejectedTokenRequest
+from .playback import SavePlaybackSessionRequest
 
 
 __all__ = [
     "CreatePlaylistRequest",
+    "DeviceRequest",
     "EmailCodeRequest",
     "EmailVerifyRequest",
     "EmbedBlockedRequest",
@@ -23,6 +26,7 @@ __all__ = [
     "PlaylistListRequest",
     "PushPreferencesRequest",
     "RejectedTokenRequest",
+    "SavePlaybackSessionRequest",
     "SearchRequest",
     "UpdatePlaylistRequest",
 ]

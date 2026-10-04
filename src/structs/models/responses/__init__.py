@@ -18,6 +18,8 @@ from .library import PlaylistLink
 from .library import Progress
 from .library import PushPreferences
 from .library import TrackSource
+from .playback import PlaybackSession
+from .playback import PlaybackSessionSaved
 from .playback import PlaybackToken
 
 
@@ -33,6 +35,8 @@ __all__ = [
     "LivenessResponse",
     "PlatformData",
     "PlatformSearchResult",
+    "PlaybackSession",
+    "PlaybackSessionSaved",
     "PlaybackToken",
     "Playlist",
     "PlaylistDetail",

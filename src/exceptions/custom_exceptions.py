@@ -106,3 +106,7 @@ class QuotaExhaustedError(AppError):
     def __init__(self, message: str, *, retry_at: datetime) -> None:
         super().__init__(message)
         self.retry_at = retry_at
+
+
+class PlaybackSessionChangedError(AppError):
+    error_type = ErrorTypes.PLAYBACK_SESSION_CHANGED

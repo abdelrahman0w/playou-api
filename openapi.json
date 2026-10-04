@@ -1162,6 +1162,115 @@
         }
       }
     },
+    "/playback/session": {
+      "get": {
+        "summary": "Get Session",
+        "operationId": "get_session_playback_session_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PlaybackSession"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Session Playback Session Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Save Session",
+        "operationId": "save_session_playback_session_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePlaybackSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackSessionSaved"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Forget Session",
+        "operationId": "forget_session_playback_session_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/playback/session/claim": {
+      "post": {
+        "summary": "Claim Session",
+        "operationId": "claim_session_playback_session_claim_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackSession"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/playback/{platform}/token": {
       "get": {
         "summary": "Playback Token",
@@ -1667,6 +1776,28 @@
           "name"
         ],
         "title": "CreatePlaylistRequest"
+      },
+      "DeviceRequest": {
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Device Id"
+          },
+          "device_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Device Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "device_id",
+          "device_name"
+        ],
+        "title": "DeviceRequest"
       },
       "EmailCodeRequest": {
         "properties": {
@@ -2188,6 +2319,108 @@
         ],
         "title": "PlaybackDevice"
       },
+      "PlaybackSession": {
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "title": "Device Id"
+          },
+          "device_name": {
+            "type": "string",
+            "title": "Device Name"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platforms"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "tracks": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogTrack"
+            },
+            "type": "array",
+            "title": "Tracks"
+          },
+          "cursor": {
+            "type": "integer",
+            "title": "Cursor",
+            "default": 0
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogTrack"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "up_next": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogTrack"
+            },
+            "type": "array",
+            "title": "Up Next"
+          },
+          "playing": {
+            "type": "boolean",
+            "title": "Playing",
+            "default": false
+          },
+          "position_ms": {
+            "type": "integer",
+            "title": "Position Ms",
+            "default": 0
+          },
+          "position_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Position At"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "device_id",
+          "device_name",
+          "platform",
+          "position_at",
+          "version"
+        ],
+        "title": "PlaybackSession"
+      },
+      "PlaybackSessionSaved": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "position_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Position At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "position_at"
+        ],
+        "title": "PlaybackSessionSaved"
+      },
       "PlaybackToken": {
         "properties": {
           "access_token": {
@@ -2645,6 +2878,97 @@
           "PLATFORM"
         ],
         "title": "RemovedBy"
+      },
+      "SavePlaybackSessionRequest": {
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Device Id"
+          },
+          "device_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Device Name"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Version"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platforms"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "track_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Track Ids"
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Cursor",
+            "default": 0
+          },
+          "current_track_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Track Id"
+          },
+          "up_next": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Up Next"
+          },
+          "playing": {
+            "type": "boolean",
+            "title": "Playing",
+            "default": false
+          },
+          "position_ms": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Position Ms",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "device_id",
+          "device_name",
+          "version",
+          "platform"
+        ],
+        "title": "SavePlaybackSessionRequest"
       },
       "SearchResults": {
         "properties": {

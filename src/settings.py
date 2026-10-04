@@ -261,6 +261,14 @@ class DataSettings(BaseAppSettings):
     deletion_enabled: bool = True
 
 
+class PlaybackSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="PLAYBACK_",
+    )
+
+    session_days: int = Field(default=30, ge=1)
+
+
 class Settings(BaseAppSettings):
     app: AppSettings = Field(default_factory=AppSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
@@ -280,6 +288,7 @@ class Settings(BaseAppSettings):
     spotify: SpotifySettings = Field(default_factory=SpotifySettings)
     youtube: YouTubeSettings = Field(default_factory=YouTubeSettings)
     data: DataSettings = Field(default_factory=DataSettings)
+    playback: PlaybackSettings = Field(default_factory=PlaybackSettings)
 
 
 settings = Settings()

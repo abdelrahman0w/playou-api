@@ -16,6 +16,7 @@ from .custom_exceptions import PlatformScopesMissingError
 from .custom_exceptions import PlatformTimeoutError
 from .custom_exceptions import PlatformTokenRejectedError
 from .custom_exceptions import PlatformUnavailableError
+from .custom_exceptions import PlaybackSessionChangedError
 from .custom_exceptions import QuotaExhaustedError
 from .custom_exceptions import TooManyRequestsError
 from .custom_exceptions import UnauthorizedError
@@ -42,6 +43,7 @@ __all__ = [
     "PlatformTimeoutError",
     "PlatformTokenRejectedError",
     "PlatformUnavailableError",
+    "PlaybackSessionChangedError",
     "QuotaExhaustedError",
     "TooManyRequestsError",
     "UnauthorizedError",

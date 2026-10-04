@@ -18,6 +18,7 @@ from .platforms import RemotePlaylist
 from .platforms import SavedTrack
 from .platforms import SavedTracksPage
 from .platforms import StoredAccount
+from .platforms import StoredPlaybackSession
 from .platforms import SyncTask
 from .platforms import Track
 
@@ -43,6 +44,7 @@ __all__ = [
     "SavedTrack",
     "SavedTracksPage",
     "StoredAccount",
+    "StoredPlaybackSession",
     "SyncTask",
     "Track",
 ]

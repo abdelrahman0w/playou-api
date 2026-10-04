@@ -314,6 +314,13 @@ the token, devices, and play endpoints answer it `UNSUPPORTED`.
 - Playing needs the `streaming`, `user-read-playback-state`, and `user-modify-playback-state` scopes,
     an account linked without them answers `PLATFORM_SCOPES_MISSING`, and lists them in `missing_scopes`, linking it again grants them
 - Pausing, seeking, skipping, and the queue are the client's, through the SDK, so a queue can span platforms
+- The playback session, `playback_sessions`, one a user, is what plays, the list and its cursor, up next, the song,
+    and where it got to, `position_ms` at `position_at`, and on which device, so any client carries on from it
+    - Only the device playing saves it, each save sends the `version` it last saw and moves it on by one,
+        in one statement, so a device left behind is refused with `PLAYBACK_SESSION_CHANGED`, and reads it again
+    - Claiming it moves it to another device, paused, at the position it got to, the device left behind sees that on its next read
+    - It holds track ids, up to 100 in the list and 100 up next, and answers with their songs, the ones still in the catalog
+    - It goes with the user's data, and `prune_auth` drops the ones untouched for `PLAYBACK_SESSION_DAYS`, 30
 
 ## Usage
 
@@ -357,6 +364,10 @@ There is no separate home route, `/` is Home or the landing, whichever fits.
 | `GET` | `/playback/{platform}/token` | The access token for the platform's web player, never cached |
 | `GET` | `/playback/{platform}/devices` | The user's devices on the platform |
 | `POST` | `/playback/{platform}/play` | Plays `{"track_ids": [...]}` or `{"playlist_id": ...}`, with `device_id`, `offset`, and `position_ms` |
+| `GET` | `/playback/session` | What plays, where, and where it got to, with its songs, `null` when nothing |
+| `PUT` | `/playback/session` | Saves it from the device playing, with the `version` it last saw, a newer one answers `PLAYBACK_SESSION_CHANGED` |
+| `POST` | `/playback/session/claim` | Continues it on this device, `{"device_id", "device_name"}`, at the position it got to |
+| `DELETE` | `/playback/session` | Forgets it |
 | `POST` | `/playback/youtube/blocked` | Marks `{"platform_id": ...}` as a video YouTube won't play outside its site |
 | `POST` | `/library/playlists` | Makes one, `{"name": "Road", "description": "Trip"}` |
 | `GET` | `/library/playlists/{id}?include_removed=` | A playlist, with its tracks in order |
@@ -433,6 +444,7 @@ Errors share a single shape:
 | `409` | `PLATFORM_RECONNECT_REQUIRED` | The platform no longer accepts the account, it has to be linked again |
 | `409` | `PLATFORM_SCOPES_MISSING` | The account was linked without what playing needs, it has to be linked again |
 | `409` | `NO_ACTIVE_DEVICE` | The platform has no device to play on |
+| `409` | `PLAYBACK_SESSION_CHANGED` | Another device saved the playback session since this one read it |
 | `403` | `PLATFORM_PREMIUM_REQUIRED` | The platform only plays for its paying users |
 | `429` | `RATE_LIMITED` | Too many requests, see [rate limiting](#rate-limiting) |
 | `502` | `PLATFORM_ERROR` | The platform responded with an error or with something unusable |
@@ -477,7 +489,7 @@ Jobs are run once by name through `bin/jobs.sh`, `bin/jobs.sh <job> --help` list
 | `prune_sync_operations` | `0 1 * * *` | Drops the sync operations finished more than `SYNC_RETENTION_DAYS` ago |
 | `check_expiring_accounts` | `0 3 * * *` | Emails the users of the accounts expiring within `ACCOUNTS_EXPIRY_WARNING_DAYS` to reconnect, once, then refreshes the ones expiring within `ACCOUNTS_KEEP_ALIVE_DAYS`, on the platforms whose refresh extends the lifetime, the soonest first, `ACCOUNTS_KEEP_ALIVE_BATCH_SIZE` a run, one at a time. A refused refresh sets `reconnect_required_at`, a failed one is tried again the next run |
 | `warn_disconnected_accounts` | `*/5 * * * *` | Emails the users whose platform refused their account, once, until it is linked again |
-| `prune_auth` | `30 0 * * *` | Drops the expired sessions, and the codes used or expired |
+| `prune_auth` | `30 0 * * *` | Drops the expired sessions, the codes used or expired, and the playback sessions untouched for `PLAYBACK_SESSION_DAYS` |
 | `delete_user_data` | by hand | Clears a user's library and linked apps by their email, `--account` deletes the account too, whatever `DATA_DELETION_ENABLED` says |
 
 In production, each job is a schedule in dokploy, in the api's application, under **Schedules**,

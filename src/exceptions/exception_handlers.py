@@ -19,6 +19,7 @@ from src.exceptions.custom_exceptions import PlatformReconnectRequiredError
 from src.exceptions.custom_exceptions import PlatformScopesMissingError
 from src.exceptions.custom_exceptions import PlatformTimeoutError
 from src.exceptions.custom_exceptions import PlatformUnavailableError
+from src.exceptions.custom_exceptions import PlaybackSessionChangedError
 from src.exceptions.custom_exceptions import QuotaExhaustedError
 from src.exceptions.custom_exceptions import TooManyRequestsError
 from src.exceptions.custom_exceptions import UnauthorizedError
@@ -44,6 +45,7 @@ STATUS_CODES: dict[type[AppError], int] = {
     PlatformScopesMissingError: status.HTTP_409_CONFLICT,
     PlatformPremiumRequiredError: status.HTTP_403_FORBIDDEN,
     NoActiveDeviceError: status.HTTP_409_CONFLICT,
+    PlaybackSessionChangedError: status.HTTP_409_CONFLICT,
     PlatformTimeoutError: status.HTTP_504_GATEWAY_TIMEOUT,
     PlatformRateLimitedError: status.HTTP_503_SERVICE_UNAVAILABLE,
     PlatformUnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,

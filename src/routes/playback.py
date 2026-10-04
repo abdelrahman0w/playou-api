@@ -12,13 +12,69 @@ from src.dependencies import UserIDDep
 from src.dependencies import require_trusted_origin
 from src.structs.enums import Platforms
 from src.structs.models import PlaybackDevice
+from src.structs.models.requests import DeviceRequest
 from src.structs.models.requests import EmbedBlockedRequest
 from src.structs.models.requests import PlayRequest
 from src.structs.models.requests import RejectedTokenRequest
+from src.structs.models.requests import SavePlaybackSessionRequest
+from src.structs.models.responses import PlaybackSession
+from src.structs.models.responses import PlaybackSessionSaved
 from src.structs.models.responses import PlaybackToken
 
 
 router = APIRouter(prefix="/playback")
+
+
+@router.get("/session")
+async def get_session(
+    response: Response,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> PlaybackSession | None:
+    response.headers["Cache-Control"] = "no-store"
+
+    return await playback_controller.get_session(session, user_id=user_id)
+
+
+@router.put(
+    "/session",
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def save_session(
+    body: SavePlaybackSessionRequest,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    now: NowDep,
+) -> PlaybackSessionSaved:
+    return await playback_controller.save_session(
+        session, body, user_id=user_id, now=now
+    )
+
+
+@router.post(
+    "/session/claim",
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def claim_session(
+    body: DeviceRequest,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    now: NowDep,
+) -> PlaybackSession:
+    return await playback_controller.claim_session(
+        session, body, user_id=user_id, now=now
+    )
+
+
+@router.delete(
+    "/session",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def forget_session(user_id: UserIDDep, session: DBSessionDep) -> Response:
+    await playback_controller.forget_session(session, user_id=user_id)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{platform}/token")

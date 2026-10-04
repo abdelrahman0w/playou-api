@@ -107,5 +107,10 @@ async def delete_platform_data(
 
 
 async def delete_library(session: AsyncSession, user_id: UUID) -> None:
-    for table in (tables.Like, tables.Playlist, tables.SyncOperation):
+    for table in (
+        tables.Like,
+        tables.Playlist,
+        tables.SyncOperation,
+        tables.PlaybackSession,
+    ):
         await session.execute(delete(table).where(table.user_id == user_id))

@@ -8,8 +8,12 @@ from src.actions import playback as playback_actions
 from src.services import OAuthPlatform
 from src.structs.enums import Platforms
 from src.structs.models import PlaybackDevice
+from src.structs.models.requests import DeviceRequest
 from src.structs.models.requests import EmbedBlockedRequest
 from src.structs.models.requests import PlayRequest
+from src.structs.models.requests import SavePlaybackSessionRequest
+from src.structs.models.responses import PlaybackSession
+from src.structs.models.responses import PlaybackSessionSaved
 from src.structs.models.responses import PlaybackToken
 
 
@@ -91,3 +95,37 @@ async def block_embedding(
             platform_id=request.platform_id,
             now=now,
         )
+
+
+async def get_session(
+    session: AsyncSession, *, user_id: UUID
+) -> PlaybackSession | None:
+    async with session.begin():
+        return await playback_actions.get_session(session, user_id)
+
+
+async def save_session(
+    session: AsyncSession,
+    request: SavePlaybackSessionRequest,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> PlaybackSessionSaved:
+    async with session.begin():
+        return await playback_actions.save_session(session, user_id, request, now=now)
+
+
+async def claim_session(
+    session: AsyncSession,
+    request: DeviceRequest,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> PlaybackSession:
+    async with session.begin():
+        return await playback_actions.claim_session(session, user_id, request, now=now)
+
+
+async def forget_session(session: AsyncSession, *, user_id: UUID) -> None:
+    async with session.begin():
+        await playback_actions.forget_session(session, user_id)

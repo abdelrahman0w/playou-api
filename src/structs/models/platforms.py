@@ -173,3 +173,19 @@ class SyncTask(BaseModel):
     subject: SyncSubjects
     subject_id: UUID
     attempts: int
+
+
+class StoredPlaybackSession(BaseModel):
+    user_id: UUID
+    device_id: str
+    device_name: str
+    platform: Platforms
+    source: str | None = None
+    track_ids: list[UUID] = Field(default_factory=list)
+    cursor: int = 0
+    current_track_id: UUID | None = None
+    up_next: list[UUID] = Field(default_factory=list)
+    playing: bool = False
+    position_ms: int = 0
+    position_at: datetime
+    version: int
