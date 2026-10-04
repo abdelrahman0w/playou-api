@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 from datetime import timedelta
 from uuid import UUID
@@ -23,6 +24,7 @@ from src.repositories import catalog as catalog_repositories
 from src.repositories import library as library_repositories
 from src.repositories import sync as sync_repositories
 from src.services import OAuthPlatform
+from src.services.limits import FINDS
 from src.services.limits import charged_to
 from src.settings import settings
 from src.structs import tables
@@ -35,11 +37,13 @@ from src.structs.enums import SyncSubjects
 from src.structs.models import StoredAccount
 from src.structs.models.responses import Candidate
 from src.structs.models.responses import CatalogTrack
+from src.structs.models.responses import CopyEstimate
 from src.structs.models.responses import CopyProgress
 from src.structs.models.responses import MissingTracks
 
 
 COPIES_A_RUN = 10
+WITH_LIKES = {CopyScopes.LIKES, CopyScopes.LIBRARY}
 LATER = timedelta(minutes=5)
 RECONNECT_LATER = timedelta(hours=1)
 
@@ -59,6 +63,77 @@ async def _target(
         raise PlatformNotLinkedError(f"{platform.title()} is not linked")
 
     return service, account
+
+
+async def _scope(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    user_id: UUID,
+    platform: Platforms,
+    scope: CopyScopes,
+    playlist_id: UUID | None,
+) -> tuple[OAuthPlatform, CopyScopes, UUID | None]:
+    service, _ = await _target(session, platforms, user_id, platform)
+    if scope in WITH_LIKES and not service.capabilities.copy_likes:
+        if scope is CopyScopes.LIKES:
+            raise UnsupportedError(
+                f"Copying liked songs to {platform.title()} is turned off",
+            )
+        scope = CopyScopes.PLAYLISTS
+    if scope is not CopyScopes.PLAYLIST:
+        return service, scope, None
+
+    playlist = (
+        await library_repositories.get_playlist(session, user_id, playlist_id)
+        if playlist_id is not None
+        else None
+    )
+    if playlist is None or playlist.removed_at is not None:
+        raise NotFoundError("The playlist does not exist")
+    if playlist.kind is PlaylistKinds.FOLLOWED:
+        raise UnsupportedError("A followed playlist cannot be copied")
+
+    return service, scope, playlist_id
+
+
+async def estimate_copy(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    *,
+    user_id: UUID,
+    platform: Platforms,
+    scope: CopyScopes,
+    playlist_id: UUID | None,
+) -> CopyEstimate:
+    service, scope, playlist_id = await _scope(
+        session,
+        platforms,
+        user_id,
+        platform,
+        scope,
+        playlist_id,
+    )
+    tracks = await sync_repositories.scope_tracks(session, user_id, scope, playlist_id)
+    missing = await sync_repositories.tracks_without(session, tracks, platform)
+    capabilities = service.capabilities
+    days = max(
+        _days(len(missing) * capabilities.find_cost, capabilities.daily_find_units),
+        _days(len(tracks) * capabilities.write_cost, capabilities.daily_write_units),
+    )
+
+    return CopyEstimate(
+        scope=scope,
+        songs=len(tracks),
+        to_find=len(missing),
+        days=days,
+    )
+
+
+def _days(units: int, daily: int | None) -> int:
+    if not units or not daily:
+        return 0
+
+    return math.ceil(units / daily)
 
 
 async def _progress(
@@ -82,19 +157,14 @@ async def start_copy(
     scope: CopyScopes,
     playlist_id: UUID | None,
 ) -> CopyProgress:
-    await _target(session, platforms, user_id, platform)
-    if scope is CopyScopes.PLAYLIST:
-        playlist = (
-            await library_repositories.get_playlist(session, user_id, playlist_id)
-            if playlist_id is not None
-            else None
-        )
-        if playlist is None or playlist.removed_at is not None:
-            raise NotFoundError("The playlist does not exist")
-        if playlist.kind is PlaylistKinds.FOLLOWED:
-            raise UnsupportedError("A followed playlist cannot be copied")
-    else:
-        playlist_id = None
+    _, scope, playlist_id = await _scope(
+        session,
+        platforms,
+        user_id,
+        platform,
+        scope,
+        playlist_id,
+    )
 
     running = await sync_repositories.running_copy(
         session,
@@ -110,7 +180,7 @@ async def start_copy(
         session,
         user_id,
         platform,
-        push_likes=True if scope is not CopyScopes.PLAYLIST else None,
+        push_likes=True if scope in WITH_LIKES else None,
         push_playlists=True if scope is not CopyScopes.LIKES else None,
     )
     tracks = await sync_repositories.scope_tracks(session, user_id, scope, playlist_id)
@@ -198,7 +268,7 @@ async def _send(
 ) -> None:
     likes = (
         await sync_repositories.likes_to_send(session, copy.user_id, copy.platform)
-        if copy.scope is not CopyScopes.PLAYLIST
+        if copy.scope in WITH_LIKES
         else []
     )
     playlists = await sync_repositories.playlists_to_send(
@@ -302,7 +372,7 @@ async def _run_copy(
 
     until: datetime | None = None
     try:
-        with charged_to(account.id):
+        with charged_to(account.id, FINDS):
             for track_id in pending:
                 await _find(
                     session_factory,
@@ -388,7 +458,7 @@ async def similar_songs(
     if track is None:
         raise NotFoundError("The track does not exist")
 
-    with charged_to(account.id):
+    with charged_to(account.id, FINDS):
         return await candidates(
             session_factory,
             redis,

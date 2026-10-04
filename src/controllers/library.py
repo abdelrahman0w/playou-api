@@ -22,6 +22,7 @@ from src.structs.models.requests import StartCopyRequest
 from src.structs.models.requests import UpdatePlaylistRequest
 from src.structs.models.responses import AccountSync
 from src.structs.models.responses import CatalogTrack
+from src.structs.models.responses import CopyEstimate
 from src.structs.models.responses import CopyProgress
 from src.structs.models.responses import LikedTrack
 from src.structs.models.responses import MissingTracks
@@ -432,4 +433,22 @@ async def dismiss_copy(
             user_id=user_id,
             copy_id=copy_id,
             now=now,
+        )
+
+
+async def estimate_copy(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    request: StartCopyRequest,
+    *,
+    user_id: UUID,
+) -> CopyEstimate:
+    async with session.begin():
+        return await sync_actions.estimate_copy(
+            session,
+            platforms,
+            user_id=user_id,
+            platform=request.platform,
+            scope=request.scope,
+            playlist_id=request.playlist_id,
         )

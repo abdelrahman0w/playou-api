@@ -301,6 +301,7 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
     an import is about 2 units for 50 songs
 - Pushing to YouTube is off until turned on, a like or a playlist change costs 50 units, so each account has
     `YOUTUBE_DAILY_PUSH_UNITS` a day, over it, or over the app's, a push waits for midnight Pacific time without an attempt,
+    finding songs to copy there has its own share, `YOUTUBE_DAILY_FIND_UNITS`, and copies only playlists unless `YOUTUBE_COPY_LIKES` is on,
     and only a song YouTube already has here is pushed, a song only on Spotify is skipped, never searched for
 - A like or a playlist keeps where it was imported from, `imported_from`, null when made here, so what an unlinked platform
     left can be removed, `DELETE /library/data/{platform}`, sparing the likes still playable on a linked platform

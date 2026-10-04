@@ -26,6 +26,7 @@ from src.structs.models.requests import StartCopyRequest
 from src.structs.models.requests import UpdatePlaylistRequest
 from src.structs.models.responses import AccountSync
 from src.structs.models.responses import CatalogTrack
+from src.structs.models.responses import CopyEstimate
 from src.structs.models.responses import CopyProgress
 from src.structs.models.responses import LikedTrack
 from src.structs.models.responses import MissingTracks
@@ -417,6 +418,21 @@ async def list_copies(
 ) -> list[CopyProgress]:
     return await library_controller.list_copies(
         session,
+        user_id=user_id,
+    )
+
+
+@router.get("/copies/estimate")
+async def estimate_copy(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    platforms: PlatformsDep,
+    request: Annotated[StartCopyRequest, Query()],
+) -> CopyEstimate:
+    return await library_controller.estimate_copy(
+        session,
+        platforms,
+        request,
         user_id=user_id,
     )
 

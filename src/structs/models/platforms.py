@@ -26,6 +26,11 @@ class Capabilities(BaseModel):
     search_shared: bool = False
     search_isrc: bool = False
     copy_to: bool = False
+    copy_likes: bool = False
+    find_cost: int = 0
+    write_cost: int = 0
+    daily_find_units: int | None = None
+    daily_write_units: int | None = None
     push_by_default: bool = True
     like: bool = False
     playlists_read: bool = False

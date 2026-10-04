@@ -21,6 +21,9 @@ from src.structs.enums import PlaylistKinds
 from src.structs.models.responses import CopyProgress
 
 
+WITH_LIKES = {CopyScopes.LIKES, CopyScopes.LIBRARY}
+
+
 def _on(platform: Platforms) -> Exists:
     source = tables.TrackSource
 
@@ -49,7 +52,7 @@ async def scope_tracks(
     like = tables.Like
     item = tables.PlaylistItem
     found: list[UUID] = []
-    if scope is not CopyScopes.PLAYLIST:
+    if scope in WITH_LIKES:
         found += await session.scalars(
             select(like.track_id).where(
                 like.user_id == user_id,

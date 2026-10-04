@@ -67,12 +67,15 @@ class PlatformPause:
 PACIFIC = ZoneInfo("America/Los_Angeles")
 TWO_DAYS = 2 * 24 * 60 * 60
 
-_charged: ContextVar[UUID | None] = ContextVar("charged", default=None)
+PUSHES = "push"
+FINDS = "find"
+
+_charged: ContextVar[tuple[UUID, str] | None] = ContextVar("charged", default=None)
 
 
 @contextmanager
-def charged_to(account_id: UUID) -> Iterator[None]:
-    token = _charged.set(account_id)
+def charged_to(account_id: UUID, pool: str = PUSHES) -> Iterator[None]:
+    token = _charged.set((account_id, pool))
     try:
         yield
     finally:
@@ -94,18 +97,26 @@ class Quota:
         daily: int,
         name: str,
         per_account: int | None = None,
+        per_account_finds: int | None = None,
     ) -> None:
         self._redis = redis
         self._platform = platform
         self._daily = daily
-        self._per_account = per_account
+        self._shares = {PUSHES: per_account, FINDS: per_account_finds}
         self._name = name
 
-    def _key(self, now: datetime, account_id: UUID | None = None) -> str:
+    def _key(
+        self,
+        now: datetime,
+        account_id: UUID | None = None,
+        pool: str = PUSHES,
+    ) -> str:
         day = now.astimezone(PACIFIC).date().isoformat()
         key = CacheKeys.PLATFORM_QUOTA.format(platform=self._platform, day=day)
+        if account_id is None:
+            return key
 
-        return f"{key}:{account_id}" if account_id else key
+        return f"{key}:{account_id}" if pool == PUSHES else f"{key}:{pool}:{account_id}"
 
     def _exhausted(
         self, now: datetime, *, account: bool = False
@@ -131,11 +142,12 @@ class Quota:
 
     async def reserve(self, units: int, *, now: datetime | None = None) -> None:
         moment = now or datetime.now(PACIFIC)
-        account_id = _charged.get()
+        charged = _charged.get()
+        share = self._shares.get(charged[1]) if charged else None
         try:
-            if account_id and self._per_account is not None:
-                personal = self._key(moment, account_id)
-                if not await self._take(personal, units, self._per_account):
+            if charged and share is not None:
+                personal = self._key(moment, *charged)
+                if not await self._take(personal, units, share):
                     raise self._exhausted(moment, account=True)
                 if not await self._take(self._key(moment), units, self._daily):
                     await self._redis.decrby(personal, units)
@@ -167,10 +179,11 @@ class Quota:
         *,
         now: datetime | None = None,
         account_id: UUID | None = None,
+        pool: str = PUSHES,
     ) -> int:
         try:
             value = await self._redis.get(
-                self._key(now or datetime.now(PACIFIC), account_id),
+                self._key(now or datetime.now(PACIFIC), account_id, pool),
             )
         except RedisError:
             return 0

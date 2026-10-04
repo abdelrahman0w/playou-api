@@ -39,6 +39,7 @@ class PlaylistImports(StrEnum):
 class CopyScopes(StrEnum):
     LIKES = "LIKES"
     PLAYLIST = "PLAYLIST"
+    PLAYLISTS = "PLAYLISTS"
     LIBRARY = "LIBRARY"
 
 

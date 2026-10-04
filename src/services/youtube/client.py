@@ -51,17 +51,6 @@ from src.structs.models import Track
 from src.utils import Singleton
 
 
-CAPABILITIES = Capabilities(
-    search=True,
-    search_on_demand=settings.youtube.search_on_demand,
-    search_shared=True,
-    like=True,
-    playlists_read=True,
-    playlists_write=True,
-    playlist_remove=True,
-    push_by_default=False,
-)
-
 INVALID_GRANT = "invalid_grant"
 QUOTA_REASONS = {"quotaExceeded", "dailyLimitExceeded", "rateLimitExceeded"}
 MUSIC_CATEGORY = "10"
@@ -73,6 +62,24 @@ READ_COST = 1
 WRITE_COST = 50
 PAGE = 50
 THUMBNAILS = ("maxres", "high", "medium", "default")
+
+
+CAPABILITIES = Capabilities(
+    search=True,
+    search_on_demand=settings.youtube.search_on_demand,
+    search_shared=True,
+    like=True,
+    playlists_read=True,
+    playlists_write=True,
+    playlist_remove=True,
+    push_by_default=False,
+    copy_to=True,
+    copy_likes=settings.youtube.copy_likes,
+    find_cost=SEARCH_COST + READ_COST,
+    write_cost=WRITE_COST,
+    daily_find_units=settings.youtube.daily_find_units,
+    daily_write_units=settings.youtube.daily_push_units,
+)
 
 
 def _bearer(access_token: str) -> dict[str, str]:
@@ -726,6 +733,7 @@ class YouTubeConnection(Singleton[YouTubeService | None]):
                 daily=youtube.daily_quota,
                 name="YouTube",
                 per_account=youtube.daily_push_units,
+                per_account_finds=youtube.daily_find_units,
             ),
             refresh_token_lifetime=timedelta(days=youtube.refresh_token_days)
             if youtube.refresh_token_days

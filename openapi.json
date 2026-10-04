@@ -1455,6 +1455,69 @@
         }
       }
     },
+    "/library/copies/estimate": {
+      "get": {
+        "summary": "Estimate Copy",
+        "operationId": "estimate_copy_library_copies_estimate_get",
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Platforms"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CopyScopes"
+            }
+          },
+          {
+            "name": "playlist_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Playlist Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopyEstimate"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/library/copies/missing": {
       "get": {
         "summary": "List Missing",
@@ -2076,6 +2139,43 @@
             "title": "Copy To",
             "default": false
           },
+          "copy_likes": {
+            "type": "boolean",
+            "title": "Copy Likes",
+            "default": false
+          },
+          "find_cost": {
+            "type": "integer",
+            "title": "Find Cost",
+            "default": 0
+          },
+          "write_cost": {
+            "type": "integer",
+            "title": "Write Cost",
+            "default": 0
+          },
+          "daily_find_units": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Find Units"
+          },
+          "daily_write_units": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Write Units"
+          },
           "push_by_default": {
             "type": "boolean",
             "title": "Push By Default",
@@ -2235,6 +2335,33 @@
         ],
         "title": "Closeness"
       },
+      "CopyEstimate": {
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/CopyScopes"
+          },
+          "songs": {
+            "type": "integer",
+            "title": "Songs"
+          },
+          "to_find": {
+            "type": "integer",
+            "title": "To Find"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scope",
+          "songs",
+          "to_find",
+          "days"
+        ],
+        "title": "CopyEstimate"
+      },
       "CopyProgress": {
         "properties": {
           "id": {
@@ -2346,6 +2473,7 @@
         "enum": [
           "LIKES",
           "PLAYLIST",
+          "PLAYLISTS",
           "LIBRARY"
         ],
         "title": "CopyScopes"

@@ -9,6 +9,7 @@ from .health import LivenessResponse
 from .health import ReadinessResponse
 from .library import AccountSync
 from .library import CatalogTrack
+from .library import CopyEstimate
 from .library import CopyProgress
 from .library import ImportProgress
 from .library import LikedTrack
@@ -32,6 +33,7 @@ __all__ = [
     "BearerSession",
     "Candidate",
     "CatalogTrack",
+    "CopyEstimate",
     "CopyProgress",
     "EmailCodeSent",
     "ImportProgress",

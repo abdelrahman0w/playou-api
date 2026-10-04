@@ -54,6 +54,7 @@ CAPABILITIES = Capabilities(
     search=True,
     search_isrc=True,
     copy_to=True,
+    copy_likes=True,
     like=True,
     playlists_read=True,
     playlists_write=True,

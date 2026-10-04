@@ -120,6 +120,13 @@ class CopyProgress(BaseModel):
     dismissed_at: datetime | None = None
 
 
+class CopyEstimate(BaseModel):
+    scope: CopyScopes
+    songs: int
+    to_find: int
+    days: int
+
+
 class MissingTracks(BaseModel):
     platform: Platforms
     tracks: list[CatalogTrack] = Field(default_factory=list)

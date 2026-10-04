@@ -255,6 +255,8 @@ class YouTubeSettings(BaseAppSettings):
     search_on_demand: bool = True
     daily_quota: int = Field(default=10_000, ge=0)
     daily_push_units: int = Field(default=1_000, ge=0)
+    daily_find_units: int = Field(default=1_000, ge=0)
+    copy_likes: bool = False
     refresh_token_days: int | None = Field(default=None, ge=1)
     rate_limit_seconds: int = Field(default=30, ge=1)
     accounts_url: str = "https://accounts.google.com"

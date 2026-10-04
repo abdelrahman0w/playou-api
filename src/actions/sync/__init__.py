@@ -2,6 +2,7 @@ from .copies import cancel_copy
 from .copies import choose_similar
 from .copies import copy_missing
 from .copies import dismiss_copy
+from .copies import estimate_copy
 from .copies import list_copies
 from .copies import list_missing
 from .copies import run_copies
@@ -23,6 +24,7 @@ __all__ = [
     "copy_missing",
     "dismiss_copy",
     "enqueue_push",
+    "estimate_copy",
     "import_account",
     "import_user",
     "library_sync",

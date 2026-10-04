@@ -1,5 +1,6 @@
 from .library import AccountSync
 from .library import CatalogTrack
+from .library import CopyEstimate
 from .library import CopyProgress
 from .library import ImportProgress
 from .library import LikedTrack
@@ -17,6 +18,7 @@ from .library import TrackSource
 __all__ = [
     "AccountSync",
     "CatalogTrack",
+    "CopyEstimate",
     "CopyProgress",
     "ImportProgress",
     "LikedTrack",
