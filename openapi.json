@@ -497,6 +497,54 @@
         }
       }
     },
+    "/catalog/tracks/{track_id}/find/{platform}": {
+      "post": {
+        "summary": "Find On",
+        "operationId": "find_on_catalog_tracks__track_id__find__platform__post",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Track Id"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Platforms"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogTrack"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/library/likes": {
       "get": {
         "summary": "List Likes",
@@ -1618,6 +1666,11 @@
           "search_on_demand": {
             "type": "boolean",
             "title": "Search On Demand",
+            "default": false
+          },
+          "search_shared": {
+            "type": "boolean",
+            "title": "Search Shared",
             "default": false
           },
           "push_by_default": {

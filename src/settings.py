@@ -171,6 +171,14 @@ class SearchSettings(BaseAppSettings):
     shared_cache_seconds: int = Field(default=24 * 60 * 60, ge=1)
 
 
+class CatalogSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="CATALOG_",
+    )
+
+    match_across_scripts: bool = False
+
+
 class SyncSettings(BaseAppSettings):
     model_config = SettingsConfigDict(
         env_prefix="SYNC_",
@@ -242,6 +250,7 @@ class YouTubeSettings(BaseAppSettings):
             "https://www.googleapis.com/auth/youtube",
         ],
     )
+    search_on_demand: bool = True
     daily_quota: int = Field(default=10_000, ge=0)
     daily_push_units: int = Field(default=1_000, ge=0)
     refresh_token_days: int | None = Field(default=None, ge=1)
@@ -283,6 +292,7 @@ class Settings(BaseAppSettings):
     encryption: EncryptionSettings = Field(default_factory=EncryptionSettings)
     accounts: AccountsSettings = Field(default_factory=AccountsSettings)
     search: SearchSettings = Field(default_factory=SearchSettings)
+    catalog: CatalogSettings = Field(default_factory=CatalogSettings)
     sync: SyncSettings = Field(default_factory=SyncSettings)
     imports: ImportSettings = Field(default_factory=ImportSettings)
     spotify: SpotifySettings = Field(default_factory=SpotifySettings)

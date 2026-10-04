@@ -17,6 +17,7 @@ class Capabilities(BaseModel):
 
     search: bool = False
     search_on_demand: bool = False
+    search_shared: bool = False
     push_by_default: bool = True
     like: bool = False
     playlists_read: bool = False

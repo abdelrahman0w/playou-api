@@ -10,6 +10,7 @@ from src.repositories import accounts as accounts_repositories
 from src.services import OAuthPlatform
 from src.structs.enums import Platforms
 from src.structs.models.requests import SearchRequest
+from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import SearchResults
 
 
@@ -32,5 +33,30 @@ async def search(
         platforms,
         accounts,
         request,
+        now=now,
+    )
+
+
+async def find_on(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    redis: Redis,
+    platforms: dict[Platforms, OAuthPlatform],
+    track_id: UUID,
+    platform: Platforms,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> CatalogTrack:
+    async with session.begin():
+        accounts = await accounts_repositories.list_accounts(session, user_id)
+
+    return await catalog_actions.find_on(
+        session_factory,
+        redis,
+        platforms,
+        accounts,
+        track_id,
+        platform,
         now=now,
     )

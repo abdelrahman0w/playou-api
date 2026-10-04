@@ -52,7 +52,8 @@ from src.utils import Singleton
 
 CAPABILITIES = Capabilities(
     search=True,
-    search_on_demand=True,
+    search_on_demand=settings.youtube.search_on_demand,
+    search_shared=True,
     like=True,
     playlists_read=True,
     playlists_write=True,

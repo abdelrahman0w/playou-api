@@ -219,10 +219,23 @@ its user links it again.
 1. A platform that fails, times out, or needs reconnecting is reported with its status, never failing the rest
 1. YouTube is searched on demand, only when the others found nothing, or with `everywhere=true`, otherwise it is `SKIPPED`,
     since a search is 100 of its 10,000 units a day for the whole app, it is searched with the api key, so its results
-    are no one's, cached for `SEARCH_SHARED_CACHE_SECONDS` for everyone, and a spent day is `QUOTA_EXHAUSTED`
+    are no one's, cached for `SEARCH_SHARED_CACHE_SECONDS` for everyone, and a spent day is `QUOTA_EXHAUSTED`,
+    `YOUTUBE_SEARCH_ON_DEMAND=false` searches it with the others, once the quota allows
+1. A `SKIPPED` platform still answers the songs the catalog has on it, every song any user imported or found,
+    searched like the library, every word matching, the closest first, without a unit spent, the videos YouTube refused left out
 1. A result is stored in the catalog, by its isrc, or for youtube, which has none, joined to the song with the same
     title and artist within 3 seconds of its length, so a song on Spotify and YouTube is one, with both its sources,
     and a source without an isrc never rewrites the details of a song that has one
+1. The platforms are searched at once, and their results stored one after the other, in one transaction,
+    the ones with an isrc first, so a song two platforms found in the same search is one
+1. `CATALOG_MATCH_ACROSS_SCRIPTS=true` also joins a song written in Arabic on one platform and in Latin letters on the other,
+    `إزاي` and `Ezay`, `رن رن` and `Ren Ren`, by how its title and artists sound, `sounds` in `src/utils/matching.py`,
+    the vowels dropped, the letters that sound alike as one, `3` and `7` read as Arabizi, either half of `Title - العنوان` compared.
+    Only across the two scripts, never within one, and still within 3 seconds of its length, it is off by default,
+    and it joins what is stored from then on, not the songs stored apart before it
+1. `POST /catalog/tracks/{id}/find/{platform}` looks a song up on one more app, its title and first artist, 5 results,
+    stored like any search, so the one that is the same song is joined to it, and answers the song, with the new source or without,
+    on YouTube it is one search, 100 units, a song already there costs nothing
 
 ### Library
 
@@ -349,7 +362,8 @@ There is no separate home route, `/` is Home or the landing, whichever fits.
 | `GET` | `/accounts/{platform}/connect` | Starts linking, redirects to the platform |
 | `GET` | `/accounts/{platform}/callback` | Where the platform sends the browser back, redirects to the web app |
 | `DELETE` | `/accounts/{platform}` | Unlinks the account, with `remove_data=true` also what was imported from it |
-| `GET` | `/catalog/search?q=&limit=` | Searches every linked platform, `limit` up to 50, 20 by default |
+| `GET` | `/catalog/search?q=&limit=&everywhere=` | Searches every linked platform, `limit` up to 50, 20 by default |
+| `POST` | `/catalog/tracks/{track_id}/find/{platform}` | Looks a song up on another linked app, and joins what is the same song |
 | `GET` | `/accounts/{platform}/preferences` | What the library pushes to the platform |
 | `PATCH` | `/accounts/{platform}/preferences` | Turns pushing likes or playlists on or off, `{"push_likes": false}` |
 | `GET` | `/library/likes?page=&page_size=&include_removed=&platform=&q=` | The liked tracks, newest first, `q` searches them |

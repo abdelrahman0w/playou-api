@@ -1,6 +1,8 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter
+from fastapi import Depends
 from fastapi import Query
 
 from src.controllers import catalog as catalog_controller
@@ -10,7 +12,10 @@ from src.dependencies import PlatformsDep
 from src.dependencies import RedisDep
 from src.dependencies import SessionFactoryDep
 from src.dependencies import UserIDDep
+from src.dependencies import require_trusted_origin
+from src.structs.enums import Platforms
 from src.structs.models.requests import SearchRequest
+from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import SearchResults
 
 
@@ -33,6 +38,32 @@ async def search(
         redis,
         platforms,
         request,
+        user_id=user_id,
+        now=now,
+    )
+
+
+@router.post(
+    "/tracks/{track_id}/find/{platform}",
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def find_on(
+    track_id: UUID,
+    platform: Platforms,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    session_factory: SessionFactoryDep,
+    redis: RedisDep,
+    platforms: PlatformsDep,
+    now: NowDep,
+) -> CatalogTrack:
+    return await catalog_controller.find_on(
+        session,
+        session_factory,
+        redis,
+        platforms,
+        track_id,
+        platform,
         user_id=user_id,
         now=now,
     )

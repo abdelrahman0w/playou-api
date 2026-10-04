@@ -3,6 +3,8 @@ from datetime import datetime
 from uuid import UUID
 from uuid import uuid7
 
+from sqlalchemy import exists
+from sqlalchemy import func
 from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy import text
@@ -11,6 +13,7 @@ from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.settings import settings
 from src.structs import tables
 from src.structs.enums import Platforms
 from src.structs.models import Track
@@ -18,6 +21,7 @@ from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import TrackSource
 from src.utils.matching import SAME_DURATION_MS
 from src.utils.matching import same_song
+from src.utils.search import matching
 
 
 BATCH = 500
@@ -82,6 +86,7 @@ async def _matches(
             if same_song(
                 (track.title, track.artists, track.duration_ms),
                 (candidate.title, list(candidate.artists), candidate.duration_ms),
+                across_scripts=settings.catalog.match_across_scripts,
             ):
                 matched[(track.platform, track.platform_id)] = candidate.id
                 break
@@ -310,3 +315,35 @@ async def block_embedding(
         )
         .values(embed_blocked_at=now),
     )
+
+
+async def search_catalog(
+    session: AsyncSession,
+    platform: Platforms,
+    query: str,
+    *,
+    limit: int,
+) -> list[CatalogTrack]:
+    track = tables.Track
+    source = tables.TrackSource
+    searched = func.track_search_text(track.title, track.artists, track.album)
+    ids = list(
+        await session.scalars(
+            select(track.id)
+            .where(
+                exists().where(
+                    source.track_id == track.id,
+                    source.platform == platform,
+                    source.embed_blocked_at.is_(None),
+                ),
+                *matching(searched, query),
+            )
+            .order_by(
+                func.similarity(searched, func.search_fold(query)).desc(), track.id
+            )
+            .limit(limit),
+        ),
+    )
+    found = await get_tracks(session, ids)
+
+    return [found[id_] for id_ in ids if id_ in found]

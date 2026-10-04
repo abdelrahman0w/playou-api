@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import TypeAdapter
 from redis.asyncio import Redis
@@ -8,10 +9,13 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from src.actions import accounts as accounts_actions
 from src.actions.cache import cached_json
+from src.exceptions import NotFoundError
 from src.exceptions import PlatformError
+from src.exceptions import PlatformNotLinkedError
 from src.exceptions import PlatformRateLimitedError
 from src.exceptions import PlatformReconnectRequiredError
 from src.exceptions import QuotaExhaustedError
+from src.exceptions import UnsupportedError
 from src.providers import logger
 from src.repositories import catalog as catalog_repositories
 from src.services import OAuthPlatform
@@ -30,6 +34,7 @@ from src.utils import params_key
 
 
 TRACKS = TypeAdapter(list[Track])
+FIND_LIMIT = 5
 
 
 async def _search_platform(
@@ -41,7 +46,7 @@ async def _search_platform(
     *,
     now: datetime,
 ) -> list[Track]:
-    shared = platform.capabilities.search_on_demand
+    shared = platform.capabilities.search_shared
 
     async def produce() -> list[Track]:
         if shared:
@@ -85,16 +90,9 @@ async def _search_one(
     request: SearchRequest,
     *,
     now: datetime,
-) -> PlatformSearchResult:
-    def result(
-        status: SearchStatuses,
-        tracks: list[CatalogTrack] | None = None,
-    ) -> PlatformSearchResult:
-        return PlatformSearchResult(
-            platform=account.platform,
-            status=status,
-            tracks=tracks or [],
-        )
+) -> tuple[PlatformSearchResult, list[Track]]:
+    def result(status: SearchStatuses) -> tuple[PlatformSearchResult, list[Track]]:
+        return PlatformSearchResult(platform=account.platform, status=status), []
 
     if account.status_at(now) is AccountStatuses.NEEDS_RECONNECT:
         return result(SearchStatuses.NEEDS_RECONNECT)
@@ -131,10 +129,10 @@ async def _search_one(
 
         return result(SearchStatuses.FAILED)
 
-    async with session_factory() as session, session.begin():
-        saved = await catalog_repositories.save_platform_tracks(session, tracks)
-
-    return result(SearchStatuses.OK, saved)
+    return PlatformSearchResult(
+        platform=account.platform,
+        status=SearchStatuses.OK,
+    ), tracks
 
 
 async def search_tracks(
@@ -155,21 +153,33 @@ async def search_tracks(
     async def search(
         group: list[tuple[OAuthPlatform, StoredAccount]],
     ) -> list[PlatformSearchResult]:
-        return list(
-            await asyncio.gather(
-                *(
-                    _search_one(
-                        session_factory,
-                        redis,
-                        platform,
-                        account,
-                        request,
-                        now=now,
-                    )
-                    for platform, account in group
-                ),
+        found = await asyncio.gather(
+            *(
+                _search_one(
+                    session_factory,
+                    redis,
+                    platform,
+                    account,
+                    request,
+                    now=now,
+                )
+                for platform, account in group
             ),
         )
+        by_isrc_first = sorted(
+            range(len(group)),
+            key=lambda index: group[index][0].capabilities.search_shared,
+        )
+        async with session_factory() as session, session.begin():
+            for index in by_isrc_first:
+                result, tracks = found[index]
+                if tracks:
+                    result.tracks = await catalog_repositories.save_platform_tracks(
+                        session,
+                        tracks,
+                    )
+
+        return [result for result, _ in found]
 
     first = [item for item in searched if not item[0].capabilities.search_on_demand]
     later = [item for item in searched if item[0].capabilities.search_on_demand]
@@ -177,15 +187,66 @@ async def search_tracks(
 
     if request.everywhere or not any(result.tracks for result in results):
         results += await search(later)
-    else:
-        results += [
-            PlatformSearchResult(
-                platform=account.platform, status=SearchStatuses.SKIPPED
-            )
-            for _, account in later
-        ]
+    elif later:
+        async with session_factory() as session:
+            results += [
+                PlatformSearchResult(
+                    platform=account.platform,
+                    status=SearchStatuses.SKIPPED,
+                    tracks=await catalog_repositories.search_catalog(
+                        session,
+                        account.platform,
+                        request.q,
+                        limit=request.limit,
+                    ),
+                )
+                for _, account in later
+            ]
 
     return SearchResults(
         query=request.q,
         platforms=results,
     )
+
+
+async def find_on(
+    session_factory: async_sessionmaker[AsyncSession],
+    redis: Redis,
+    platforms: dict[Platforms, OAuthPlatform],
+    accounts: list[StoredAccount],
+    track_id: UUID,
+    platform: Platforms,
+    *,
+    now: datetime,
+) -> CatalogTrack:
+    service = platforms.get(platform)
+    if service is None or not service.capabilities.search:
+        raise UnsupportedError(f"{platform.title()} cannot be searched")
+
+    account = next((item for item in accounts if item.platform == platform), None)
+    if account is None:
+        raise PlatformNotLinkedError(f"{platform.title()} is not linked")
+
+    async with session_factory() as session:
+        track = (await catalog_repositories.get_tracks(session, [track_id])).get(
+            track_id
+        )
+    if track is None:
+        raise NotFoundError("The track does not exist")
+    if any(source.platform == platform for source in track.sources):
+        return track
+
+    query = " ".join([track.title, *track.artists[:1]])[:200]
+    found = await _search_platform(
+        session_factory,
+        redis,
+        service,
+        account,
+        SearchRequest(q=query, limit=FIND_LIMIT),
+        now=now,
+    )
+    async with session_factory() as session, session.begin():
+        await catalog_repositories.save_platform_tracks(session, found)
+        updated = await catalog_repositories.get_tracks(session, [track_id])
+
+    return updated.get(track_id, track)
