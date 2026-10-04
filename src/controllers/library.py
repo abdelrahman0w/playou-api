@@ -18,9 +18,13 @@ from src.structs.models.requests import LikeListRequest
 from src.structs.models.requests import PlaylistImportingRequest
 from src.structs.models.requests import PlaylistItemsRequest
 from src.structs.models.requests import PlaylistListRequest
+from src.structs.models.requests import StartCopyRequest
 from src.structs.models.requests import UpdatePlaylistRequest
 from src.structs.models.responses import AccountSync
+from src.structs.models.responses import CatalogTrack
+from src.structs.models.responses import CopyProgress
 from src.structs.models.responses import LikedTrack
+from src.structs.models.responses import MissingTracks
 from src.structs.models.responses import PlatformData
 from src.structs.models.responses import Playlist
 from src.structs.models.responses import PlaylistDetail
@@ -353,3 +357,79 @@ async def clear_library(
     library_actions.ensure_allowed()
     async with session.begin():
         await library_actions.clear_library(session, user_id, unlink=unlink)
+
+
+async def start_copy(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    request: StartCopyRequest,
+    *,
+    user_id: UUID,
+) -> CopyProgress:
+    async with session.begin():
+        return await sync_actions.start_copy(
+            session,
+            platforms,
+            user_id=user_id,
+            platform=request.platform,
+            scope=request.scope,
+            playlist_id=request.playlist_id,
+        )
+
+
+async def list_copies(session: AsyncSession, *, user_id: UUID) -> list[CopyProgress]:
+    async with session.begin():
+        return await sync_actions.list_copies(session, user_id=user_id)
+
+
+async def list_missing(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+) -> list[MissingTracks]:
+    async with session.begin():
+        return await sync_actions.list_missing(session, user_id=user_id)
+
+
+async def cancel_copy(
+    session: AsyncSession,
+    copy_id: UUID,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    async with session.begin():
+        await sync_actions.cancel_copy(
+            session,
+            user_id=user_id,
+            copy_id=copy_id,
+            now=now,
+        )
+
+
+async def copy_missing(
+    session: AsyncSession,
+    copy_id: UUID,
+    *,
+    user_id: UUID,
+) -> list[CatalogTrack]:
+    async with session.begin():
+        return await sync_actions.copy_missing(
+            session, user_id=user_id, copy_id=copy_id
+        )
+
+
+async def dismiss_copy(
+    session: AsyncSession,
+    copy_id: UUID,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    async with session.begin():
+        await sync_actions.dismiss_copy(
+            session,
+            user_id=user_id,
+            copy_id=copy_id,
+            now=now,
+        )

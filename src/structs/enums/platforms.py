@@ -19,3 +19,10 @@ class SearchStatuses(StrEnum):
     NEEDS_RECONNECT = "NEEDS_RECONNECT"
     QUOTA_EXHAUSTED = "QUOTA_EXHAUSTED"
     SKIPPED = "SKIPPED"
+
+
+class Closeness(StrEnum):
+    SAME = "SAME"
+    LIKELY = "LIKELY"
+    VERSION = "VERSION"
+    MAYBE = "MAYBE"

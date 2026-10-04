@@ -545,6 +545,122 @@
         }
       }
     },
+    "/catalog/tracks/{track_id}/similar/{platform}": {
+      "get": {
+        "summary": "Similar Songs",
+        "operationId": "similar_songs_catalog_tracks__track_id__similar__platform__get",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Track Id"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Platforms"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Candidate"
+                  },
+                  "title": "Response Similar Songs Catalog Tracks  Track Id  Similar  Platform  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Choose Similar",
+        "operationId": "choose_similar_catalog_tracks__track_id__similar__platform__post",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Track Id"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Platforms"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChooseSimilarRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CatalogTrack"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Choose Similar Catalog Tracks  Track Id  Similar  Platform  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/library/likes": {
       "get": {
         "summary": "List Likes",
@@ -1281,6 +1397,196 @@
         }
       }
     },
+    "/library/copies": {
+      "get": {
+        "summary": "List Copies",
+        "operationId": "list_copies_library_copies_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CopyProgress"
+                  },
+                  "type": "array",
+                  "title": "Response List Copies Library Copies Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Start Copy",
+        "operationId": "start_copy_library_copies_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartCopyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopyProgress"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library/copies/missing": {
+      "get": {
+        "summary": "List Missing",
+        "operationId": "list_missing_library_copies_missing_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MissingTracks"
+                  },
+                  "type": "array",
+                  "title": "Response List Missing Library Copies Missing Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library/copies/{copy_id}": {
+      "delete": {
+        "summary": "Cancel Copy",
+        "operationId": "cancel_copy_library_copies__copy_id__delete",
+        "parameters": [
+          {
+            "name": "copy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Copy Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library/copies/{copy_id}/missing": {
+      "get": {
+        "summary": "Copy Missing",
+        "operationId": "copy_missing_library_copies__copy_id__missing_get",
+        "parameters": [
+          {
+            "name": "copy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Copy Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogTrack"
+                  },
+                  "title": "Response Copy Missing Library Copies  Copy Id  Missing Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library/copies/{copy_id}/dismiss": {
+      "post": {
+        "summary": "Dismiss Copy",
+        "operationId": "dismiss_copy_library_copies__copy_id__dismiss_post",
+        "parameters": [
+          {
+            "name": "copy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Copy Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/playback/session": {
       "get": {
         "summary": "Get Session",
@@ -1727,6 +2033,22 @@
         ],
         "title": "BearerSession"
       },
+      "Candidate": {
+        "properties": {
+          "track": {
+            "$ref": "#/components/schemas/Track"
+          },
+          "closeness": {
+            "$ref": "#/components/schemas/Closeness"
+          }
+        },
+        "type": "object",
+        "required": [
+          "track",
+          "closeness"
+        ],
+        "title": "Candidate"
+      },
       "Capabilities": {
         "properties": {
           "search": {
@@ -1742,6 +2064,16 @@
           "search_shared": {
             "type": "boolean",
             "title": "Search Shared",
+            "default": false
+          },
+          "search_isrc": {
+            "type": "boolean",
+            "title": "Search Isrc",
+            "default": false
+          },
+          "copy_to": {
+            "type": "boolean",
+            "title": "Copy To",
             "default": false
           },
           "push_by_default": {
@@ -1873,6 +2205,159 @@
           "FAILED"
         ],
         "title": "CheckStatuses"
+      },
+      "ChooseSimilarRequest": {
+        "properties": {
+          "platform_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform Id"
+          }
+        },
+        "type": "object",
+        "title": "ChooseSimilarRequest"
+      },
+      "Closeness": {
+        "type": "string",
+        "enum": [
+          "SAME",
+          "LIKELY",
+          "VERSION",
+          "MAYBE"
+        ],
+        "title": "Closeness"
+      },
+      "CopyProgress": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platforms"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/CopyScopes"
+          },
+          "playlist_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playlist Id"
+          },
+          "playlist_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playlist Name"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CopyStatuses"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending"
+          },
+          "missing": {
+            "type": "integer",
+            "title": "Missing"
+          },
+          "resume_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "dismissed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dismissed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "platform",
+          "scope",
+          "status",
+          "total",
+          "pending",
+          "missing",
+          "created_at"
+        ],
+        "title": "CopyProgress"
+      },
+      "CopyScopes": {
+        "type": "string",
+        "enum": [
+          "LIKES",
+          "PLAYLIST",
+          "LIBRARY"
+        ],
+        "title": "CopyScopes"
+      },
+      "CopyStatuses": {
+        "type": "string",
+        "enum": [
+          "RUNNING",
+          "DONE",
+          "CANCELED"
+        ],
+        "title": "CopyStatuses"
       },
       "CreatePlaylistRequest": {
         "properties": {
@@ -2182,6 +2667,25 @@
         },
         "type": "object",
         "title": "LivenessResponse"
+      },
+      "MissingTracks": {
+        "properties": {
+          "platform": {
+            "$ref": "#/components/schemas/Platforms"
+          },
+          "tracks": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogTrack"
+            },
+            "type": "array",
+            "title": "Tracks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "platform"
+        ],
+        "title": "MissingTracks"
       },
       "Page_LikedTrack_": {
         "properties": {
@@ -3203,6 +3707,129 @@
           "bearer"
         ],
         "title": "SessionTransports"
+      },
+      "StartCopyRequest": {
+        "properties": {
+          "platform": {
+            "$ref": "#/components/schemas/Platforms"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/CopyScopes"
+          },
+          "playlist_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playlist Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "platform",
+          "scope"
+        ],
+        "title": "StartCopyRequest"
+      },
+      "Track": {
+        "properties": {
+          "platform": {
+            "$ref": "#/components/schemas/Platforms"
+          },
+          "platform_id": {
+            "type": "string",
+            "title": "Platform Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "artists": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Artists"
+          },
+          "album": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Album"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "isrc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isrc"
+          },
+          "explicit": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explicit"
+          },
+          "artwork_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artwork Url"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "platform",
+          "platform_id",
+          "title"
+        ],
+        "title": "Track"
       },
       "TrackSource": {
         "properties": {

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from pydantic import Field
 from pydantic import field_validator
 
+from src.structs.enums import CopyScopes
 from src.structs.enums import LikeSorts
 from src.structs.enums import Platforms
 from src.structs.enums import PlaylistImports
@@ -66,3 +67,9 @@ class PlaylistItemsRequest(BaseModel):
 class PushPreferencesRequest(BaseModel):
     push_likes: bool | None = None
     push_playlists: bool | None = None
+
+
+class StartCopyRequest(BaseModel):
+    platform: Platforms
+    scope: CopyScopes
+    playlist_id: UUID | None = None

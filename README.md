@@ -500,10 +500,12 @@ Jobs are run once by name through `bin/jobs.sh`, `bin/jobs.sh <job> --help` list
 | --- | --- | --- |
 | `push_library_changes` | `* * * * *` | Pushes the library's changes that are due, the ones the push after a request did not finish, `SYNC_PUSH_BATCH_SIZE` a run |
 | `import_libraries` | `* * * * *` | Asks for the imports that are due, and imports the asked for, `IMPORT_BATCH_SIZE` a run, see [imports](#imports) |
+| `copy_libraries` | `* * * * *` | Finds the songs being copied to another app, `CATALOG_COPY_BATCH_SIZE` a copy a run, then sends the likes and playlists there |
 | `prune_sync_operations` | `0 1 * * *` | Drops the sync operations finished more than `SYNC_RETENTION_DAYS` ago |
 | `check_expiring_accounts` | `0 3 * * *` | Emails the users of the accounts expiring within `ACCOUNTS_EXPIRY_WARNING_DAYS` to reconnect, once, then refreshes the ones expiring within `ACCOUNTS_KEEP_ALIVE_DAYS`, on the platforms whose refresh extends the lifetime, the soonest first, `ACCOUNTS_KEEP_ALIVE_BATCH_SIZE` a run, one at a time. A refused refresh sets `reconnect_required_at`, a failed one is tried again the next run |
 | `warn_disconnected_accounts` | `*/5 * * * *` | Emails the users whose platform refused their account, once, until it is linked again |
 | `prune_auth` | `30 0 * * *` | Drops the expired sessions, the codes used or expired, and the playback sessions untouched for `PLAYBACK_SESSION_DAYS` |
+| `merge_tracks` | by hand | Merges the tracks saved twice for one song and uppercases the isrcs, `--dry-run` only logs them |
 | `delete_user_data` | by hand | Clears a user's library and linked apps by their email, `--account` deletes the account too, whatever `DATA_DELETION_ENABLED` says |
 
 In production, each job is a schedule in dokploy, in the api's application, under **Schedules**,
@@ -513,6 +515,7 @@ with the `sh` shell, running `/app/bin/jobs.sh <job>` in the api's container, wi
 | --- | --- | --- | --- |
 | `push_library_changes` | `* * * * *` | `/app/bin/jobs.sh push_library_changes` | Yes |
 | `import_libraries` | `* * * * *` | `/app/bin/jobs.sh import_libraries` | Yes |
+| `copy_libraries` | `* * * * *` | `/app/bin/jobs.sh copy_libraries` | Yes |
 | `prune_sync_operations` | `0 1 * * *` | `/app/bin/jobs.sh prune_sync_operations` | Yes |
 | `check_expiring_accounts` | `0 3 * * *` | `/app/bin/jobs.sh check_expiring_accounts` | Yes |
 | `warn_disconnected_accounts` | `*/5 * * * *` | `/app/bin/jobs.sh warn_disconnected_accounts` | Yes |

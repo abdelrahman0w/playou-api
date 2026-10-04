@@ -37,7 +37,7 @@ TRACKS = TypeAdapter(list[Track])
 FIND_LIMIT = 5
 
 
-async def _search_platform(
+async def search_platform(
     session_factory: async_sessionmaker[AsyncSession],
     redis: Redis,
     platform: OAuthPlatform,
@@ -99,7 +99,7 @@ async def _search_one(
 
     try:
         async with asyncio.timeout(settings.search.platform_timeout_seconds):
-            tracks = await _search_platform(
+            tracks = await search_platform(
                 session_factory,
                 redis,
                 platform,
@@ -237,7 +237,7 @@ async def find_on(
         return track
 
     query = " ".join([track.title, *track.artists[:1]])[:200]
-    found = await _search_platform(
+    found = await search_platform(
         session_factory,
         redis,
         service,

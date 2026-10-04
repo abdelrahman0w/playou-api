@@ -22,9 +22,13 @@ from src.structs.models.requests import LikeListRequest
 from src.structs.models.requests import PlaylistImportingRequest
 from src.structs.models.requests import PlaylistItemsRequest
 from src.structs.models.requests import PlaylistListRequest
+from src.structs.models.requests import StartCopyRequest
 from src.structs.models.requests import UpdatePlaylistRequest
 from src.structs.models.responses import AccountSync
+from src.structs.models.responses import CatalogTrack
+from src.structs.models.responses import CopyProgress
 from src.structs.models.responses import LikedTrack
+from src.structs.models.responses import MissingTracks
 from src.structs.models.responses import PlatformData
 from src.structs.models.responses import Playlist
 from src.structs.models.responses import PlaylistDetail
@@ -404,3 +408,86 @@ async def clear_library(
     await library_controller.clear_library(session, user_id=user_id, unlink=unlink)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/copies")
+async def list_copies(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> list[CopyProgress]:
+    return await library_controller.list_copies(
+        session,
+        user_id=user_id,
+    )
+
+
+@router.get("/copies/missing")
+async def list_missing(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> list[MissingTracks]:
+    return await library_controller.list_missing(session, user_id=user_id)
+
+
+@router.post(
+    "/copies",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=writes,
+)
+async def start_copy(
+    body: StartCopyRequest,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    platforms: PlatformsDep,
+) -> CopyProgress:
+    return await library_controller.start_copy(
+        session,
+        platforms,
+        body,
+        user_id=user_id,
+    )
+
+
+@router.delete(
+    "/copies/{copy_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=writes,
+)
+async def cancel_copy(
+    copy_id: UUID,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    now: NowDep,
+) -> Response:
+    await library_controller.cancel_copy(session, copy_id, user_id=user_id, now=now)
+
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+
+
+@router.get("/copies/{copy_id}/missing")
+async def copy_missing(
+    copy_id: UUID,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> list[CatalogTrack]:
+    return await library_controller.copy_missing(session, copy_id, user_id=user_id)
+
+
+@router.post(
+    "/copies/{copy_id}/dismiss",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=writes,
+)
+async def dismiss_copy(
+    copy_id: UUID,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    now: NowDep,
+) -> Response:
+    await library_controller.dismiss_copy(session, copy_id, user_id=user_id, now=now)
+
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT,
+    )

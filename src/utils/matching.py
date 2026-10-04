@@ -1,6 +1,8 @@
 import re
 import unicodedata
 
+from src.structs.enums import Closeness
+
 
 NOISE = re.compile(
     r"\s*[\(\[][^\)\]]*\b("
@@ -148,6 +150,42 @@ def _sound_alike(
     )
 
 
+def _same_title(
+    first: tuple[str, list[str]],
+    second: tuple[str, list[str]],
+    *,
+    across_scripts: bool,
+) -> bool:
+    (title, artists), (other_title, other_artists) = first, second
+    if normalize_title(title) == normalize_title(other_title):
+        return True
+
+    voices = {sounds(artist) for artist in [*artists, *other_artists]}
+
+    return across_scripts and _sound_alike(
+        _halves(title, voices),
+        _halves(other_title, voices),
+    )
+
+
+def _same_artist(
+    artists: list[str],
+    other_artists: list[str],
+    *,
+    across_scripts: bool,
+) -> bool:
+    names = {normalize_artist(artist) for artist in artists} - {""}
+    others = {normalize_artist(artist) for artist in other_artists} - {""}
+    if names & others:
+        return True
+
+    return across_scripts and _sound_alike(
+        set(artists),
+        set(other_artists),
+        shortest=SHORTEST_SOUND,
+    )
+
+
 def same_song(
     first: tuple[str, list[str], int | None],
     second: tuple[str, list[str], int | None],
@@ -163,21 +201,41 @@ def same_song(
     if _versions(title) != _versions(other_title):
         return False
 
-    titled = normalize_title(title) == normalize_title(other_title)
-    voices = {sounds(artist) for artist in [*artists, *other_artists]}
-    if not titled and not (
-        across_scripts
-        and _sound_alike(_halves(title, voices), _halves(other_title, voices))
-    ):
-        return False
+    return _same_title(
+        (title, artists),
+        (other_title, other_artists),
+        across_scripts=across_scripts,
+    ) and _same_artist(artists, other_artists, across_scripts=across_scripts)
 
-    names = {normalize_artist(artist) for artist in artists} - {""}
-    others = {normalize_artist(artist) for artist in other_artists} - {""}
-    if names & others:
-        return True
 
-    return across_scripts and _sound_alike(
-        set(artists),
-        set(other_artists),
-        shortest=SHORTEST_SOUND,
+def closeness(
+    first: tuple[str, list[str], int | None],
+    second: tuple[str, list[str], int | None],
+    *,
+    across_scripts: bool = False,
+) -> Closeness | None:
+    if same_song(first, second, across_scripts=across_scripts):
+        return Closeness.SAME
+
+    title, artists, _ = first
+    other_title, other_artists, _ = second
+    titled = _same_title(
+        (VERSION.sub("", _fold(title)), artists),
+        (VERSION.sub("", _fold(other_title)), other_artists),
+        across_scripts=across_scripts,
     )
+    artisted = _same_artist(artists, other_artists, across_scripts=across_scripts)
+    if titled and artisted:
+        if _versions(title) == _versions(other_title):
+            return Closeness.LIKELY
+
+        return Closeness.VERSION
+
+    bare, other_bare = normalize_title(title), normalize_title(other_title)
+    overlapping = min(len(bare), len(other_bare)) >= SHORTEST_SOUND and (
+        bare in other_bare or other_bare in bare
+    )
+    if titled or (artisted and overlapping):
+        return Closeness.MAYBE
+
+    return None

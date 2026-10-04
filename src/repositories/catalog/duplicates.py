@@ -164,6 +164,19 @@ async def merge_track(
         .values(track_id=keep),
     )
 
+    item = tables.CopyItem
+    kept = aliased(item)
+    await session.execute(
+        delete(item).where(
+            item.track_id == drop,
+            kept.copy_id == item.copy_id,
+            kept.track_id == keep,
+        ),
+    )
+    await session.execute(
+        update(item).where(item.track_id == drop).values(track_id=keep),
+    )
+
     playback = tables.PlaybackSession
     await session.execute(
         update(playback)

@@ -1,7 +1,9 @@
 from .library import AccountSync
 from .library import CatalogTrack
+from .library import CopyProgress
 from .library import ImportProgress
 from .library import LikedTrack
+from .library import MissingTracks
 from .library import PlatformData
 from .library import Playlist
 from .library import PlaylistDetail
@@ -15,8 +17,10 @@ from .library import TrackSource
 __all__ = [
     "AccountSync",
     "CatalogTrack",
+    "CopyProgress",
     "ImportProgress",
     "LikedTrack",
+    "MissingTracks",
     "PlatformData",
     "Playlist",
     "PlaylistDetail",

@@ -4,6 +4,8 @@ from uuid import UUID
 from pydantic import BaseModel
 from pydantic import Field
 
+from src.structs.enums import CopyScopes
+from src.structs.enums import CopyStatuses
 from src.structs.enums import ImportStatuses
 from src.structs.enums import Platforms
 from src.structs.enums import PlaylistImports
@@ -100,3 +102,24 @@ class AccountSync(BaseModel):
     imported_at: datetime | None = None
     error: str | None = None
     progress: ImportProgress | None = None
+
+
+class CopyProgress(BaseModel):
+    id: UUID
+    platform: Platforms
+    scope: CopyScopes
+    playlist_id: UUID | None = None
+    playlist_name: str | None = None
+    status: CopyStatuses
+    total: int
+    pending: int
+    missing: int
+    resume_at: datetime | None = None
+    created_at: datetime
+    finished_at: datetime | None = None
+    dismissed_at: datetime | None = None
+
+
+class MissingTracks(BaseModel):
+    platform: Platforms
+    tracks: list[CatalogTrack] = Field(default_factory=list)

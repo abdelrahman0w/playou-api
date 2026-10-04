@@ -18,6 +18,8 @@ from .library import Playlist  # noqa: E402
 from .library import PlaylistItem  # noqa: E402
 from .library import PlaylistLink  # noqa: E402
 from .playback import PlaybackSession  # noqa: E402
+from .sync import Copy  # noqa: E402
+from .sync import CopyItem  # noqa: E402
 from .sync import SyncOperation  # noqa: E402
 
 
@@ -25,6 +27,8 @@ __all__ = [
     "AuthEmailCode",
     "AuthSession",
     "Base",
+    "Copy",
+    "CopyItem",
     "Like",
     "LinkedAccount",
     "PlaybackSession",

@@ -2,14 +2,17 @@ from .accounts import LinkedAccount
 from .auth import AuthUser
 from .auth import BearerSession
 from .auth import EmailCodeSent
+from .catalog import Candidate
 from .catalog import PlatformSearchResult
 from .catalog import SearchResults
 from .health import LivenessResponse
 from .health import ReadinessResponse
 from .library import AccountSync
 from .library import CatalogTrack
+from .library import CopyProgress
 from .library import ImportProgress
 from .library import LikedTrack
+from .library import MissingTracks
 from .library import PlatformData
 from .library import Playlist
 from .library import PlaylistDetail
@@ -27,12 +30,15 @@ __all__ = [
     "AccountSync",
     "AuthUser",
     "BearerSession",
+    "Candidate",
     "CatalogTrack",
+    "CopyProgress",
     "EmailCodeSent",
     "ImportProgress",
     "LikedTrack",
     "LinkedAccount",
     "LivenessResponse",
+    "MissingTracks",
     "PlatformData",
     "PlatformSearchResult",
     "PlaybackSession",

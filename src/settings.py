@@ -177,6 +177,8 @@ class CatalogSettings(BaseAppSettings):
     )
 
     match_across_scripts: bool = False
+    copy_batch_size: int = Field(default=25, ge=1, le=200)
+    candidates_seconds: int = Field(default=60 * 60, ge=60)
 
 
 class SyncSettings(BaseAppSettings):

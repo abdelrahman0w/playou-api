@@ -36,6 +36,25 @@ class PlaylistImports(StrEnum):
     NEVER = "NEVER"
 
 
+class CopyScopes(StrEnum):
+    LIKES = "LIKES"
+    PLAYLIST = "PLAYLIST"
+    LIBRARY = "LIBRARY"
+
+
+class CopyStatuses(StrEnum):
+    RUNNING = "RUNNING"
+    DONE = "DONE"
+    CANCELED = "CANCELED"
+
+
+class CopyItemStatuses(StrEnum):
+    PENDING = "PENDING"
+    FOUND = "FOUND"
+    MISSING = "MISSING"
+    DISMISSED = "DISMISSED"
+
+
 class ImportStatuses(StrEnum):
     IDLE = "IDLE"
     SYNCING = "SYNCING"

@@ -8,5 +8,6 @@ class CacheKeys(StrEnum):
     ACCOUNTS_LINK = "accounts:link:{state}"
     CATALOG_SEARCH = "catalog:search:{platform}:{account_id}"
     CATALOG_SEARCH_SHARED = "catalog:search:{platform}"
+    CATALOG_CANDIDATES = "catalog:candidates:{user_id}:{track_id}:{platform}"
     PLATFORM_PAUSED = "platform:{platform}:paused"
     PLATFORM_QUOTA = "platform:{platform}:quota:{day}"
