@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from uuid import UUID
 
@@ -5,11 +6,15 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import SecretStr
+from pydantic import field_validator
 
 from src.structs.enums import AccountStatuses
 from src.structs.enums import Platforms
 from src.structs.enums import PlaylistKinds
 from src.structs.enums import SyncSubjects
+
+
+ISRC = re.compile(r"[A-Z]{2}[A-Z0-9]{3}\d{7}")
 
 
 class Capabilities(BaseModel):
@@ -50,6 +55,16 @@ class Track(BaseModel):
     explicit: bool | None = None
     artwork_url: str | None = None
     url: str | None = None
+
+    @field_validator("isrc", mode="before")
+    @classmethod
+    def normalize_isrc(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+
+        isrc = re.sub(r"[\s-]", "", value).upper()
+
+        return isrc if ISRC.fullmatch(isrc) else None
 
 
 class SavedTrack(BaseModel):
