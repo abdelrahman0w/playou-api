@@ -67,6 +67,13 @@ class Track(BaseModel):
         return isrc if ISRC.fullmatch(isrc) else None
 
 
+class DuplicateTrack(BaseModel):
+    keep: UUID
+    drop: UUID
+    title: str
+    duplicate_title: str
+
+
 class SavedTrack(BaseModel):
     track: Track
     added_at: datetime | None = None

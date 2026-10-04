@@ -20,6 +20,18 @@ TOPIC = re.compile(r"\s+-\s+topic$", re.IGNORECASE)
 VEVO = re.compile(r"vevo$", re.IGNORECASE)
 
 SAME_DURATION_MS = 3_000
+VERSION = re.compile(
+    r"\b(remix|mix|live|acoustic|instrumental|cover|slowed|sped up|reverb|edit|"
+    "version|karaoke|\u0631\u064a\u0645\u0643\u0633|\u0631\u064a\u0645\u064a\u0643\u0633|"
+    "\u0644\u0627\u064a\u0641|\u0643\u0648\u0641\u0631)\\b",
+)
+VERSION_NAMES = {
+    "\u0631\u064a\u0645\u0643\u0633": "remix",
+    "\u0631\u064a\u0645\u064a\u0643\u0633": "remix",
+    "\u0644\u0627\u064a\u0641": "live",
+    "\u0643\u0648\u0641\u0631": "cover",
+}
+SHORTEST_SOUND = 3
 
 ARABIC = re.compile("[\u0600-\u06ff]")
 HALVES = re.compile("\\s+[-\u2013\u2014/|]\\s+|\\s*/\\s*")
@@ -104,16 +116,32 @@ def sounds(value: str) -> str:
     return REPEATS.sub(r"\1", folded.translate(SOUNDS))
 
 
-def _halves(title: str) -> set[str]:
+def _halves(title: str, names: set[str]) -> set[str]:
     cleaned = FEATURING.sub("", clean_title(_fold(title)))
 
-    return {cleaned, *(half for half in HALVES.split(cleaned) if half.strip())}
+    return {
+        cleaned,
+        *(
+            half
+            for half in HALVES.split(cleaned)
+            if (heard := sounds(VERSION.sub("", half))) and heard not in names
+        ),
+    }
 
 
-def _sound_alike(first: set[str], second: set[str]) -> bool:
+def _versions(title: str) -> set[str]:
+    return {VERSION_NAMES.get(word, word) for word in VERSION.findall(_fold(title))}
+
+
+def _sound_alike(
+    first: set[str],
+    second: set[str],
+    *,
+    shortest: int = 1,
+) -> bool:
     return any(
         bool(ARABIC.search(one)) != bool(ARABIC.search(other))
-        and (heard := sounds(one)) != ""
+        and len(heard := sounds(one)) >= shortest
         and heard == sounds(other)
         for one in first
         for other in second
@@ -132,10 +160,14 @@ def same_song(
         return False
     if abs(duration - other_duration) > SAME_DURATION_MS:
         return False
+    if _versions(title) != _versions(other_title):
+        return False
 
     titled = normalize_title(title) == normalize_title(other_title)
+    voices = {sounds(artist) for artist in [*artists, *other_artists]}
     if not titled and not (
-        across_scripts and _sound_alike(_halves(title), _halves(other_title))
+        across_scripts
+        and _sound_alike(_halves(title, voices), _halves(other_title, voices))
     ):
         return False
 
@@ -144,4 +176,8 @@ def same_song(
     if names & others:
         return True
 
-    return across_scripts and _sound_alike(set(artists), set(other_artists))
+    return across_scripts and _sound_alike(
+        set(artists),
+        set(other_artists),
+        shortest=SHORTEST_SOUND,
+    )

@@ -1,5 +1,6 @@
 import argparse
 
+from src.actions import catalog as catalog_actions
 from src.actions import library as library_actions
 from src.jobs import Job
 from src.providers import DatabaseSessions
@@ -14,6 +15,21 @@ def _arguments(parser: argparse.ArgumentParser) -> None:
         "--account",
         action="store_true",
         help="delete the account too, not only its library and its linked apps",
+    )
+
+
+def _merge_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="only log the duplicates, without merging them",
+    )
+
+
+async def merge_tracks(args: argparse.Namespace) -> object:
+    return await catalog_actions.merge_duplicates(
+        DatabaseSessions.get(),
+        dry_run=args.dry_run,
     )
 
 
@@ -39,5 +55,10 @@ JOBS: dict[str, Job] = {
         help="delete a user's library and linked apps, or with --account everything, "
         "regardless of DATA_DELETION_ENABLED",
         arguments=_arguments,
+    ),
+    "merge_tracks": Job(
+        run=merge_tracks,
+        help="merge the tracks saved twice for one song, and uppercase the isrcs",
+        arguments=_merge_arguments,
     ),
 }

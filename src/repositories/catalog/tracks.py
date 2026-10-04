@@ -81,14 +81,19 @@ async def _matches(
     found = sorted(candidates.all(), key=lambda candidate: candidate.isrc is None)
 
     matched: dict[tuple[Platforms, str], UUID] = {}
+    claimed: set[UUID] = set()
     for track in timed:
         for candidate in found:
+            if track.isrc and (candidate.isrc is not None or candidate.id in claimed):
+                continue
             if same_song(
                 (track.title, track.artists, track.duration_ms),
                 (candidate.title, list(candidate.artists), candidate.duration_ms),
                 across_scripts=settings.catalog.match_across_scripts,
             ):
                 matched[(track.platform, track.platform_id)] = candidate.id
+                if track.isrc:
+                    claimed.add(candidate.id)
                 break
 
     return matched
@@ -156,15 +161,24 @@ async def _save_batch(
         )
         by_isrc = {isrc: track_id for isrc, track_id in rows if isrc is not None}
 
-    matched = await _matches(session, [track for track in new if not track.isrc])
+    matched = await _matches(
+        session,
+        [track for track in new if not track.isrc or track.isrc not in by_isrc],
+    )
 
     rows_to_insert: list[dict[str, object]] = []
+    rows_to_claim: list[dict[str, object]] = []
     track_ids: dict[tuple[Platforms, str], UUID] = {}
     for track in new:
         if track.isrc and track.isrc in by_isrc:
             track_id = by_isrc[track.isrc]
         elif (track.platform, track.platform_id) in matched:
             track_id = matched[(track.platform, track.platform_id)]
+            if track.isrc:
+                by_isrc[track.isrc] = track_id
+                rows_to_claim.append(
+                    {"id": track_id, "isrc": track.isrc, **_values(track)}
+                )
         else:
             track_id = uuid7()
             rows_to_insert.append(
@@ -174,6 +188,8 @@ async def _save_batch(
                 by_isrc[track.isrc] = track_id
         track_ids[(track.platform, track.platform_id)] = track_id
 
+    if rows_to_claim:
+        await session.execute(update(tables.Track), rows_to_claim)
     if rows_to_insert:
         await session.execute(
             insert(tables.Track)

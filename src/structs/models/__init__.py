@@ -4,6 +4,7 @@ from .common import Page
 from .emails import OutgoingEmail
 from .platforms import AccountOwner
 from .platforms import Capabilities
+from .platforms import DuplicateTrack
 from .platforms import ExpiringAccount
 from .platforms import LikeSyncState
 from .platforms import LinkedPlaylist
@@ -26,6 +27,7 @@ from .platforms import Track
 __all__ = [
     "AccountOwner",
     "Capabilities",
+    "DuplicateTrack",
     "ErrorDetail",
     "ErrorResponse",
     "ExpiringAccount",
