@@ -159,6 +159,8 @@ class AccountsSettings(BaseAppSettings):
     keep_alive_days: int = Field(default=14, ge=1)
     keep_alive_batch_size: int = Field(default=500, ge=1)
     expiry_warning_days: int = Field(default=7, ge=1)
+    forget_disconnected: bool = True
+    forget_disconnected_days: int = Field(default=7, ge=1)
 
 
 class SearchSettings(BaseAppSettings):

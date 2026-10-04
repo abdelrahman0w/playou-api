@@ -5,6 +5,7 @@ from .linked_accounts import get_account_by_id
 from .linked_accounts import list_accounts
 from .linked_accounts import list_accounts_to_import
 from .linked_accounts import list_accounts_to_warn
+from .linked_accounts import list_disconnected_before
 from .linked_accounts import list_disconnected_to_warn
 from .linked_accounts import list_expiring_accounts
 from .linked_accounts import mark_disconnect_warned
@@ -24,6 +25,7 @@ __all__ = [
     "list_accounts",
     "list_accounts_to_import",
     "list_accounts_to_warn",
+    "list_disconnected_before",
     "list_disconnected_to_warn",
     "list_expiring_accounts",
     "mark_disconnect_warned",

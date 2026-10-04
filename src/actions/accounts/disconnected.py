@@ -1,6 +1,7 @@
 import hashlib
 from dataclasses import asdict
 from datetime import datetime
+from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -10,6 +11,7 @@ from src.actions.accounts.expiring import reconnect_url
 from src.exceptions import EmailUnavailableError
 from src.providers import logger
 from src.repositories import accounts as accounts_repositories
+from src.repositories import library as library_repositories
 from src.services import ResendService
 from src.services.resend.client import BATCH_SIZE as RESEND_BATCH_SIZE
 from src.settings import settings
@@ -23,6 +25,9 @@ def _warning(
     platform = item.account.platform
     email = disconnected_email(
         platform.title(),
+        days=settings.accounts.forget_disconnected_days
+        if settings.accounts.forget_disconnected
+        else None,
         url=reconnect_url(platform),
         locale=item.owner.locale,
     )
@@ -94,3 +99,47 @@ async def warn_disconnected_accounts(
         )
 
     return counts
+
+
+async def forget_disconnected_accounts(
+    session_factory: async_sessionmaker[AsyncSession],
+    *,
+    now: datetime,
+) -> dict[str, int]:
+    if not settings.accounts.forget_disconnected:
+        return {"forgotten": 0}
+
+    async with session_factory() as session:
+        forgotten = await accounts_repositories.list_disconnected_before(
+            session,
+            before=now - timedelta(days=settings.accounts.forget_disconnected_days),
+            limit=settings.accounts.keep_alive_batch_size,
+        )
+
+    for account in forgotten:
+        async with session_factory() as session, session.begin():
+            await accounts_repositories.delete_account(
+                session,
+                account.user_id,
+                account.platform,
+            )
+            await library_repositories.delete_platform_data(
+                session,
+                account.user_id,
+                account.platform,
+                [
+                    linked.platform
+                    for linked in await accounts_repositories.list_accounts(
+                        session,
+                        account.user_id,
+                    )
+                ],
+            )
+
+    if forgotten:
+        logger.info(
+            "[Accounts] Forgot The Disconnected Accounts",
+            accounts=len(forgotten),
+        )
+
+    return {"forgotten": len(forgotten)}

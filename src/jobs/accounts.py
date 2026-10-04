@@ -30,6 +30,15 @@ async def warn_disconnected_accounts(
     )
 
 
+async def forget_disconnected_accounts(
+    _: argparse.Namespace,
+) -> object:
+    return await accounts_actions.forget_disconnected_accounts(
+        DatabaseSessions.get(),
+        now=datetime.now(UTC),
+    )
+
+
 JOBS: dict[str, Job] = {
     "check_expiring_accounts": Job(
         run=check_expiring_accounts,
@@ -42,5 +51,12 @@ JOBS: dict[str, Job] = {
         help="email the users whose platform refused the account, once",
         monitor_every_seconds=5 * 60,
         cron="*/5 * * * *",
+    ),
+    "forget_disconnected_accounts": Job(
+        run=forget_disconnected_accounts,
+        help="unlink the accounts disconnected for ACCOUNTS_FORGET_DISCONNECTED_DAYS, "
+        "and remove what came only from them",
+        monitor_every_seconds=24 * 60 * 60,
+        cron="15 3 * * *",
     ),
 }

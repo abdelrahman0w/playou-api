@@ -231,6 +231,23 @@ async def list_disconnected_to_warn(
     ]
 
 
+async def list_disconnected_before(
+    session: AsyncSession,
+    *,
+    before: datetime,
+    limit: int,
+) -> list[StoredAccount]:
+    account = tables.LinkedAccount
+    rows = await session.scalars(
+        select(account)
+        .where(account.reconnect_required_at <= before)
+        .order_by(account.reconnect_required_at)
+        .limit(limit),
+    )
+
+    return [_to_account(row) for row in rows]
+
+
 async def mark_disconnect_warned(
     session: AsyncSession,
     account_ids: list[UUID],

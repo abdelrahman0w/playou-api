@@ -39,7 +39,11 @@ DISCONNECTED = {
             "and playing from it is paused."
         ),
         "button": "Reconnect {platform}",
-        "after": "If you removed it on purpose, you can unlink {platform} in PlaYou.",
+        "after": (
+            "If you don't reconnect within {days}, PlaYou unlinks {platform} "
+            "and removes the songs and playlists that came only from it."
+        ),
+        "kept": "If you removed it on purpose, you can unlink {platform} in PlaYou.",
         "dir": "ltr",
     },
     "ar": {
@@ -51,7 +55,11 @@ DISCONNECTED = {
             "ويتوقف التشغيل منه."
         ),
         "button": "أعد ربط {platform}",
-        "after": "إن أزلته عن قصد، يمكنك إلغاء ربط {platform} في PlaYou.",
+        "after": (
+            "إن لم تُعد الربط خلال {days}، يلغي PlaYou ربط {platform} ويحذف "
+            "الأغاني والقوائم التي جاءت منه وحده."
+        ),
+        "kept": "إن أزلته عن قصد، يمكنك إلغاء ربط {platform} في PlaYou.",
         "dir": "rtl",
     },
 }
@@ -88,12 +96,17 @@ def reconnect_email(
 def disconnected_email(
     platform: str,
     *,
+    days: int | None,
     url: str,
     locale: str,
 ) -> Email:
+    copy = DISCONNECTED.get(locale, DISCONNECTED["en"])
+    if days is None:
+        copy = copy | {"after": copy["kept"]}
+
     return _email(
-        DISCONNECTED.get(locale, DISCONNECTED["en"]),
-        {"platform": platform},
+        copy,
+        {"platform": platform, "days": days_left(days or 0, locale=locale)},
         url=url,
     )
 

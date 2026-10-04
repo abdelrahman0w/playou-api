@@ -1,3 +1,4 @@
+from .disconnected import forget_disconnected_accounts
 from .disconnected import warn_disconnected_accounts
 from .expiring import check_expiring_accounts
 from .oauth import finish_link
@@ -11,6 +12,7 @@ __all__ = [
     "access_token",
     "check_expiring_accounts",
     "finish_link",
+    "forget_disconnected_accounts",
     "keep_alive",
     "start_link",
     "warn_disconnected_accounts",
