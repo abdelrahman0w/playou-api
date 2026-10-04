@@ -3,6 +3,7 @@ from .auth import EmailVerifyRequest
 from .catalog import SearchRequest
 from .library import CreatePlaylistRequest
 from .library import LibraryListRequest
+from .library import PlaylistImportingRequest
 from .library import PlaylistItemsRequest
 from .library import PlaylistListRequest
 from .library import PushPreferencesRequest
@@ -22,6 +23,7 @@ __all__ = [
     "EmbedBlockedRequest",
     "LibraryListRequest",
     "PlayRequest",
+    "PlaylistImportingRequest",
     "PlaylistItemsRequest",
     "PlaylistListRequest",
     "PushPreferencesRequest",

@@ -6,6 +6,7 @@ from pydantic import Field
 
 from src.structs.enums import ImportStatuses
 from src.structs.enums import Platforms
+from src.structs.enums import PlaylistImports
 from src.structs.enums import PlaylistKinds
 from src.structs.enums import RemovedBy
 
@@ -39,6 +40,7 @@ class LikedTrack(BaseModel):
 class PlaylistLink(BaseModel):
     platform: Platforms
     platform_playlist_id: str
+    importing: PlaylistImports = PlaylistImports.AUTO
 
 
 class Playlist(BaseModel):
@@ -51,6 +53,7 @@ class Playlist(BaseModel):
     url: str | None = None
     item_count: int = 0
     links: list[PlaylistLink] = Field(default_factory=list)
+    imported_from: Platforms | None = None
     created_at: datetime
     updated_at: datetime
     removed_at: datetime | None = None

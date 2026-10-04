@@ -3,6 +3,7 @@ from .cache_keys import CacheKeys
 from .error_types import ErrorTypes
 from .health import CheckStatuses
 from .library import ImportStatuses
+from .library import PlaylistImports
 from .library import PlaylistKinds
 from .library import RemovedBy
 from .library import SyncOutcomes
@@ -20,6 +21,7 @@ __all__ = [
     "ErrorTypes",
     "ImportStatuses",
     "Platforms",
+    "PlaylistImports",
     "PlaylistKinds",
     "RemovedBy",
     "SearchStatuses",

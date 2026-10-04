@@ -11,6 +11,7 @@ from .likes import remove_likes
 from .likes import set_like
 from .playlists import add_items
 from .playlists import create_playlist
+from .playlists import delete_playlists
 from .playlists import get_playlist
 from .playlists import import_playlist
 from .playlists import list_playlists
@@ -21,6 +22,8 @@ from .playlists import remove_item
 from .playlists import remove_playlist
 from .playlists import remove_playlists
 from .playlists import save_link
+from .playlists import set_importing
+from .playlists import skip_playlist
 from .playlists import update_from_platform
 from .playlists import update_playlist
 
@@ -30,6 +33,7 @@ __all__ = [
     "create_playlist",
     "delete_library",
     "delete_platform_data",
+    "delete_playlists",
     "get_like",
     "get_playlist",
     "import_likes",
@@ -48,7 +52,9 @@ __all__ = [
     "remove_playlist",
     "remove_playlists",
     "save_link",
+    "set_importing",
     "set_like",
+    "skip_playlist",
     "update_from_platform",
     "update_playlist",
 ]

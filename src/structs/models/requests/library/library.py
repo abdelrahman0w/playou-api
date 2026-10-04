@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -5,6 +6,7 @@ from pydantic import Field
 from pydantic import field_validator
 
 from src.structs.enums import Platforms
+from src.structs.enums import PlaylistImports
 from src.structs.enums import PlaylistKinds
 
 
@@ -29,6 +31,11 @@ class LibraryListRequest(BaseModel):
 
 class PlaylistListRequest(LibraryListRequest):
     kind: PlaylistKinds | None = None
+    skipped: bool = False
+
+
+class PlaylistImportingRequest(BaseModel):
+    importing: Literal[PlaylistImports.ALWAYS, PlaylistImports.NEVER]
 
 
 class CreatePlaylistRequest(BaseModel):

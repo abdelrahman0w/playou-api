@@ -259,7 +259,7 @@ async def get_tracks(
     sources = await session.scalars(
         select(tables.TrackSource)
         .where(tables.TrackSource.track_id.in_(track_ids))
-        .order_by(tables.TrackSource.created_at),
+        .order_by(tables.TrackSource.created_at, tables.TrackSource.id),
     )
 
     by_track: dict[UUID, list[TrackSource]] = {}

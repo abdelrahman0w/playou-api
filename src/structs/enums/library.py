@@ -4,6 +4,7 @@ from enum import StrEnum
 class RemovedBy(StrEnum):
     USER = "USER"
     PLATFORM = "PLATFORM"
+    SKIPPED = "SKIPPED"
 
 
 class SyncSubjects(StrEnum):
@@ -15,6 +16,12 @@ class SyncSubjects(StrEnum):
 class PlaylistKinds(StrEnum):
     OWNED = "OWNED"
     FOLLOWED = "FOLLOWED"
+
+
+class PlaylistImports(StrEnum):
+    AUTO = "AUTO"
+    ALWAYS = "ALWAYS"
+    NEVER = "NEVER"
 
 
 class ImportStatuses(StrEnum):

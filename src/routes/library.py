@@ -19,6 +19,7 @@ from src.structs.enums import Platforms
 from src.structs.models import Page
 from src.structs.models.requests import CreatePlaylistRequest
 from src.structs.models.requests import LibraryListRequest
+from src.structs.models.requests import PlaylistImportingRequest
 from src.structs.models.requests import PlaylistItemsRequest
 from src.structs.models.requests import PlaylistListRequest
 from src.structs.models.requests import UpdatePlaylistRequest
@@ -276,6 +277,35 @@ async def remove_playlist(
         now=now,
     )
     pusher.push()
+
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+
+
+@router.put(
+    "/playlists/{playlist_id}/importing",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=writes,
+)
+async def choose_importing(
+    playlist_id: UUID,
+    body: PlaylistImportingRequest,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    platforms: PlatformsDep,
+    importer: ImporterDep,
+    now: NowDep,
+) -> Response:
+    await library_controller.choose_importing(
+        session,
+        platforms,
+        playlist_id,
+        body,
+        user_id=user_id,
+        now=now,
+    )
+    importer.run()
 
     return Response(
         status_code=status.HTTP_204_NO_CONTENT,

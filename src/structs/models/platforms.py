@@ -10,6 +10,7 @@ from pydantic import field_validator
 
 from src.structs.enums import AccountStatuses
 from src.structs.enums import Platforms
+from src.structs.enums import PlaylistImports
 from src.structs.enums import PlaylistKinds
 from src.structs.enums import SyncSubjects
 
@@ -121,11 +122,18 @@ class PlatformPlaylist(BaseModel):
     snapshot_id: str | None = None
 
 
+class PlaylistTracks(BaseModel):
+    tracks: list[Track] = Field(default_factory=list)
+    music: bool = True
+
+
 class LinkedPlaylist(BaseModel):
     playlist_id: UUID
     kind: PlaylistKinds
     snapshot_id: str | None = None
     removed: bool
+    skipped: bool = False
+    importing: PlaylistImports = PlaylistImports.AUTO
 
 
 class PendingLink(BaseModel):
@@ -184,6 +192,7 @@ class PlaylistSyncState(BaseModel):
     name: str
     description: str | None = None
     removed: bool
+    skipped: bool = False
     link: PlatformPlaylist | None = None
     platform_ids: list[str] = Field(default_factory=list)
     removed_platform_ids: list[str] = Field(default_factory=list)

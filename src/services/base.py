@@ -8,6 +8,7 @@ from src.structs.models import PlatformProfile
 from src.structs.models import PlatformTokens
 from src.structs.models import PlaybackDevice
 from src.structs.models import PlaybackRequest
+from src.structs.models import PlaylistTracks
 from src.structs.models import RemotePlaylist
 from src.structs.models import SavedTracksPage
 from src.structs.models import Track
@@ -56,7 +57,7 @@ class MusicPlatform(Protocol):
         self,
         access_token: str,
         platform_playlist_id: str,
-    ) -> list[Track]: ...
+    ) -> PlaylistTracks: ...
 
     async def save_tracks(
         self,

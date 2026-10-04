@@ -4,12 +4,14 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.actions.sync import enqueue_push
+from src.actions.sync import request_imports
 from src.exceptions import NotFoundError
 from src.exceptions import UnsupportedError
 from src.repositories import catalog as catalog_repositories
 from src.repositories import library as library_repositories
 from src.services import OAuthPlatform
 from src.structs.enums import Platforms
+from src.structs.enums import PlaylistImports
 from src.structs.enums import PlaylistKinds
 from src.structs.enums import RemovedBy
 from src.structs.enums import SyncSubjects
@@ -131,6 +133,37 @@ async def remove_playlist(
         subject_id=playlist_id,
         now=now,
     )
+
+
+async def choose_importing(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    *,
+    user_id: UUID,
+    playlist_id: UUID,
+    importing: PlaylistImports,
+    now: datetime,
+) -> None:
+    playlist = await library_repositories.get_playlist(session, user_id, playlist_id)
+    if playlist is None or (
+        playlist.removed_at is not None and playlist.removed_by is not RemovedBy.SKIPPED
+    ):
+        raise NotFoundError("The playlist does not exist")
+
+    platform = playlist.imported_from
+    if platform is None or all(link.platform != platform for link in playlist.links):
+        raise UnsupportedError("Only a playlist imported from an app can be skipped")
+
+    await library_repositories.set_importing(
+        session,
+        playlist_id,
+        platform,
+        importing,
+    )
+    if importing is PlaylistImports.NEVER:
+        await library_repositories.skip_playlist(session, playlist_id, now=now)
+    else:
+        await request_imports(session, platforms, user_id=user_id, now=now)
 
 
 async def add_playlist_items(

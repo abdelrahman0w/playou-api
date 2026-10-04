@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.repositories.catalog import get_tracks
 from src.structs import tables
 from src.structs.enums import Platforms
+from src.structs.enums import PlaylistImports
 from src.structs.enums import PlaylistKinds
 from src.structs.enums import RemovedBy
 from src.structs.models import LinkedPlaylist
@@ -44,6 +45,7 @@ async def _links(
             PlaylistLink(
                 platform=row.platform,
                 platform_playlist_id=row.platform_playlist_id,
+                importing=row.importing,
             ),
         )
 
@@ -80,6 +82,7 @@ def _to_playlist(
         url=row.url,
         item_count=counts.get(row.id, 0),
         links=links.get(row.id, []),
+        imported_from=row.imported_from,
         created_at=row.created_at,
         updated_at=row.updated_at,
         removed_at=row.removed_at,
@@ -165,10 +168,15 @@ async def list_playlists(
     kind: PlaylistKinds | None = None,
     platform: Platforms | None = None,
     query: str | None = None,
+    skipped: bool = False,
 ) -> Page[Playlist]:
     playlist = tables.Playlist
     where = [playlist.user_id == user_id]
-    if not include_removed:
+    if skipped:
+        where.append(playlist.removed_by == RemovedBy.SKIPPED)
+    else:
+        where.append(playlist.removed_by.is_distinct_from(RemovedBy.SKIPPED))
+    if not include_removed and not skipped:
         where.append(playlist.removed_at.is_(None))
     if kind is not None:
         where.append(playlist.kind == kind)
@@ -394,6 +402,7 @@ async def playlist_sync_state(
         name=row.name,
         description=row.description,
         removed=row.removed_at is not None,
+        skipped=row.removed_by is RemovedBy.SKIPPED,
         link=PlatformPlaylist(
             platform_id=remote.platform_playlist_id,
             snapshot_id=remote.snapshot_id,
@@ -419,19 +428,23 @@ async def platform_links(
             playlist.kind,
             link.snapshot_id,
             playlist.removed_at,
+            playlist.removed_by,
+            link.importing,
         )
         .join(playlist, playlist.id == link.playlist_id)
         .where(playlist.user_id == user_id, link.platform == platform),
     )
 
     return {
-        platform_id: LinkedPlaylist(
-            playlist_id=playlist_id,
-            kind=kind,
-            snapshot_id=snapshot_id,
-            removed=removed_at is not None,
+        row.platform_playlist_id: LinkedPlaylist(
+            playlist_id=row.id,
+            kind=row.kind,
+            snapshot_id=row.snapshot_id,
+            removed=row.removed_at is not None,
+            skipped=row.removed_by is RemovedBy.SKIPPED,
+            importing=row.importing,
         )
-        for platform_id, playlist_id, kind, snapshot_id, removed_at in rows
+        for row in rows
     }
 
 
@@ -553,4 +566,42 @@ async def remove_playlists(
         update(playlist)
         .where(playlist.id.in_(playlist_ids), playlist.removed_at.is_(None))
         .values(removed_at=now, removed_by=removed_by),
+    )
+
+
+async def skip_playlist(
+    session: AsyncSession,
+    playlist_id: UUID,
+    *,
+    now: datetime,
+) -> None:
+    playlist = tables.Playlist
+    await session.execute(
+        update(playlist)
+        .where(playlist.id == playlist_id)
+        .values(
+            removed_at=func.coalesce(playlist.removed_at, now),
+            removed_by=RemovedBy.SKIPPED,
+        ),
+    )
+
+
+async def delete_playlists(session: AsyncSession, playlist_ids: list[UUID]) -> None:
+    if playlist_ids:
+        await session.execute(
+            delete(tables.Playlist).where(tables.Playlist.id.in_(playlist_ids)),
+        )
+
+
+async def set_importing(
+    session: AsyncSession,
+    playlist_id: UUID,
+    platform: Platforms,
+    importing: PlaylistImports,
+) -> None:
+    link = tables.PlaylistLink
+    await session.execute(
+        update(link)
+        .where(link.playlist_id == playlist_id, link.platform == platform)
+        .values(importing=importing, snapshot_id=None),
     )

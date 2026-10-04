@@ -15,6 +15,7 @@ from src.structs.enums import Platforms
 from src.structs.models import Page
 from src.structs.models.requests import CreatePlaylistRequest
 from src.structs.models.requests import LibraryListRequest
+from src.structs.models.requests import PlaylistImportingRequest
 from src.structs.models.requests import PlaylistItemsRequest
 from src.structs.models.requests import PlaylistListRequest
 from src.structs.models.requests import UpdatePlaylistRequest
@@ -119,6 +120,7 @@ async def list_playlists(
             kind=request.kind,
             platform=request.platform,
             query=request.q,
+            skipped=request.skipped,
         )
 
 
@@ -226,6 +228,26 @@ async def remove_playlist(
             platforms,
             user_id=user_id,
             playlist_id=playlist_id,
+            now=now,
+        )
+
+
+async def choose_importing(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    playlist_id: UUID,
+    request: PlaylistImportingRequest,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    async with session.begin():
+        await library_actions.choose_importing(
+            session,
+            platforms,
+            user_id=user_id,
+            playlist_id=playlist_id,
+            importing=request.importing,
             now=now,
         )
 

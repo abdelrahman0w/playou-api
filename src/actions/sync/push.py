@@ -118,6 +118,8 @@ async def _push_playlist(
     )
     if state is None:
         return _Outcome(SyncOutcomes.SKIPPED, "The playlist is gone")
+    if state.skipped:
+        return _Outcome(SyncOutcomes.SKIPPED, "The playlist is not imported")
     if state.kind is PlaylistKinds.FOLLOWED and not state.removed:
         return _Outcome(SyncOutcomes.SKIPPED, "A followed playlist is not pushed")
 

@@ -6,6 +6,7 @@ from .data import remove_platform_data
 from .likes import like_track
 from .likes import unlike_track
 from .playlists import add_playlist_items
+from .playlists import choose_importing
 from .playlists import create_playlist
 from .playlists import remove_playlist
 from .playlists import remove_playlist_item
@@ -14,6 +15,7 @@ from .playlists import update_playlist
 
 __all__ = [
     "add_playlist_items",
+    "choose_importing",
     "clear_library",
     "create_playlist",
     "delete_user",

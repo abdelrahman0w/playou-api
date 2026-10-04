@@ -24,6 +24,7 @@ from src.settings import settings
 from src.structs.enums import AccountStatuses
 from src.structs.enums import ImportStatuses
 from src.structs.enums import Platforms
+from src.structs.enums import PlaylistImports
 from src.structs.enums import PlaylistKinds
 from src.structs.enums import RemovedBy
 from src.structs.enums import SyncOutcomes
@@ -209,13 +210,25 @@ async def _import_playlists(
         if link is not None and link.playlist_id in pending:
             continue
 
+        importing = link.importing if link is not None else PlaylistImports.AUTO
+        unchanged = link is not None and link.snapshot_id == playlist.snapshot_id
+        if importing is PlaylistImports.NEVER or (
+            link is not None and link.skipped and unchanged
+        ):
+            continue
+
         changed = (
             link is None or link.removed or link.snapshot_id != playlist.snapshot_id
         )
-        tracks = (
+        contents = (
             await platform.playlist_tracks(token, playlist.platform_id)
             if kind is PlaylistKinds.OWNED and changed
             else None
+        )
+        skipped = (
+            contents is not None
+            and not contents.music
+            and importing is PlaylistImports.AUTO
         )
 
         async with session_factory() as session, session.begin():
@@ -236,10 +249,12 @@ async def _import_playlists(
                     kind=kind,
                 )
 
-            if tracks is not None:
+            if skipped:
+                await library_repositories.skip_playlist(session, playlist_id, now=now)
+            elif contents is not None:
                 catalog = await catalog_repositories.save_platform_tracks(
                     session,
-                    tracks,
+                    contents.tracks,
                 )
                 await library_repositories.reconcile_items(
                     session,
@@ -258,11 +273,19 @@ async def _import_playlists(
                 ),
             )
 
-        if tracks is not None:
+        if contents is not None:
             await reporter.report(playlists=Progress(done=done, total=len(remote)))
 
     there = {playlist.platform_id for playlist in remote}
     async with session_factory() as session, session.begin():
+        await library_repositories.delete_playlists(
+            session,
+            [
+                link.playlist_id
+                for platform_id, link in links.items()
+                if platform_id not in there and link.skipped
+            ],
+        )
         await library_repositories.remove_playlists(
             session,
             [

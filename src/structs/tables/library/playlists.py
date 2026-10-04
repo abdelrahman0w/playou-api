@@ -15,13 +15,17 @@ from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
 from src.structs.enums import Platforms
+from src.structs.enums import PlaylistImports
 from src.structs.enums import PlaylistKinds
 from src.structs.enums import RemovedBy
 from src.structs.tables.base import Base
 
 
 def _values(
-    enum: type[RemovedBy] | type[Platforms] | type[PlaylistKinds],
+    enum: type[RemovedBy]
+    | type[Platforms]
+    | type[PlaylistKinds]
+    | type[PlaylistImports],
 ) -> list[str]:
     return [member.value for member in enum]
 
@@ -125,3 +129,8 @@ class PlaylistLink(Base):
     )
     platform_playlist_id: Mapped[str] = mapped_column(String(255))
     snapshot_id: Mapped[str | None] = mapped_column(Text)
+    importing: Mapped[PlaylistImports] = mapped_column(
+        Enum(PlaylistImports, native_enum=False, length=32, values_callable=_values),
+        default=PlaylistImports.AUTO,
+        server_default=PlaylistImports.AUTO.value,
+    )

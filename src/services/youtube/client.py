@@ -43,6 +43,7 @@ from src.structs.models import PlatformProfile
 from src.structs.models import PlatformTokens
 from src.structs.models import PlaybackDevice
 from src.structs.models import PlaybackRequest
+from src.structs.models import PlaylistTracks
 from src.structs.models import RemotePlaylist
 from src.structs.models import SavedTrack
 from src.structs.models import SavedTracksPage
@@ -64,6 +65,7 @@ CAPABILITIES = Capabilities(
 INVALID_GRANT = "invalid_grant"
 QUOTA_REASONS = {"quotaExceeded", "dailyLimitExceeded", "rateLimitExceeded"}
 MUSIC_CATEGORY = "10"
+MUSIC_SHARE = 0.5
 LIKED_MUSIC = "LM"
 SEARCH_LIMIT = 10
 SEARCH_COST = 100
@@ -534,14 +536,19 @@ class YouTubeService:
         self,
         access_token: str,
         platform_playlist_id: str,
-    ) -> list[Track]:
+    ) -> PlaylistTracks:
         ids = [
             item.content_details.video_id
             for item in await self._items(access_token, platform_playlist_id)
         ]
         videos = await self._videos(access_token, ids)
+        found = [videos[video_id] for video_id in ids if video_id in videos]
+        music = sum(video.snippet.category_id == MUSIC_CATEGORY for video in found)
 
-        return [_to_track(videos[video_id]) for video_id in ids if video_id in videos]
+        return PlaylistTracks(
+            tracks=[_to_track(video) for video in found],
+            music=bool(found) and music >= len(found) * MUSIC_SHARE,
+        )
 
     async def playlist_track_ids(
         self,

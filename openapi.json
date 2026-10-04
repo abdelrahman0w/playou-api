@@ -798,6 +798,16 @@
               ],
               "title": "Kind"
             }
+          },
+          {
+            "name": "skipped",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Skipped"
+            }
           }
         ],
         "responses": {
@@ -1016,6 +1026,49 @@
             }
           }
         ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library/playlists/{playlist_id}/importing": {
+      "put": {
+        "summary": "Choose Importing",
+        "operationId": "choose_importing_library_playlists__playlist_id__importing_put",
+        "parameters": [
+          {
+            "name": "playlist_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Playlist Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaylistImportingRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "Successful Response"
@@ -2570,6 +2623,16 @@
             "type": "array",
             "title": "Links"
           },
+          "imported_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Platforms"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -2683,6 +2746,16 @@
             "type": "array",
             "title": "Links"
           },
+          "imported_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Platforms"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -2731,6 +2804,32 @@
           "updated_at"
         ],
         "title": "PlaylistDetail"
+      },
+      "PlaylistImportingRequest": {
+        "properties": {
+          "importing": {
+            "type": "string",
+            "enum": [
+              "ALWAYS",
+              "NEVER"
+            ],
+            "title": "Importing"
+          }
+        },
+        "type": "object",
+        "required": [
+          "importing"
+        ],
+        "title": "PlaylistImportingRequest"
+      },
+      "PlaylistImports": {
+        "type": "string",
+        "enum": [
+          "AUTO",
+          "ALWAYS",
+          "NEVER"
+        ],
+        "title": "PlaylistImports"
       },
       "PlaylistItem": {
         "properties": {
@@ -2812,6 +2911,10 @@
           "platform_playlist_id": {
             "type": "string",
             "title": "Platform Playlist Id"
+          },
+          "importing": {
+            "$ref": "#/components/schemas/PlaylistImports",
+            "default": "AUTO"
           }
         },
         "type": "object",
@@ -2928,7 +3031,8 @@
         "type": "string",
         "enum": [
           "USER",
-          "PLATFORM"
+          "PLATFORM",
+          "SKIPPED"
         ],
         "title": "RemovedBy"
       },

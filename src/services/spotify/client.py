@@ -42,6 +42,7 @@ from src.structs.models import PlatformProfile
 from src.structs.models import PlatformTokens
 from src.structs.models import PlaybackDevice
 from src.structs.models import PlaybackRequest
+from src.structs.models import PlaylistTracks
 from src.structs.models import RemotePlaylist
 from src.structs.models import SavedTrack
 from src.structs.models import SavedTracksPage
@@ -422,7 +423,7 @@ class SpotifyService:
         self,
         access_token: str,
         platform_playlist_id: str,
-    ) -> list[Track]:
+    ) -> PlaylistTracks:
         tracks: list[Track] = []
         offset = 0
 
@@ -449,7 +450,7 @@ class SpotifyService:
             )
 
             if page.next is None or not page.items:
-                return tracks
+                return PlaylistTracks(tracks=tracks)
 
             offset += len(page.items)
 
