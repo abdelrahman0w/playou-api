@@ -12,6 +12,7 @@ from src.dependencies import UserIDDep
 from src.dependencies import require_trusted_origin
 from src.structs.enums import Platforms
 from src.structs.models import PlaybackDevice
+from src.structs.models.requests import EmbedBlockedRequest
 from src.structs.models.requests import PlayRequest
 from src.structs.models.requests import RejectedTokenRequest
 from src.structs.models.responses import PlaybackToken
@@ -111,5 +112,22 @@ async def play(
         user_id=user_id,
         now=now,
     )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/{platform}/blocked",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def block_embedding(
+    platform: Platforms,
+    body: EmbedBlockedRequest,
+    _user_id: UserIDDep,
+    session: DBSessionDep,
+    now: NowDep,
+) -> Response:
+    await playback_controller.block_embedding(session, platform, body, now=now)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

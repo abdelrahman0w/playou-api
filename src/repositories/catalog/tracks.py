@@ -1,7 +1,9 @@
 from collections.abc import Collection
+from datetime import datetime
 from uuid import UUID
 from uuid import uuid7
 
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy import text
 from sqlalchemy import tuple_
@@ -14,6 +16,8 @@ from src.structs.enums import Platforms
 from src.structs.models import Track
 from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import TrackSource
+from src.utils.matching import SAME_DURATION_MS
+from src.utils.matching import same_song
 
 
 BATCH = 500
@@ -47,6 +51,66 @@ async def _source_ids(
     }
 
 
+async def _matches(
+    session: AsyncSession,
+    tracks: list[Track],
+) -> dict[tuple[Platforms, str], UUID]:
+    timed = [track for track in tracks if track.duration_ms is not None]
+    if not timed:
+        return {}
+
+    row = tables.Track
+    candidates = await session.execute(
+        select(row.id, row.title, row.artists, row.duration_ms, row.isrc).where(
+            or_(
+                *(
+                    row.duration_ms.between(
+                        track.duration_ms - SAME_DURATION_MS,
+                        track.duration_ms + SAME_DURATION_MS,
+                    )
+                    for track in timed
+                    if track.duration_ms is not None
+                ),
+            ),
+        ),
+    )
+    found = sorted(candidates.all(), key=lambda candidate: candidate.isrc is None)
+
+    matched: dict[tuple[Platforms, str], UUID] = {}
+    for track in timed:
+        for candidate in found:
+            if same_song(
+                (track.title, track.artists, track.duration_ms),
+                (candidate.title, list(candidate.artists), candidate.duration_ms),
+            ):
+                matched[(track.platform, track.platform_id)] = candidate.id
+                break
+
+    return matched
+
+
+async def _updatable(
+    session: AsyncSession,
+    known: dict[tuple[Platforms, str], tuple[UUID, UUID]],
+    by_key: dict[tuple[Platforms, str], Track],
+) -> dict[tuple[Platforms, str], tuple[UUID, UUID]]:
+    fuzzy = {key for key in known if by_key[key].isrc is None}
+    if not fuzzy:
+        return known
+
+    rows = await session.execute(
+        select(tables.Track.id).where(
+            tables.Track.id.in_({known[key][1] for key in fuzzy}),
+            tables.Track.isrc.is_(None),
+        ),
+    )
+    plain = set(rows.scalars())
+
+    return {
+        key: ids for key, ids in known.items() if key not in fuzzy or ids[1] in plain
+    }
+
+
 async def _save_batch(
     session: AsyncSession,
     tracks: list[Track],
@@ -56,13 +120,15 @@ async def _save_batch(
     known = await _source_ids(session, keys)
 
     if known:
-        await session.execute(
-            update(tables.Track),
-            [
-                {"id": track_id, **_values(by_key[key])}
-                for key, (_, track_id) in known.items()
-            ],
-        )
+        updatable = await _updatable(session, known, by_key)
+        if updatable:
+            await session.execute(
+                update(tables.Track),
+                [
+                    {"id": track_id, **_values(by_key[key])}
+                    for key, (_, track_id) in updatable.items()
+                ],
+            )
         await session.execute(
             update(tables.TrackSource),
             [
@@ -85,11 +151,15 @@ async def _save_batch(
         )
         by_isrc = {isrc: track_id for isrc, track_id in rows if isrc is not None}
 
+    matched = await _matches(session, [track for track in new if not track.isrc])
+
     rows_to_insert: list[dict[str, object]] = []
     track_ids: dict[tuple[Platforms, str], UUID] = {}
     for track in new:
         if track.isrc and track.isrc in by_isrc:
             track_id = by_isrc[track.isrc]
+        elif (track.platform, track.platform_id) in matched:
+            track_id = matched[(track.platform, track.platform_id)]
         else:
             track_id = uuid7()
             rows_to_insert.append(
@@ -178,6 +248,7 @@ async def get_tracks(
                 platform=source.platform,
                 platform_id=source.platform_id,
                 url=source.url,
+                embed_blocked=source.embed_blocked_at is not None,
             ),
         )
 
@@ -221,3 +292,21 @@ async def platform_track_ids(
         found.setdefault(track_id, platform_id)
 
     return found
+
+
+async def block_embedding(
+    session: AsyncSession,
+    platform: Platforms,
+    platform_id: str,
+    now: datetime,
+) -> None:
+    source = tables.TrackSource
+    await session.execute(
+        update(source)
+        .where(
+            source.platform == platform,
+            source.platform_id == platform_id,
+            source.embed_blocked_at.is_(None),
+        )
+        .values(embed_blocked_at=now),
+    )

@@ -5,9 +5,11 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.actions import auth as auth_actions
+from src.actions import library as library_actions
 from src.exceptions import UnauthorizedError
 from src.repositories import auth as auth_repositories
 from src.services import ResendService
+from src.settings import settings
 from src.structs.models.requests import EmailCodeRequest
 from src.structs.models.requests import EmailVerifyRequest
 from src.structs.models.responses import AuthUser
@@ -63,7 +65,13 @@ async def verify_email_code(
             user_agent=user_agent,
         )
 
-    return user, token
+    return _with_permissions(user), token
+
+
+def _with_permissions(user: AuthUser) -> AuthUser:
+    return user.model_copy(
+        update={"can_delete_data": settings.data.deletion_enabled},
+    )
 
 
 async def get_me(
@@ -76,7 +84,7 @@ async def get_me(
             "Sign in to continue",
         )
 
-    return user
+    return _with_permissions(user)
 
 
 async def sign_out(
@@ -86,3 +94,13 @@ async def sign_out(
 ) -> None:
     if token:
         await auth_actions.end_session(session, redis, token)
+
+
+async def delete_me(
+    session: AsyncSession,
+    redis: Redis,
+    user_id: UUID,
+) -> None:
+    library_actions.ensure_allowed()
+    async with session.begin():
+        await library_actions.delete_user(session, redis, user_id)

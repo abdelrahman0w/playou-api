@@ -12,11 +12,13 @@ from src.exceptions import PlatformNotFoundError
 from src.exceptions import PlatformNotLinkedError
 from src.exceptions import PlatformRateLimitedError
 from src.exceptions import PlatformReconnectRequiredError
+from src.exceptions import QuotaExhaustedError
 from src.providers import logger
 from src.repositories import accounts as accounts_repositories
 from src.repositories import library as library_repositories
 from src.repositories import sync as sync_repositories
 from src.services import OAuthPlatform
+from src.services.limits import charged_to
 from src.settings import settings
 from src.structs.enums import Platforms
 from src.structs.enums import PlaylistKinds
@@ -242,13 +244,14 @@ async def _push(
             ),
         ]
 
-    return await accounts_actions.with_token(
-        session_factory,
-        platform,
-        account,
-        dispatch,
-        now=now,
-    )
+    with charged_to(account.id):
+        return await accounts_actions.with_token(
+            session_factory,
+            platform,
+            account,
+            dispatch,
+            now=now,
+        )
 
 
 async def fail_attempt(
@@ -315,6 +318,17 @@ async def _settle(
                 session,
                 task.id,
                 at=now + timedelta(seconds=error.retry_after_seconds),
+                error=error.message,
+                count_attempt=False,
+            )
+
+        return [None] * len(tasks)
+    except QuotaExhaustedError as error:
+        for task in tasks:
+            await sync_repositories.retry_later(
+                session,
+                task.id,
+                at=error.retry_at,
                 error=error.message,
                 count_attempt=False,
             )

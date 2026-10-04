@@ -108,11 +108,14 @@ async def disconnect(
     platform: Platforms,
     user_id: UserIDDep,
     session: DBSessionDep,
+    *,
+    remove_data: bool = False,
 ) -> Response:
     await accounts_controller.disconnect(
         session,
         platform,
         user_id=user_id,
+        remove_data=remove_data,
     )
 
     return Response(

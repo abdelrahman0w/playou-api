@@ -1,7 +1,9 @@
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import ARRAY
 from sqlalchemy import Boolean
+from sqlalchemy import DateTime
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
 from sqlalchemy import Index
@@ -30,6 +32,12 @@ class Track(Base):
             "isrc",
             unique=True,
             postgresql_where=text("isrc is not null"),
+        ),
+        Index(None, "duration_ms"),
+        Index(
+            "ix_tracks_search",
+            text("track_search_text(title, artists, album) gin_trgm_ops"),
+            postgresql_using="gin",
         ),
     )
 
@@ -68,3 +76,4 @@ class TrackSource(Base):
     )
     platform_id: Mapped[str] = mapped_column(String(255))
     url: Mapped[str | None] = mapped_column(Text)
+    embed_blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

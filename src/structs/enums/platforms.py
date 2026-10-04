@@ -3,6 +3,7 @@ from enum import StrEnum
 
 class Platforms(StrEnum):
     SPOTIFY = "spotify"
+    YOUTUBE = "youtube"
 
 
 class AccountStatuses(StrEnum):
@@ -16,3 +17,5 @@ class SearchStatuses(StrEnum):
     TIMED_OUT = "TIMED_OUT"
     RATE_LIMITED = "RATE_LIMITED"
     NEEDS_RECONNECT = "NEEDS_RECONNECT"
+    QUOTA_EXHAUSTED = "QUOTA_EXHAUSTED"
+    SKIPPED = "SKIPPED"

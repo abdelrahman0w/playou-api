@@ -1,4 +1,5 @@
 from .linked_accounts import delete_account
+from .linked_accounts import delete_accounts
 from .linked_accounts import get_account
 from .linked_accounts import get_account_by_id
 from .linked_accounts import list_accounts
@@ -17,6 +18,7 @@ from .linked_accounts import upsert_account
 
 __all__ = [
     "delete_account",
+    "delete_accounts",
     "get_account",
     "get_account_by_id",
     "list_accounts",

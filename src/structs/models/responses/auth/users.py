@@ -10,6 +10,7 @@ class AuthUser(BaseModel):
     locale: str
     created_at: datetime
     last_sign_in_at: datetime | None = None
+    can_delete_data: bool = True
 
 
 class BearerSession(BaseModel):

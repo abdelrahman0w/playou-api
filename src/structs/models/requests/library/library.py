@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from pydantic import Field
 from pydantic import field_validator
 
+from src.structs.enums import Platforms
 from src.structs.enums import PlaylistKinds
 
 
@@ -15,6 +16,15 @@ class LibraryListRequest(BaseModel):
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=50, ge=1, le=100)
     include_removed: bool = False
+    platform: Platforms | None = None
+    q: str | None = Field(default=None, max_length=100)
+
+    @field_validator("q", mode="before")
+    @classmethod
+    def blank_is_none(cls, value: object) -> object:
+        value = _trimmed(value)
+
+        return value or None
 
 
 class PlaylistListRequest(LibraryListRequest):

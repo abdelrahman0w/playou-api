@@ -168,6 +168,7 @@ class SearchSettings(BaseAppSettings):
 
     platform_timeout_seconds: float = Field(default=5.0, gt=0)
     cache_seconds: int = Field(default=60, ge=1)
+    shared_cache_seconds: int = Field(default=24 * 60 * 60, ge=1)
 
 
 class SyncSettings(BaseAppSettings):
@@ -226,6 +227,40 @@ class SpotifySettings(BaseAppSettings):
     timeout_seconds: float = Field(default=10.0, gt=0)
 
 
+class YouTubeSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="YOUTUBE_",
+    )
+
+    client_id: str | None = None
+    client_secret: SecretStr | None = None
+    api_key: SecretStr | None = None
+    redirect_uri: str = "http://127.0.0.1:8081/accounts/youtube/callback"
+    scopes: list[str] = Field(
+        default_factory=lambda: [
+            "openid",
+            "https://www.googleapis.com/auth/youtube",
+        ],
+    )
+    daily_quota: int = Field(default=10_000, ge=0)
+    daily_push_units: int = Field(default=1_000, ge=0)
+    refresh_token_days: int | None = Field(default=None, ge=1)
+    rate_limit_seconds: int = Field(default=30, ge=1)
+    accounts_url: str = "https://accounts.google.com"
+    oauth_url: str = "https://oauth2.googleapis.com"
+    userinfo_url: str = "https://openidconnect.googleapis.com/v1"
+    api_url: str = "https://www.googleapis.com/youtube/v3"
+    timeout_seconds: float = Field(default=10.0, gt=0)
+
+
+class DataSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="DATA_",
+    )
+
+    deletion_enabled: bool = True
+
+
 class Settings(BaseAppSettings):
     app: AppSettings = Field(default_factory=AppSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
@@ -243,6 +278,8 @@ class Settings(BaseAppSettings):
     sync: SyncSettings = Field(default_factory=SyncSettings)
     imports: ImportSettings = Field(default_factory=ImportSettings)
     spotify: SpotifySettings = Field(default_factory=SpotifySettings)
+    youtube: YouTubeSettings = Field(default_factory=YouTubeSettings)
+    data: DataSettings = Field(default_factory=DataSettings)
 
 
 settings = Settings()

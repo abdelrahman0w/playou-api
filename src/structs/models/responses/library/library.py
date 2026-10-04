@@ -14,6 +14,7 @@ class TrackSource(BaseModel):
     platform: Platforms
     platform_id: str
     url: str | None = None
+    embed_blocked: bool = False
 
 
 class CatalogTrack(BaseModel):
@@ -66,6 +67,12 @@ class PlaylistItem(BaseModel):
 
 class PlaylistDetail(Playlist):
     items: list[PlaylistItem] = Field(default_factory=list)
+
+
+class PlatformData(BaseModel):
+    platform: Platforms
+    likes: int
+    playlists: int
 
 
 class PushPreferences(BaseModel):

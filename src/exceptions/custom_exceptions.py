@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import ClassVar
 
 from src.structs.enums import ErrorTypes
@@ -97,3 +98,11 @@ class PlatformReconnectRequiredError(AppError):
 
 class PlatformTokenRejectedError(PlatformReconnectRequiredError):
     pass
+
+
+class QuotaExhaustedError(AppError):
+    error_type = ErrorTypes.QUOTA_EXHAUSTED
+
+    def __init__(self, message: str, *, retry_at: datetime) -> None:
+        super().__init__(message)
+        self.retry_at = retry_at

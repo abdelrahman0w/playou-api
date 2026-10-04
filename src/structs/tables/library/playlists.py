@@ -53,6 +53,14 @@ class Playlist(Base):
     owner_name: Mapped[str | None] = mapped_column(String(255))
     cover_url: Mapped[str | None] = mapped_column(Text)
     url: Mapped[str | None] = mapped_column(Text)
+    imported_from: Mapped[Platforms | None] = mapped_column(
+        Enum(
+            Platforms,
+            native_enum=False,
+            length=32,
+            values_callable=_values,
+        ),
+    )
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     removed_by: Mapped[RemovedBy | None] = mapped_column(
         Enum(

@@ -132,3 +132,27 @@ async def sign_out(
 @router.get("/me")
 async def get_me(user_id: UserIDDep, session: DBSessionDep) -> AuthUser:
     return await auth_controller.get_me(session, user_id)
+
+
+@router.delete(
+    "/me",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def delete_me(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    redis: RedisDep,
+) -> Response:
+    await auth_controller.delete_me(session, redis, user_id)
+
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.delete_cookie(
+        settings.auth.cookie_name,
+        path="/",
+        secure=settings.auth.cookie_secure,
+        httponly=True,
+        samesite="lax",
+    )
+
+    return response

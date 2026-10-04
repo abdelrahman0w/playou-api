@@ -13,6 +13,7 @@ from src.exceptions import PlatformError
 from src.exceptions import PlatformNotLinkedError
 from src.exceptions import PlatformRateLimitedError
 from src.exceptions import PlatformReconnectRequiredError
+from src.exceptions import QuotaExhaustedError
 from src.providers import logger
 from src.repositories import accounts as accounts_repositories
 from src.repositories import catalog as catalog_repositories
@@ -81,10 +82,10 @@ async def _read_saved(
 ) -> tuple[list[SavedTrack], int, bool]:
     saved: list[SavedTrack] = []
     total = 0
-    offset = 0
+    cursor: str | None = None
 
     while True:
-        page = await platform.saved_tracks(token, offset=offset)
+        page = await platform.saved_tracks(token, cursor=cursor)
         total = page.total
         for item in page.items:
             if stop_at is not None and item.track.platform_id in stop_at:
@@ -94,10 +95,10 @@ async def _read_saved(
 
         if stop_at is None:
             await on_page(len(saved), total)
-        if not page.has_more or not page.items:
+        if page.next is None or not page.items:
             return saved, total, True
 
-        offset += len(page.items)
+        cursor = page.next
 
 
 async def _import_likes(
@@ -133,6 +134,7 @@ async def _import_likes(
             on_page=reporter.likes,
         )
 
+    kept = [item for item in saved if not item.ignored]
     async with session_factory() as session, session.begin():
         pending = await sync_repositories.pending_subject_ids(
             session,
@@ -142,16 +144,17 @@ async def _import_likes(
         )
         catalog = await catalog_repositories.save_platform_tracks(
             session,
-            [item.track for item in saved],
+            [item.track for item in kept],
         )
         await library_repositories.import_likes(
             session,
             account.user_id,
             [
                 (track.id, item.added_at or now)
-                for track, item in zip(catalog, saved, strict=True)
+                for track, item in zip(catalog, kept, strict=True)
                 if track.id not in pending
             ],
+            platform=account.platform,
         )
 
         if read_all:
@@ -196,11 +199,12 @@ async def _import_playlists(
         )
 
     for done, playlist in enumerate(remote, start=1):
-        kind = (
-            PlaylistKinds.OWNED
-            if playlist.owner_id == account.external_id or playlist.collaborative
-            else PlaylistKinds.FOLLOWED
+        owned = (
+            playlist.owned
+            if playlist.owned is not None
+            else playlist.owner_id == account.external_id or playlist.collaborative
         )
+        kind = PlaylistKinds.OWNED if owned else PlaylistKinds.FOLLOWED
         link = links.get(playlist.platform_id)
         if link is not None and link.playlist_id in pending:
             continue
@@ -439,6 +443,17 @@ async def _settle(
                 session,
                 task.id,
                 at=now + timedelta(seconds=error.retry_after_seconds),
+                error=error.message,
+                count_attempt=False,
+            )
+
+        return None
+    except QuotaExhaustedError as error:
+        async with session_factory() as session, session.begin():
+            await sync_repositories.retry_later(
+                session,
+                task.id,
+                at=error.retry_at,
                 error=error.message,
                 count_attempt=False,
             )

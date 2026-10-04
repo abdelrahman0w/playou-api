@@ -23,6 +23,7 @@ from src.routes import library_router
 from src.routes import playback_router
 from src.services import ResendConnection
 from src.services import SpotifyConnection
+from src.services import YouTubeConnection
 from src.settings import settings
 from src.utils import connect_singletons
 
@@ -43,6 +44,7 @@ SINGLETONS = (
     RedisConnection,
     ResendConnection,
     SpotifyConnection,
+    YouTubeConnection,
 )
 
 

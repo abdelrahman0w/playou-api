@@ -7,6 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.actions import accounts as accounts_actions
+from src.actions import library as library_actions
 from src.exceptions import AppError
 from src.exceptions import PlatformNotLinkedError
 from src.exceptions import UnauthorizedError
@@ -117,12 +118,17 @@ async def disconnect(
     platform: Platforms,
     *,
     user_id: UUID,
+    remove_data: bool = False,
 ) -> None:
+    if remove_data:
+        library_actions.ensure_allowed()
+
     async with session.begin():
         deleted = await accounts_repositories.delete_account(session, user_id, platform)
-
-    if not deleted:
-        raise PlatformNotLinkedError(f"{platform.title()} is not linked")
+        if not deleted:
+            raise PlatformNotLinkedError(f"{platform.title()} is not linked")
+        if remove_data:
+            await library_actions.remove_platform_data(session, user_id, platform)
 
 
 async def get_preferences(

@@ -9,6 +9,7 @@ import uvloop
 from src.jobs import Job
 from src.jobs import accounts
 from src.jobs import auth
+from src.jobs import data
 from src.jobs import sync
 from src.providers import DatabaseConnection
 from src.providers import DatabaseSessions
@@ -20,6 +21,7 @@ from src.providers import setup_error_tracking
 from src.providers import setup_logging
 from src.services import ResendConnection
 from src.services import SpotifyConnection
+from src.services import YouTubeConnection
 from src.settings import settings
 from src.utils import connect_singletons
 from src.utils import cron_matches
@@ -31,11 +33,13 @@ SINGLETONS = (
     RedisConnection,
     ResendConnection,
     SpotifyConnection,
+    YouTubeConnection,
 )
 
 JOBS: dict[str, Job] = {
     **accounts.JOBS,
     **auth.JOBS,
+    **data.JOBS,
     **sync.JOBS,
 }
 

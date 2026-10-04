@@ -11,6 +11,7 @@ from src.actions.cache import cached_json
 from src.exceptions import PlatformError
 from src.exceptions import PlatformRateLimitedError
 from src.exceptions import PlatformReconnectRequiredError
+from src.exceptions import QuotaExhaustedError
 from src.providers import logger
 from src.repositories import catalog as catalog_repositories
 from src.services import OAuthPlatform
@@ -40,7 +41,12 @@ async def _search_platform(
     *,
     now: datetime,
 ) -> list[Track]:
+    shared = platform.capabilities.search_on_demand
+
     async def produce() -> list[Track]:
+        if shared:
+            return await platform.search("", request.q, limit=request.limit)
+
         return await accounts_actions.with_token(
             session_factory,
             platform,
@@ -49,18 +55,23 @@ async def _search_platform(
             now=now,
         )
 
+    query = request.model_copy(update={"everywhere": False})
     body = await cached_json(
         redis,
         params_key(
-            CacheKeys.CATALOG_SEARCH.format(
+            CacheKeys.CATALOG_SEARCH_SHARED.format(platform=account.platform)
+            if shared
+            else CacheKeys.CATALOG_SEARCH.format(
                 platform=account.platform,
                 account_id=account.id,
             ),
-            request,
+            query,
         ),
         produce,
         list[Track],
-        ttl_seconds=settings.search.cache_seconds,
+        ttl_seconds=settings.search.shared_cache_seconds
+        if shared
+        else settings.search.cache_seconds,
     )
 
     return TRACKS.validate_json(body)
@@ -109,6 +120,8 @@ async def _search_one(
         return result(SearchStatuses.NEEDS_RECONNECT)
     except PlatformRateLimitedError:
         return result(SearchStatuses.RATE_LIMITED)
+    except QuotaExhaustedError:
+        return result(SearchStatuses.QUOTA_EXHAUSTED)
     except PlatformError as error:
         logger.warning(
             "[Search] Platform Failed",
@@ -138,21 +151,41 @@ async def search_tracks(
         for account in accounts
         if account.platform in platforms
     ]
-    results = await asyncio.gather(
-        *(
-            _search_one(
-                session_factory,
-                redis,
-                platform,
-                account,
-                request,
-                now=now,
+
+    async def search(
+        group: list[tuple[OAuthPlatform, StoredAccount]],
+    ) -> list[PlatformSearchResult]:
+        return list(
+            await asyncio.gather(
+                *(
+                    _search_one(
+                        session_factory,
+                        redis,
+                        platform,
+                        account,
+                        request,
+                        now=now,
+                    )
+                    for platform, account in group
+                ),
+            ),
+        )
+
+    first = [item for item in searched if not item[0].capabilities.search_on_demand]
+    later = [item for item in searched if item[0].capabilities.search_on_demand]
+    results = await search(first)
+
+    if request.everywhere or not any(result.tracks for result in results):
+        results += await search(later)
+    else:
+        results += [
+            PlatformSearchResult(
+                platform=account.platform, status=SearchStatuses.SKIPPED
             )
-            for platform, account in searched
-        ),
-    )
+            for _, account in later
+        ]
 
     return SearchResults(
         query=request.q,
-        platforms=list(results),
+        platforms=results,
     )

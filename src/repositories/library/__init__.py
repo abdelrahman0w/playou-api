@@ -1,3 +1,6 @@
+from .data import delete_library
+from .data import delete_platform_data
+from .data import leftovers
 from .likes import get_like
 from .likes import import_likes
 from .likes import like_sync_states
@@ -25,10 +28,13 @@ from .playlists import update_playlist
 __all__ = [
     "add_items",
     "create_playlist",
+    "delete_library",
+    "delete_platform_data",
     "get_like",
     "get_playlist",
     "import_likes",
     "import_playlist",
+    "leftovers",
     "like_sync_states",
     "liked_platform_ids",
     "list_likes",

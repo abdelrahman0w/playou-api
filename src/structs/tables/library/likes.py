@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
+from src.structs.enums import Platforms
 from src.structs.enums import RemovedBy
 from src.structs.tables.base import Base
 
@@ -42,6 +43,9 @@ class Like(Base):
         ForeignKey("tracks.id", ondelete="CASCADE"),
     )
     liked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    imported_from: Mapped[Platforms | None] = mapped_column(
+        Enum(Platforms, native_enum=False, length=32, values_callable=_values),
+    )
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     removed_by: Mapped[RemovedBy | None] = mapped_column(
         Enum(RemovedBy, native_enum=False, length=32, values_callable=_values),

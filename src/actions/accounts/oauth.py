@@ -107,6 +107,7 @@ async def finish_link(
             expires_at=expires_at(tokens, now=now),
             refresh_expires_at=refresh_expires_at(platform, tokens, now=now),
             scopes=tokens.scopes,
+            push_by_default=platform.capabilities.push_by_default,
         )
         await sync_repositories.enqueue_import(
             session,

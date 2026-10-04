@@ -57,6 +57,7 @@ async def upsert_account(
     expires_at: datetime | None,
     refresh_expires_at: datetime | None,
     scopes: list[str],
+    push_by_default: bool = True,
 ) -> StoredAccount:
     account = tables.LinkedAccount
     values = {
@@ -71,7 +72,13 @@ async def upsert_account(
         "reconnect_required_at": None,
         "disconnect_warned_at": None,
     }
-    statement = insert(account).values(user_id=user_id, platform=platform, **values)
+    statement = insert(account).values(
+        user_id=user_id,
+        platform=platform,
+        push_likes=push_by_default,
+        push_playlists=push_by_default,
+        **values,
+    )
     row = (
         await session.execute(
             statement.on_conflict_do_update(
@@ -367,3 +374,9 @@ async def list_accounts_to_import(
     )
 
     return [_to_account(row) for row in rows]
+
+
+async def delete_accounts(session: AsyncSession, user_id: UUID) -> None:
+    await session.execute(
+        delete(tables.LinkedAccount).where(tables.LinkedAccount.user_id == user_id),
+    )

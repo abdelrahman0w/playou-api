@@ -8,6 +8,7 @@ from src.actions import playback as playback_actions
 from src.services import OAuthPlatform
 from src.structs.enums import Platforms
 from src.structs.models import PlaybackDevice
+from src.structs.models.requests import EmbedBlockedRequest
 from src.structs.models.requests import PlayRequest
 from src.structs.models.responses import PlaybackToken
 
@@ -72,5 +73,21 @@ async def play(
             request,
             user_id=user_id,
             platform=platform,
+            now=now,
+        )
+
+
+async def block_embedding(
+    session: AsyncSession,
+    platform: Platforms,
+    request: EmbedBlockedRequest,
+    *,
+    now: datetime,
+) -> None:
+    async with session.begin():
+        await playback_actions.block_embedding(
+            session,
+            platform=platform,
+            platform_id=request.platform_id,
             now=now,
         )

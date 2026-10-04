@@ -1,7 +1,9 @@
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import delete
 from sqlalchemy import func
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,3 +51,22 @@ async def get_user(session: AsyncSession, user_id: UUID) -> AuthUser | None:
     row = await session.get(tables.User, user_id)
 
     return _to_user(row) if row is not None else None
+
+
+async def delete_user(session: AsyncSession, user_id: UUID) -> list[str]:
+    hashes = list(
+        await session.scalars(
+            select(tables.AuthSession.token_hash).where(
+                tables.AuthSession.user_id == user_id,
+            ),
+        ),
+    )
+    await session.execute(delete(tables.User).where(tables.User.id == user_id))
+
+    return hashes
+
+
+async def get_user_by_email(session: AsyncSession, email: str) -> UUID | None:
+    return await session.scalar(
+        select(tables.User.id).where(tables.User.email == email.strip().lower()),
+    )

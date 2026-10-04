@@ -19,6 +19,7 @@ from src.exceptions.custom_exceptions import PlatformReconnectRequiredError
 from src.exceptions.custom_exceptions import PlatformScopesMissingError
 from src.exceptions.custom_exceptions import PlatformTimeoutError
 from src.exceptions.custom_exceptions import PlatformUnavailableError
+from src.exceptions.custom_exceptions import QuotaExhaustedError
 from src.exceptions.custom_exceptions import TooManyRequestsError
 from src.exceptions.custom_exceptions import UnauthorizedError
 from src.exceptions.custom_exceptions import UnsupportedError
@@ -46,6 +47,7 @@ STATUS_CODES: dict[type[AppError], int] = {
     PlatformTimeoutError: status.HTTP_504_GATEWAY_TIMEOUT,
     PlatformRateLimitedError: status.HTTP_503_SERVICE_UNAVAILABLE,
     PlatformUnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,
+    QuotaExhaustedError: status.HTTP_503_SERVICE_UNAVAILABLE,
     PlatformError: status.HTTP_502_BAD_GATEWAY,
 }
 

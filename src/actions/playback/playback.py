@@ -198,3 +198,16 @@ async def play(
         lambda token: service.play(token, playback),
         now=now,
     )
+
+
+async def block_embedding(
+    session: AsyncSession,
+    *,
+    platform: Platforms,
+    platform_id: str,
+    now: datetime,
+) -> None:
+    if platform != Platforms.YOUTUBE:
+        raise UnsupportedError(f"{platform.title()} is not embedded")
+
+    await catalog_repositories.block_embedding(session, platform, platform_id, now)

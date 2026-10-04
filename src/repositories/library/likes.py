@@ -3,6 +3,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import case
+from sqlalchemy import exists
 from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy import update
@@ -17,6 +18,7 @@ from src.structs.models import LikeSyncState
 from src.structs.models import Page
 from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import LikedTrack
+from src.utils.search import matching
 
 
 def _to_liked(
@@ -105,11 +107,27 @@ async def list_likes(
     page: int,
     page_size: int,
     include_removed: bool,
+    platform: Platforms | None = None,
+    query: str | None = None,
 ) -> Page[LikedTrack]:
     like = tables.Like
     where = [like.user_id == user_id]
     if not include_removed:
         where.append(like.removed_at.is_(None))
+    if platform is not None:
+        source = tables.TrackSource
+        where.append(
+            exists().where(
+                source.track_id == like.track_id,
+                source.platform == platform,
+            ),
+        )
+    if query:
+        track = tables.Track
+        searched = func.track_search_text(track.title, track.artists, track.album)
+        where.append(
+            exists().where(track.id == like.track_id, *matching(searched, query)),
+        )
 
     total = await session.scalar(
         select(func.count()).select_from(like).where(*where),
@@ -182,6 +200,8 @@ async def import_likes(
     session: AsyncSession,
     user_id: UUID,
     likes: list[tuple[UUID, datetime]],
+    *,
+    platform: Platforms,
 ) -> None:
     if not likes:
         return
@@ -189,7 +209,12 @@ async def import_likes(
     like = tables.Like
     statement = insert(like).values(
         [
-            {"user_id": user_id, "track_id": track_id, "liked_at": liked_at}
+            {
+                "user_id": user_id,
+                "track_id": track_id,
+                "liked_at": liked_at,
+                "imported_from": platform,
+            }
             for track_id, liked_at in dict(likes).items()
         ],
     )

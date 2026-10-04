@@ -16,6 +16,8 @@ class Capabilities(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     search: bool = False
+    search_on_demand: bool = False
+    push_by_default: bool = True
     like: bool = False
     playlists_read: bool = False
     playlists_write: bool = False
@@ -52,12 +54,13 @@ class Track(BaseModel):
 class SavedTrack(BaseModel):
     track: Track
     added_at: datetime | None = None
+    ignored: bool = False
 
 
 class SavedTracksPage(BaseModel):
     total: int
     items: list[SavedTrack] = Field(default_factory=list)
-    has_more: bool = False
+    next: str | None = None
 
 
 class RemotePlaylist(BaseModel):
@@ -67,6 +70,7 @@ class RemotePlaylist(BaseModel):
     owner_id: str | None = None
     owner_name: str | None = None
     collaborative: bool = False
+    owned: bool | None = None
     snapshot_id: str | None = None
     cover_url: str | None = None
     url: str | None = None

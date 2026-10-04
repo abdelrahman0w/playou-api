@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import case
 from sqlalchemy import delete
+from sqlalchemy import exists
 from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy import update
@@ -24,6 +25,7 @@ from src.structs.models.responses import Playlist
 from src.structs.models.responses import PlaylistDetail
 from src.structs.models.responses import PlaylistItem
 from src.structs.models.responses import PlaylistLink
+from src.utils.search import matching
 
 
 async def _links(
@@ -161,6 +163,8 @@ async def list_playlists(
     page_size: int,
     include_removed: bool,
     kind: PlaylistKinds | None = None,
+    platform: Platforms | None = None,
+    query: str | None = None,
 ) -> Page[Playlist]:
     playlist = tables.Playlist
     where = [playlist.user_id == user_id]
@@ -168,6 +172,16 @@ async def list_playlists(
         where.append(playlist.removed_at.is_(None))
     if kind is not None:
         where.append(playlist.kind == kind)
+    if platform is not None:
+        link = tables.PlaylistLink
+        where.append(
+            exists().where(
+                link.playlist_id == playlist.id,
+                link.platform == platform,
+            ),
+        )
+    if query:
+        where.extend(matching(func.search_fold(playlist.name), query))
 
     total = await session.scalar(
         select(func.count()).select_from(playlist).where(*where),
@@ -437,6 +451,7 @@ async def import_playlist(
         owner_name=remote.owner_name,
         cover_url=remote.cover_url,
         url=remote.url,
+        imported_from=platform,
     )
     session.add(playlist)
     await session.flush()

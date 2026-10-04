@@ -20,6 +20,7 @@ from src.structs.models.requests import PlaylistListRequest
 from src.structs.models.requests import UpdatePlaylistRequest
 from src.structs.models.responses import AccountSync
 from src.structs.models.responses import LikedTrack
+from src.structs.models.responses import PlatformData
 from src.structs.models.responses import Playlist
 from src.structs.models.responses import PlaylistDetail
 
@@ -57,6 +58,8 @@ async def list_likes(
             page=request.page,
             page_size=request.page_size,
             include_removed=request.include_removed,
+            platform=request.platform,
+            query=request.q,
         )
 
 
@@ -114,6 +117,8 @@ async def list_playlists(
             page_size=request.page_size,
             include_removed=request.include_removed,
             kind=request.kind,
+            platform=request.platform,
+            query=request.q,
         )
 
 
@@ -293,3 +298,34 @@ async def push_changes(
         now=now,
         user_id=user_id,
     )
+
+
+async def get_data(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+) -> list[PlatformData]:
+    async with session.begin():
+        return await library_actions.leftovers(session, user_id)
+
+
+async def remove_platform_data(
+    session: AsyncSession,
+    platform: Platforms,
+    *,
+    user_id: UUID,
+) -> None:
+    library_actions.ensure_allowed()
+    async with session.begin():
+        await library_actions.remove_platform_data(session, user_id, platform)
+
+
+async def clear_library(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    unlink: bool,
+) -> None:
+    library_actions.ensure_allowed()
+    async with session.begin():
+        await library_actions.clear_library(session, user_id, unlink=unlink)

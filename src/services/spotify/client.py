@@ -352,8 +352,9 @@ class SpotifyService:
         self,
         access_token: str,
         *,
-        offset: int,
+        cursor: str | None,
     ) -> SavedTracksPage:
+        offset = int(cursor or 0)
         response = await self._call(
             self._api.get(
                 "/me/tracks",
@@ -367,14 +368,17 @@ class SpotifyService:
         )
         page = _parse(response, SpotifySavedTracks)
 
+        items = [
+            SavedTrack(track=_to_track(saved.track), added_at=saved.added_at)
+            for saved in page.items
+            if saved.track is not None
+        ]
+        more = page.next is not None and bool(page.items)
+
         return SavedTracksPage(
             total=page.total,
-            items=[
-                SavedTrack(track=_to_track(saved.track), added_at=saved.added_at)
-                for saved in page.items
-                if saved.track is not None
-            ],
-            has_more=page.next is not None and bool(page.items),
+            items=items,
+            next=str(offset + len(page.items)) if more else None,
         )
 
     async def user_playlists(

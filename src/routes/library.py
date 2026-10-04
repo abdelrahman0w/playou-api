@@ -15,6 +15,7 @@ from src.dependencies import PlatformsDep
 from src.dependencies import SessionFactoryDep
 from src.dependencies import UserIDDep
 from src.dependencies import require_trusted_origin
+from src.structs.enums import Platforms
 from src.structs.models import Page
 from src.structs.models.requests import CreatePlaylistRequest
 from src.structs.models.requests import LibraryListRequest
@@ -23,6 +24,7 @@ from src.structs.models.requests import PlaylistListRequest
 from src.structs.models.requests import UpdatePlaylistRequest
 from src.structs.models.responses import AccountSync
 from src.structs.models.responses import LikedTrack
+from src.structs.models.responses import PlatformData
 from src.structs.models.responses import Playlist
 from src.structs.models.responses import PlaylistDetail
 
@@ -333,3 +335,42 @@ async def remove_playlist_item(
     return Response(
         status_code=status.HTTP_204_NO_CONTENT,
     )
+
+
+@router.get("/data")
+async def get_data(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> list[PlatformData]:
+    return await library_controller.get_data(session, user_id=user_id)
+
+
+@router.delete(
+    "/data/{platform}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=writes,
+)
+async def remove_platform_data(
+    platform: Platforms,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> Response:
+    await library_controller.remove_platform_data(session, platform, user_id=user_id)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/data",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=writes,
+)
+async def clear_library(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    *,
+    unlink: bool = True,
+) -> Response:
+    await library_controller.clear_library(session, user_id=user_id, unlink=unlink)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

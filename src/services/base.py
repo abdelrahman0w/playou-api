@@ -44,7 +44,7 @@ class MusicPlatform(Protocol):
         self,
         access_token: str,
         *,
-        offset: int,
+        cursor: str | None,
     ) -> SavedTracksPage: ...
 
     async def user_playlists(

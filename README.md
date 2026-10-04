@@ -35,6 +35,7 @@
     - [Using Docker](#using-docker)
     - [Manually](#manually)
     - [Spotify](#spotify)
+    - [YouTube](#youtube)
   - [Testing](#testing)
 
 ## Description
@@ -216,6 +217,12 @@ its user links it again.
 1. Every account's platform is searched at once, each within `SEARCH_PLATFORM_TIMEOUT_SECONDS`
 1. Each platform's results are cached for `SEARCH_CACHE_SECONDS`, per account and query
 1. A platform that fails, times out, or needs reconnecting is reported with its status, never failing the rest
+1. YouTube is searched on demand, only when the others found nothing, or with `everywhere=true`, otherwise it is `SKIPPED`,
+    since a search is 100 of its 10,000 units a day for the whole app, it is searched with the api key, so its results
+    are no one's, cached for `SEARCH_SHARED_CACHE_SECONDS` for everyone, and a spent day is `QUOTA_EXHAUSTED`
+1. A result is stored in the catalog, by its isrc, or for youtube, which has none, joined to the song with the same
+    title and artist within 3 seconds of its length, so a song on Spotify and YouTube is one, with both its sources,
+    and a source without an isrc never rewrites the details of a song that has one
 
 ### Library
 
@@ -227,6 +234,9 @@ The library is the app's, likes and playlists live here, and are pushed to the p
     with `removed_at` and `removed_by`, `USER` or `PLATFORM`, so the library mirrors the platforms,
     the lists leave them out, unless `include_removed=true`, and liking or adding it again brings it back
 - A change and its push are stored in one transaction, a row in `sync_operations`, the outbox
+- `q` searches the likes by title, artists, and album, and the playlists by name, every word has to match,
+    whatever the case, the accents, the Arabic marks, or the form of alef, `أ` `إ` `آ` are `ا`, `ة` is `ه`, `ى` is `ي`,
+    through `search_fold` and `track_search_text`, Postgres functions on `unaccent`, the tracks' indexed by `pg_trgm`
 
 ```
 PUT /library/likes/{id} → postgres   (the like, and its operation, one transaction)
@@ -258,6 +268,8 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
 - An import is a row in the same queue, `IMPORT`, asked for when an account is linked, when the library is opened
     and the last import is older than `IMPORT_STALE_MINUTES`, by `POST /library/import`, and by the `import_libraries` job
     for the accounts not imported for `IMPORT_EVERY_MINUTES`
+- `POST /library/import` within `IMPORT_COOLDOWN_SECONDS` of the last import starts nothing, it answers the status,
+    so tapping sync again and again cannot flood spotify, an import already queued or running is joined, never doubled
 - Linking and `POST /library/import` import right after the response, without waiting for the job,
     which still takes the scheduled ones, and the ones a crash left
 - A full read reports how far it got, `progress` in `GET /library/sync`, the liked songs read, then the playlists,
@@ -271,11 +283,23 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
 - An owned playlist's tracks are read only when its `snapshot_id` changed, and follow Spotify's, in its order,
     a playlist gone from Spotify is `removed_by` `PLATFORM`
 - A like or a playlist waiting to be pushed wins, the import leaves it, and an import never asks for a push
+- YouTube's liked music is its liked videos in the music category, the others are counted, never liked here,
+    its playlists are the user's own, YouTube lists no followed ones, a playlist is read again when its `etag` changed,
+    an import is about 2 units for 50 songs
+- Pushing to YouTube is off until turned on, a like or a playlist change costs 50 units, so each account has
+    `YOUTUBE_DAILY_PUSH_UNITS` a day, over it, or over the app's, a push waits for midnight Pacific time without an attempt,
+    and only a song YouTube already has here is pushed, a song only on Spotify is skipped, never searched for
+- A like or a playlist keeps where it was imported from, `imported_from`, null when made here, so what an unlinked platform
+    left can be removed, `DELETE /library/data/{platform}`, sparing the likes still playable on a linked platform
+- Deleting only ever deletes here, nothing is sent to the platforms, and `DATA_DELETION_ENABLED=false` refuses it,
+    `403`, the user's `can_delete_data` says so, an erasure request is then `bin/jobs.sh delete_user_data <email> --account`
 - `GET /library/sync` answers each account's import, `IDLE`, `SYNCING`, or `FAILED`, and when it was last imported
 
 ### Playback
 
 The API never streams audio, each platform plays its own, the API tells it what, and on which device.
+Only Spotify plays through these, YouTube Music plays in the browser's own YouTube player, which needs nothing from the API but the songs' video ids,
+the token, devices, and play endpoints answer it `UNSUPPORTED`.
 
 - `GET /playback/{platform}/token` answers the account's access token, refreshed if it has to be, never cached,
     for the Web Playback SDK, which makes the browser a Spotify Connect device
@@ -283,6 +307,8 @@ The API never streams audio, each platform plays its own, the API tells it what,
 - `POST /playback/{platform}/play` plays on one, the tracks given, by their ids here, or a playlist, from the `offset`th track
     - A playlist on the platform is played as itself, so a followed one plays too, though its tracks are never read
     - A playlist not pushed yet is played by its tracks, those the platform has
+- `POST /playback/youtube/blocked` remembers a video YouTube refused to play in PlaYou, `track_sources.embed_blocked_at`,
+    so its source is sent back `embed_blocked` and the web plays the song from another app, or not at all
 - Spotify plays for Premium only, and `GET /me` no longer says who has it, so a refusal is `PLATFORM_PREMIUM_REQUIRED`,
     and no open device is `NO_ACTIVE_DEVICE`
 - Playing needs the `streaming`, `user-read-playback-state`, and `user-modify-playback-state` scopes,
@@ -310,23 +336,28 @@ There is no separate home route, `/` is Home or the landing, whichever fits.
 | `POST` | `/auth/email/code` | Emails a sign in code |
 | `POST` | `/auth/email/verify` | Signs in with the code, and sets the session cookie, or answers the token with `"transport": "bearer"` |
 | `POST` | `/auth/sign-out` | Ends the session |
-| `GET` | `/auth/me` | The signed in user |
+| `GET` | `/auth/me` | The signed in user, and whether they may delete their data, `can_delete_data` |
+| `DELETE` | `/auth/me` | Deletes the account and everything of it, and signs out |
 | `GET` | `/accounts` | The linked accounts, with what each platform can do, `expires_soon`, within `ACCOUNTS_EXPIRY_WARNING_DAYS`, and `missing_scopes` |
 | `GET` | `/accounts/{platform}/connect` | Starts linking, redirects to the platform |
 | `GET` | `/accounts/{platform}/callback` | Where the platform sends the browser back, redirects to the web app |
-| `DELETE` | `/accounts/{platform}` | Unlinks the account |
+| `DELETE` | `/accounts/{platform}` | Unlinks the account, with `remove_data=true` also what was imported from it |
 | `GET` | `/catalog/search?q=&limit=` | Searches every linked platform, `limit` up to 50, 20 by default |
 | `GET` | `/accounts/{platform}/preferences` | What the library pushes to the platform |
 | `PATCH` | `/accounts/{platform}/preferences` | Turns pushing likes or playlists on or off, `{"push_likes": false}` |
-| `GET` | `/library/likes?page=&page_size=&include_removed=` | The liked tracks, newest first |
+| `GET` | `/library/likes?page=&page_size=&include_removed=&platform=&q=` | The liked tracks, newest first, `q` searches them |
 | `PUT` | `/library/likes/{track_id}` | Likes a track |
 | `DELETE` | `/library/likes/{track_id}` | Unlikes it, the like is kept as removed |
-| `GET` | `/library/playlists?page=&page_size=&include_removed=&kind=` | The playlists, newest first, `OWNED` or `FOLLOWED` |
+| `GET` | `/library/playlists?page=&page_size=&include_removed=&kind=&platform=&q=` | The playlists, newest first, `OWNED` or `FOLLOWED`, `q` searches their names |
 | `GET` | `/library/sync` | Each linked account's import, `IDLE`, `SYNCING`, or `FAILED` |
+| `GET` | `/library/data` | What the unlinked platforms left, their imported likes and playlists |
+| `DELETE` | `/library/data/{platform}` | Removes what an unlinked platform left |
+| `DELETE` | `/library/data` | Clears the library, and unlinks every platform unless `unlink=false`, the account stays |
 | `POST` | `/library/import` | Asks for an import of every linked account now |
 | `GET` | `/playback/{platform}/token` | The access token for the platform's web player, never cached |
 | `GET` | `/playback/{platform}/devices` | The user's devices on the platform |
 | `POST` | `/playback/{platform}/play` | Plays `{"track_ids": [...]}` or `{"playlist_id": ...}`, with `device_id`, `offset`, and `position_ms` |
+| `POST` | `/playback/youtube/blocked` | Marks `{"platform_id": ...}` as a video YouTube won't play outside its site |
 | `POST` | `/library/playlists` | Makes one, `{"name": "Road", "description": "Trip"}` |
 | `GET` | `/library/playlists/{id}?include_removed=` | A playlist, with its tracks in order |
 | `PATCH` | `/library/playlists/{id}` | Renames it, or changes its description, a followed one is `UNSUPPORTED` |
@@ -407,8 +438,10 @@ Errors share a single shape:
 | `502` | `PLATFORM_ERROR` | The platform responded with an error or with something unusable |
 | `503` | `PLATFORM_UNAVAILABLE` | The platform could not be reached |
 | `503` | `PLATFORM_RATE_LIMITED` | The platform is limiting the app's requests, with `Retry-After` |
+| `503` | `QUOTA_EXHAUSTED` | YouTube's units for the day are spent, back after midnight Pacific time |
 | `503` | `EMAIL_UNAVAILABLE` | The code could not be sent |
 | `504` | `PLATFORM_TIMEOUT` | The platform did not respond in time |
+| `500` | `INTERNAL` | Anything unexpected, reported to error tracking |
 
 > Invalid parameters return FastAPI's default `422` validation response
 
@@ -445,6 +478,7 @@ Jobs are run once by name through `bin/jobs.sh`, `bin/jobs.sh <job> --help` list
 | `check_expiring_accounts` | `0 3 * * *` | Emails the users of the accounts expiring within `ACCOUNTS_EXPIRY_WARNING_DAYS` to reconnect, once, then refreshes the ones expiring within `ACCOUNTS_KEEP_ALIVE_DAYS`, on the platforms whose refresh extends the lifetime, the soonest first, `ACCOUNTS_KEEP_ALIVE_BATCH_SIZE` a run, one at a time. A refused refresh sets `reconnect_required_at`, a failed one is tried again the next run |
 | `warn_disconnected_accounts` | `*/5 * * * *` | Emails the users whose platform refused their account, once, until it is linked again |
 | `prune_auth` | `30 0 * * *` | Drops the expired sessions, and the codes used or expired |
+| `delete_user_data` | by hand | Clears a user's library and linked apps by their email, `--account` deletes the account too, whatever `DATA_DELETION_ENABLED` says |
 
 In production, each job is a schedule in dokploy, in the api's application, under **Schedules**,
 with the `sh` shell, running `/app/bin/jobs.sh <job>` in the api's container, with its environment:
@@ -492,6 +526,7 @@ The ones without a usable default:
 | `DATABASE_*` | Postgres |
 | `ENCRYPTION_KEYS` | Seals the platforms' tokens, accounts cannot be linked without it, make one with `uv run python -c "from src.utils import make_key; print(make_key())"` |
 | `SPOTIFY_CLIENT_ID` | Spotify is not offered without it |
+| `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_API_KEY` | YouTube Music is not offered without them, see [YouTube](#youtube) |
 | `APP_WEB_URL` | Where the browser is sent back after linking |
 | `CORS_ORIGINS` | The web app's origins |
 | `RESEND_API_KEY` | Without it, codes are logged in `DEV`, and refused in `PROD`, and no reconnect warning is sent |
@@ -599,6 +634,15 @@ reloading on changes.
 1. Add `http://127.0.0.1:8081/accounts/spotify/callback` to its redirect uris, Spotify takes loopback ips, never `localhost`
 1. Put its client id in `.env` as `SPOTIFY_CLIENT_ID`, there is no secret, the link is made with PKCE
 1. In development mode, only the users added in the dashboard can link their accounts
+
+### YouTube
+
+1. In the [Google Cloud console](https://console.cloud.google.com), create a project and enable the YouTube Data API v3
+1. Configure the OAuth consent screen, add the `youtube` scope, and your account as a test user
+1. Create an OAuth client of the web application type, with `http://127.0.0.1:8081/accounts/youtube/callback` as its redirect uri,
+    and put its id and secret in `.env` as `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET`
+1. Create an api key restricted to the YouTube Data API v3, and put it in `.env` as `YOUTUBE_API_KEY`
+1. While the app is in testing, `YOUTUBE_REFRESH_TOKEN_DAYS=7`, its links last a week, and only its test users, 100 at most, can link
 
 ## Testing
 

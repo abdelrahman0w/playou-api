@@ -21,5 +21,9 @@ class PlayRequest(BaseModel):
         return self
 
 
+class EmbedBlockedRequest(BaseModel):
+    platform_id: str = Field(min_length=1, max_length=255)
+
+
 class RejectedTokenRequest(BaseModel):
     rejected: str = Field(min_length=1, max_length=4096)
