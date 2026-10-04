@@ -615,6 +615,15 @@
               ],
               "title": "Q"
             }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/LikeSorts",
+              "default": "RECENT"
+            }
           }
         ],
         "responses": {
@@ -807,6 +816,15 @@
               "type": "boolean",
               "default": false,
               "title": "Skipped"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/PlaylistSorts",
+              "default": "RECENT"
             }
           }
         ],
@@ -2044,6 +2062,16 @@
         ],
         "title": "ImportStatuses"
       },
+      "LikeSorts": {
+        "type": "string",
+        "enum": [
+          "RECENT",
+          "OLDEST",
+          "TITLE",
+          "ARTIST"
+        ],
+        "title": "LikeSorts"
+      },
       "LikedTrack": {
         "properties": {
           "track": {
@@ -2923,6 +2951,14 @@
           "platform_playlist_id"
         ],
         "title": "PlaylistLink"
+      },
+      "PlaylistSorts": {
+        "type": "string",
+        "enum": [
+          "RECENT",
+          "NAME"
+        ],
+        "title": "PlaylistSorts"
       },
       "Progress": {
         "properties": {

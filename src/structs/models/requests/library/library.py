@@ -5,9 +5,11 @@ from pydantic import BaseModel
 from pydantic import Field
 from pydantic import field_validator
 
+from src.structs.enums import LikeSorts
 from src.structs.enums import Platforms
 from src.structs.enums import PlaylistImports
 from src.structs.enums import PlaylistKinds
+from src.structs.enums import PlaylistSorts
 
 
 def _trimmed(value: object) -> object:
@@ -29,9 +31,14 @@ class LibraryListRequest(BaseModel):
         return value or None
 
 
+class LikeListRequest(LibraryListRequest):
+    sort: LikeSorts = LikeSorts.RECENT
+
+
 class PlaylistListRequest(LibraryListRequest):
     kind: PlaylistKinds | None = None
     skipped: bool = False
+    sort: PlaylistSorts = PlaylistSorts.RECENT
 
 
 class PlaylistImportingRequest(BaseModel):

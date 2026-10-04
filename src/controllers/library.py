@@ -14,7 +14,7 @@ from src.settings import settings
 from src.structs.enums import Platforms
 from src.structs.models import Page
 from src.structs.models.requests import CreatePlaylistRequest
-from src.structs.models.requests import LibraryListRequest
+from src.structs.models.requests import LikeListRequest
 from src.structs.models.requests import PlaylistImportingRequest
 from src.structs.models.requests import PlaylistItemsRequest
 from src.structs.models.requests import PlaylistListRequest
@@ -45,7 +45,7 @@ async def _refresh_when_stale(
 async def list_likes(
     session: AsyncSession,
     platforms: dict[Platforms, OAuthPlatform],
-    request: LibraryListRequest,
+    request: LikeListRequest,
     *,
     user_id: UUID,
     now: datetime,
@@ -61,6 +61,7 @@ async def list_likes(
             include_removed=request.include_removed,
             platform=request.platform,
             query=request.q,
+            sort=request.sort,
         )
 
 
@@ -121,6 +122,7 @@ async def list_playlists(
             platform=request.platform,
             query=request.q,
             skipped=request.skipped,
+            sort=request.sort,
         )
 
 

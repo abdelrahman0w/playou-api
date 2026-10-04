@@ -18,7 +18,7 @@ from src.dependencies import require_trusted_origin
 from src.structs.enums import Platforms
 from src.structs.models import Page
 from src.structs.models.requests import CreatePlaylistRequest
-from src.structs.models.requests import LibraryListRequest
+from src.structs.models.requests import LikeListRequest
 from src.structs.models.requests import PlaylistImportingRequest
 from src.structs.models.requests import PlaylistItemsRequest
 from src.structs.models.requests import PlaylistListRequest
@@ -82,7 +82,7 @@ async def list_likes(
     session: DBSessionDep,
     platforms: PlatformsDep,
     now: NowDep,
-    request: Annotated[LibraryListRequest, Query()],
+    request: Annotated[LikeListRequest, Query()],
 ) -> Page[LikedTrack]:
     return await library_controller.list_likes(
         session,

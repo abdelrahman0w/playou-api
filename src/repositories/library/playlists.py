@@ -16,6 +16,7 @@ from src.structs import tables
 from src.structs.enums import Platforms
 from src.structs.enums import PlaylistImports
 from src.structs.enums import PlaylistKinds
+from src.structs.enums import PlaylistSorts
 from src.structs.enums import RemovedBy
 from src.structs.models import LinkedPlaylist
 from src.structs.models import Page
@@ -169,6 +170,7 @@ async def list_playlists(
     platform: Platforms | None = None,
     query: str | None = None,
     skipped: bool = False,
+    sort: PlaylistSorts = PlaylistSorts.RECENT,
 ) -> Page[Playlist]:
     playlist = tables.Playlist
     where = [playlist.user_id == user_id]
@@ -198,7 +200,13 @@ async def list_playlists(
         await session.scalars(
             select(playlist)
             .where(*where)
-            .order_by(playlist.created_at.desc(), playlist.id.desc())
+            .order_by(
+                *(
+                    (func.search_fold(playlist.name), playlist.id)
+                    if sort is PlaylistSorts.NAME
+                    else (playlist.created_at.desc(), playlist.id.desc())
+                ),
+            )
             .offset((page - 1) * page_size)
             .limit(page_size),
         ),

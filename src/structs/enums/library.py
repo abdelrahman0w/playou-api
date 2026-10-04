@@ -18,6 +18,18 @@ class PlaylistKinds(StrEnum):
     FOLLOWED = "FOLLOWED"
 
 
+class LikeSorts(StrEnum):
+    RECENT = "RECENT"
+    OLDEST = "OLDEST"
+    TITLE = "TITLE"
+    ARTIST = "ARTIST"
+
+
+class PlaylistSorts(StrEnum):
+    RECENT = "RECENT"
+    NAME = "NAME"
+
+
 class PlaylistImports(StrEnum):
     AUTO = "AUTO"
     ALWAYS = "ALWAYS"

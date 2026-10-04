@@ -9,9 +9,11 @@ from sqlalchemy import select
 from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from src.repositories.catalog import get_tracks
 from src.structs import tables
+from src.structs.enums import LikeSorts
 from src.structs.enums import Platforms
 from src.structs.enums import RemovedBy
 from src.structs.models import LikeSyncState
@@ -106,8 +108,10 @@ async def list_likes(
     include_removed: bool,
     platform: Platforms | None = None,
     query: str | None = None,
+    sort: LikeSorts = LikeSorts.RECENT,
 ) -> Page[LikedTrack]:
     like = tables.Like
+    track = tables.Track
     where = [like.user_id == user_id]
     if not include_removed:
         where.append(like.removed_at.is_(None))
@@ -120,7 +124,6 @@ async def list_likes(
             ),
         )
     if query:
-        track = tables.Track
         searched = func.track_search_text(track.title, track.artists, track.album)
         where.append(
             exists().where(track.id == like.track_id, *matching(searched, query)),
@@ -129,11 +132,20 @@ async def list_likes(
     total = await session.scalar(
         select(func.count()).select_from(like).where(*where),
     )
+    sorted_by = aliased(tables.Track)
+    title = func.search_fold(sorted_by.title)
+    order = {
+        LikeSorts.RECENT: (like.liked_at.desc(), like.id.desc()),
+        LikeSorts.OLDEST: (like.liked_at, like.id),
+        LikeSorts.TITLE: (title, like.id),
+        LikeSorts.ARTIST: (func.search_fold(sorted_by.artists[1]), title, like.id),
+    }[sort]
     rows = list(
         await session.scalars(
             select(like)
+            .join(sorted_by, sorted_by.id == like.track_id)
             .where(*where)
-            .order_by(like.liked_at.desc(), like.id.desc())
+            .order_by(*order)
             .offset((page - 1) * page_size)
             .limit(page_size),
         ),

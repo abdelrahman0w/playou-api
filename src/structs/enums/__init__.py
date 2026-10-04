@@ -3,8 +3,10 @@ from .cache_keys import CacheKeys
 from .error_types import ErrorTypes
 from .health import CheckStatuses
 from .library import ImportStatuses
+from .library import LikeSorts
 from .library import PlaylistImports
 from .library import PlaylistKinds
+from .library import PlaylistSorts
 from .library import RemovedBy
 from .library import SyncOutcomes
 from .library import SyncStatuses
@@ -20,9 +22,11 @@ __all__ = [
     "CheckStatuses",
     "ErrorTypes",
     "ImportStatuses",
+    "LikeSorts",
     "Platforms",
     "PlaylistImports",
     "PlaylistKinds",
+    "PlaylistSorts",
     "RemovedBy",
     "SearchStatuses",
     "SessionTransports",
