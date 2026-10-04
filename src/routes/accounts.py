@@ -18,6 +18,7 @@ from src.dependencies import RedisDep
 from src.dependencies import SessionFactoryDep
 from src.dependencies import UserIDDep
 from src.dependencies import require_trusted_origin
+from src.routes.library import CopierDep
 from src.structs.enums import Platforms
 from src.structs.models.requests import PushPreferencesRequest
 from src.structs.models.responses import LinkedAccount
@@ -145,10 +146,19 @@ async def set_preferences(
     body: PushPreferencesRequest,
     user_id: UserIDDep,
     session: DBSessionDep,
+    platforms: PlatformsDep,
+    copier: CopierDep,
+    now: NowDep,
 ) -> PushPreferences:
-    return await accounts_controller.set_preferences(
+    preferences = await accounts_controller.set_preferences(
         session,
+        platforms,
         platform,
         body,
         user_id=user_id,
+        now=now,
     )
+    if body.keep_in_sync:
+        copier.run()
+
+    return preferences

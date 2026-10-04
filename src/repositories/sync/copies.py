@@ -122,6 +122,7 @@ async def create_copy(
     *,
     total: int,
     missing: list[UUID],
+    auto: bool = False,
 ) -> UUID:
     copy = tables.Copy(
         user_id=user_id,
@@ -130,6 +131,7 @@ async def create_copy(
         playlist_id=playlist_id,
         status=CopyStatuses.RUNNING,
         total=total,
+        auto=auto,
     )
     session.add(copy)
     await session.flush()
@@ -155,8 +157,10 @@ async def due_copies(
     *,
     now: datetime,
     limit: int,
+    user_id: UUID | None = None,
 ) -> list[tables.Copy]:
     copy = tables.Copy
+    mine = [copy.user_id == user_id] if user_id is not None else []
 
     return list(
         await session.scalars(
@@ -164,6 +168,7 @@ async def due_copies(
             .where(
                 copy.status == CopyStatuses.RUNNING,
                 (copy.resume_at.is_(None)) | (copy.resume_at <= now),
+                *mine,
             )
             .order_by(copy.created_at)
             .limit(limit),
@@ -260,9 +265,16 @@ async def likes_to_send(
     session: AsyncSession,
     user_id: UUID,
     platform: Platforms,
+    *,
+    since: datetime | None = None,
 ) -> list[UUID]:
     like = tables.Like
     source = tables.TrackSource
+    recent = (
+        [(like.created_at > since) | (like.liked_at > since)]
+        if since is not None
+        else []
+    )
 
     return list(
         await session.scalars(
@@ -271,6 +283,7 @@ async def likes_to_send(
                 like.user_id == user_id,
                 like.removed_at.is_(None),
                 like.imported_from.is_distinct_from(platform),
+                *recent,
                 exists().where(
                     source.track_id == like.track_id,
                     source.platform == platform,
@@ -286,13 +299,50 @@ async def playlists_to_send(
     user_id: UUID,
     scope: CopyScopes,
     playlist_id: UUID | None,
+    *,
+    since: datetime | None = None,
 ) -> list[UUID]:
     if scope is CopyScopes.PLAYLIST:
         return [playlist_id] if playlist_id is not None else []
     if scope is CopyScopes.LIKES:
         return []
 
-    return list(await session.scalars(_owned_playlists(user_id)))
+    owned = _owned_playlists(user_id)
+    if since is not None:
+        playlist = tables.Playlist
+        item = tables.PlaylistItem
+        owned = owned.where(
+            (playlist.created_at > since)
+            | exists().where(
+                item.playlist_id == playlist.id,
+                (item.created_at > since) | (item.updated_at > since),
+            ),
+        )
+
+    return list(await session.scalars(owned))
+
+
+async def settled_tracks(
+    session: AsyncSession,
+    user_id: UUID,
+    platform: Platforms,
+) -> set[UUID]:
+    item = tables.CopyItem
+    copy = tables.Copy
+
+    return set(
+        await session.scalars(
+            select(item.track_id)
+            .join(copy, copy.id == item.copy_id)
+            .where(
+                copy.user_id == user_id,
+                copy.platform == platform,
+                item.status.in_(
+                    [CopyItemStatuses.MISSING, CopyItemStatuses.DISMISSED],
+                ),
+            ),
+        ),
+    )
 
 
 async def playlists_with(
@@ -329,7 +379,7 @@ async def list_copies(
             select(copy, playlist.name)
             .outerjoin(playlist, playlist.id == copy.playlist_id)
             .where(copy.user_id == user_id)
-            .order_by(copy.created_at.desc())
+            .order_by(copy.created_at.desc(), copy.id.desc())
             .limit(limit),
         )
     ).all()
@@ -365,8 +415,14 @@ async def list_copies(
             created_at=row.created_at,
             finished_at=row.finished_at,
             dismissed_at=row.dismissed_at,
+            auto=row.auto,
         )
         for row, name in rows
+        if not (
+            row.auto
+            and row.status is not CopyStatuses.RUNNING
+            and not counts.get(row.id, {}).get(CopyItemStatuses.MISSING)
+        )
     ]
 
 

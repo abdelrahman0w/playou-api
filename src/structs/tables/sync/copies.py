@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import BigInteger
+from sqlalchemy import Boolean
 from sqlalchemy import DateTime
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
@@ -9,6 +10,7 @@ from sqlalchemy import Index
 from sqlalchemy import Integer
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import Uuid
+from sqlalchemy import false
 from sqlalchemy import text
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
@@ -71,6 +73,7 @@ class Copy(Base):
     resume_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    auto: Mapped[bool] = mapped_column(Boolean, server_default=false())
 
 
 class CopyItem(Base):

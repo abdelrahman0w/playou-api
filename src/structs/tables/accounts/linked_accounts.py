@@ -67,3 +67,5 @@ class LinkedAccount(Base):
     likes_total: Mapped[int | None] = mapped_column(Integer)
     push_likes: Mapped[bool] = mapped_column(Boolean, server_default=true())
     push_playlists: Mapped[bool] = mapped_column(Boolean, server_default=true())
+    keep_in_sync: Mapped[bool | None] = mapped_column(Boolean)
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

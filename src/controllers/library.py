@@ -2,6 +2,7 @@ from datetime import datetime
 from datetime import timedelta
 from uuid import UUID
 
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -29,6 +30,9 @@ from src.structs.models.responses import MissingTracks
 from src.structs.models.responses import PlatformData
 from src.structs.models.responses import Playlist
 from src.structs.models.responses import PlaylistDetail
+
+
+COPY_ROUNDS = 20
 
 
 async def _refresh_when_stale(
@@ -452,3 +456,27 @@ async def estimate_copy(
             scope=request.scope,
             playlist_id=request.playlist_id,
         )
+
+
+async def copy_now(
+    session_factory: async_sessionmaker[AsyncSession],
+    redis: Redis,
+    platforms: dict[Platforms, OAuthPlatform],
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    await sync_actions.run_copies(
+        session_factory,
+        redis,
+        platforms,
+        now=now,
+        user_id=user_id,
+        rounds=COPY_ROUNDS,
+    )
+    await sync_actions.push_pending(
+        session_factory,
+        platforms,
+        now=now,
+        user_id=user_id,
+    )

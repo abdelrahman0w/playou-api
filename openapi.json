@@ -2453,6 +2453,11 @@
               }
             ],
             "title": "Dismissed At"
+          },
+          "auto": {
+            "type": "boolean",
+            "title": "Auto",
+            "default": false
           }
         },
         "type": "object",
@@ -3622,6 +3627,17 @@
           "push_playlists": {
             "type": "boolean",
             "title": "Push Playlists"
+          },
+          "keep_in_sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep In Sync"
           }
         },
         "type": "object",
@@ -3655,6 +3671,17 @@
               }
             ],
             "title": "Push Playlists"
+          },
+          "keep_in_sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep In Sync"
           }
         },
         "type": "object",

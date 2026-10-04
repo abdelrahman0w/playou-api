@@ -40,6 +40,8 @@ def _to_account(row: tables.LinkedAccount) -> StoredAccount:
         scopes=list(row.scopes),
         push_likes=row.push_likes,
         push_playlists=row.push_playlists,
+        keep_in_sync=row.keep_in_sync,
+        synced_at=row.synced_at,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -325,6 +327,7 @@ async def set_push_preferences(
     *,
     push_likes: bool | None,
     push_playlists: bool | None,
+    keep_in_sync: bool | None = None,
 ) -> StoredAccount | None:
     account = tables.LinkedAccount
     values = {
@@ -332,6 +335,7 @@ async def set_push_preferences(
         for key, value in (
             ("push_likes", push_likes),
             ("push_playlists", push_playlists),
+            ("keep_in_sync", keep_in_sync),
         )
         if value is not None
     }
@@ -396,4 +400,12 @@ async def list_accounts_to_import(
 async def delete_accounts(session: AsyncSession, user_id: UUID) -> None:
     await session.execute(
         delete(tables.LinkedAccount).where(tables.LinkedAccount.user_id == user_id),
+    )
+
+
+async def mark_synced(session: AsyncSession, account_id: UUID, *, at: datetime) -> None:
+    await session.execute(
+        update(tables.LinkedAccount)
+        .where(tables.LinkedAccount.id == account_id)
+        .values(synced_at=at),
     )

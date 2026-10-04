@@ -3,6 +3,7 @@ from .copies import choose_similar
 from .copies import copy_missing
 from .copies import dismiss_copy
 from .copies import estimate_copy
+from .copies import keep_in_sync
 from .copies import list_copies
 from .copies import list_missing
 from .copies import run_copies
@@ -27,6 +28,7 @@ __all__ = [
     "estimate_copy",
     "import_account",
     "import_user",
+    "keep_in_sync",
     "library_sync",
     "list_copies",
     "list_missing",

@@ -173,6 +173,8 @@ class StoredAccount(BaseModel):
     scopes: list[str] = Field(default_factory=list)
     push_likes: bool = True
     push_playlists: bool = True
+    keep_in_sync: bool | None = None
+    synced_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

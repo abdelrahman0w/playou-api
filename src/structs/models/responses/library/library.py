@@ -84,6 +84,7 @@ class PushPreferences(BaseModel):
     platform: Platforms
     push_likes: bool
     push_playlists: bool
+    keep_in_sync: bool | None = None
 
 
 class Progress(BaseModel):
@@ -118,6 +119,7 @@ class CopyProgress(BaseModel):
     created_at: datetime
     finished_at: datetime | None = None
     dismissed_at: datetime | None = None
+    auto: bool = False
 
 
 class CopyEstimate(BaseModel):

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.actions import accounts as accounts_actions
 from src.actions import library as library_actions
+from src.actions import sync as sync_actions
 from src.exceptions import AppError
 from src.exceptions import PlatformNotLinkedError
 from src.exceptions import UnauthorizedError
@@ -17,6 +18,7 @@ from src.repositories import accounts as accounts_repositories
 from src.services import OAuthPlatform
 from src.settings import settings
 from src.structs.enums import Platforms
+from src.structs.models import StoredAccount
 from src.structs.models.requests import PushPreferencesRequest
 from src.structs.models.responses import LinkedAccount
 from src.structs.models.responses import PushPreferences
@@ -147,34 +149,46 @@ async def get_preferences(
     if account is None:
         raise PlatformNotLinkedError(f"{platform.title()} is not linked")
 
+    return _preferences(account)
+
+
+def _preferences(account: StoredAccount) -> PushPreferences:
     return PushPreferences(
         platform=account.platform,
         push_likes=account.push_likes,
         push_playlists=account.push_playlists,
+        keep_in_sync=account.keep_in_sync,
     )
 
 
 async def set_preferences(
     session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
     platform: Platforms,
     request: PushPreferencesRequest,
     *,
     user_id: UUID,
+    now: datetime,
 ) -> PushPreferences:
+    syncing = request.keep_in_sync is True
     async with session.begin():
         account = await accounts_repositories.set_push_preferences(
             session,
             user_id,
             platform,
-            push_likes=request.push_likes,
-            push_playlists=request.push_playlists,
+            push_likes=True if syncing else request.push_likes,
+            push_playlists=True if syncing else request.push_playlists,
+            keep_in_sync=request.keep_in_sync,
         )
+        if account is not None and syncing:
+            await sync_actions.keep_in_sync(
+                session,
+                platforms,
+                user_id=user_id,
+                now=now,
+            )
 
     if account is None:
         raise PlatformNotLinkedError(f"{platform.title()} is not linked")
 
-    return PushPreferences(
-        platform=account.platform,
-        push_likes=account.push_likes,
-        push_playlists=account.push_playlists,
-    )
+    return _preferences(account)

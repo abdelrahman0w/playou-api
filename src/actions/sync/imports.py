@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from src.actions import accounts as accounts_actions
+from src.actions.sync.copies import keep_in_sync
 from src.actions.sync.push import fail_attempt
 from src.exceptions import PlatformError
 from src.exceptions import PlatformNotLinkedError
@@ -364,6 +365,7 @@ async def import_account(
             likes_read=likes_read,
             likes_total=likes_total,
         )
+        await keep_in_sync(session, platforms, user_id=account.user_id, now=now)
 
     return SyncOutcomes.DONE
 

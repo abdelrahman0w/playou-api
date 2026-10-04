@@ -10,6 +10,7 @@ from .linked_accounts import list_disconnected_to_warn
 from .linked_accounts import list_expiring_accounts
 from .linked_accounts import mark_disconnect_warned
 from .linked_accounts import mark_imported
+from .linked_accounts import mark_synced
 from .linked_accounts import mark_warned
 from .linked_accounts import require_reconnect
 from .linked_accounts import set_push_preferences
@@ -30,6 +31,7 @@ __all__ = [
     "list_expiring_accounts",
     "mark_disconnect_warned",
     "mark_imported",
+    "mark_synced",
     "mark_warned",
     "require_reconnect",
     "set_push_preferences",

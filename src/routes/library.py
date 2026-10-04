@@ -12,6 +12,7 @@ from src.controllers import library as library_controller
 from src.dependencies import DBSessionDep
 from src.dependencies import NowDep
 from src.dependencies import PlatformsDep
+from src.dependencies import RedisDep
 from src.dependencies import SessionFactoryDep
 from src.dependencies import UserIDDep
 from src.dependencies import require_trusted_origin
@@ -65,6 +66,33 @@ class Pusher:
 
 
 PusherDep = Annotated[Pusher, Depends()]
+
+
+class Copier(Pusher):
+    def __init__(
+        self,
+        background: BackgroundTasks,
+        session_factory: SessionFactoryDep,
+        redis: RedisDep,
+        platforms: PlatformsDep,
+        user_id: UserIDDep,
+        now: NowDep,
+    ) -> None:
+        super().__init__(background, session_factory, platforms, user_id, now)
+        self._redis = redis
+
+    def run(self) -> None:
+        self._background.add_task(
+            library_controller.copy_now,
+            self._session_factory,
+            self._redis,
+            self._platforms,
+            user_id=self._user_id,
+            now=self._now,
+        )
+
+
+CopierDep = Annotated[Copier, Depends()]
 
 
 class Importer(Pusher):
@@ -455,13 +483,17 @@ async def start_copy(
     user_id: UserIDDep,
     session: DBSessionDep,
     platforms: PlatformsDep,
+    copier: CopierDep,
 ) -> CopyProgress:
-    return await library_controller.start_copy(
+    copy = await library_controller.start_copy(
         session,
         platforms,
         body,
         user_id=user_id,
     )
+    copier.run()
+
+    return copy
 
 
 @router.delete(

@@ -14,6 +14,7 @@ from .copies import running_copy
 from .copies import scope_tracks
 from .copies import set_item
 from .copies import settle_track
+from .copies import settled_tracks
 from .copies import tracks_without
 from .operations import claim_alike
 from .operations import claim_next
@@ -56,5 +57,6 @@ __all__ = [
     "scope_tracks",
     "set_item",
     "settle_track",
+    "settled_tracks",
     "tracks_without",
 ]

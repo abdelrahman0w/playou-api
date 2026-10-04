@@ -67,6 +67,7 @@ class PlaylistItemsRequest(BaseModel):
 class PushPreferencesRequest(BaseModel):
     push_likes: bool | None = None
     push_playlists: bool | None = None
+    keep_in_sync: bool | None = None
 
 
 class StartCopyRequest(BaseModel):

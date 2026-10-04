@@ -4,6 +4,7 @@ from datetime import timedelta
 from uuid import UUID
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -28,6 +29,8 @@ from src.services.limits import FINDS
 from src.services.limits import charged_to
 from src.settings import settings
 from src.structs import tables
+from src.structs.enums import AccountStatuses
+from src.structs.enums import CacheKeys
 from src.structs.enums import CopyItemStatuses
 from src.structs.enums import CopyScopes
 from src.structs.enums import CopyStatuses
@@ -43,6 +46,7 @@ from src.structs.models.responses import MissingTracks
 
 
 COPIES_A_RUN = 10
+LOCK_SECONDS = 10 * 60
 WITH_LIKES = {CopyScopes.LIKES, CopyScopes.LIBRARY}
 LATER = timedelta(minutes=5)
 RECONNECT_LATER = timedelta(hours=1)
@@ -266,8 +270,19 @@ async def _send(
     *,
     now: datetime,
 ) -> None:
+    account = await accounts_repositories.get_account(
+        session,
+        copy.user_id,
+        copy.platform,
+    )
+    since = account.synced_at if copy.auto and account is not None else None
     likes = (
-        await sync_repositories.likes_to_send(session, copy.user_id, copy.platform)
+        await sync_repositories.likes_to_send(
+            session,
+            copy.user_id,
+            copy.platform,
+            since=since,
+        )
         if copy.scope in WITH_LIKES
         else []
     )
@@ -276,6 +291,7 @@ async def _send(
         copy.user_id,
         copy.scope,
         copy.playlist_id,
+        since=since,
     )
     for subject, subject_ids in (
         (SyncSubjects.LIKE, likes),
@@ -290,6 +306,89 @@ async def _send(
                 subject_id=subject_id,
                 now=now,
             )
+    if copy.auto and account is not None:
+        await accounts_repositories.mark_synced(session, account.id, at=copy.created_at)
+
+
+async def keep_in_sync(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> int:
+    started = 0
+    for account in await accounts_repositories.list_accounts(session, user_id):
+        service = platforms.get(account.platform)
+        if (
+            not account.keep_in_sync
+            or service is None
+            or not service.capabilities.copy_to
+            or account.status_at(now) is AccountStatuses.NEEDS_RECONNECT
+        ):
+            continue
+
+        scope = (
+            CopyScopes.LIBRARY
+            if service.capabilities.copy_likes
+            else CopyScopes.PLAYLISTS
+        )
+        if await sync_repositories.running_copy(
+            session,
+            user_id,
+            account.platform,
+            scope,
+            None,
+        ):
+            continue
+
+        tracks = await sync_repositories.scope_tracks(session, user_id, scope, None)
+        settled = await sync_repositories.settled_tracks(
+            session,
+            user_id,
+            account.platform,
+        )
+        missing = [
+            track_id
+            for track_id in await sync_repositories.tracks_without(
+                session,
+                tracks,
+                account.platform,
+            )
+            if track_id not in settled
+        ]
+        since = account.synced_at
+        sending = (
+            scope in WITH_LIKES
+            and await sync_repositories.likes_to_send(
+                session,
+                user_id,
+                account.platform,
+                since=since,
+            )
+        ) or await sync_repositories.playlists_to_send(
+            session,
+            user_id,
+            scope,
+            None,
+            since=since,
+        )
+        if not missing and not sending:
+            continue
+
+        await sync_repositories.create_copy(
+            session,
+            user_id,
+            account.platform,
+            scope,
+            None,
+            total=len(missing),
+            missing=missing,
+            auto=True,
+        )
+        started += 1
+
+    return started
 
 
 async def _find(
@@ -412,32 +511,75 @@ async def _run_copy(
     return len(pending)
 
 
+async def _lock(redis: Redis, copy_id: UUID) -> bool:
+    try:
+        return bool(
+            await redis.set(
+                CacheKeys.COPY_LOCK.format(copy_id=copy_id),
+                "1",
+                nx=True,
+                ex=LOCK_SECONDS,
+            ),
+        )
+    except RedisError:
+        return True
+
+
+async def _unlock(redis: Redis, copy_id: UUID) -> None:
+    try:
+        await redis.delete(CacheKeys.COPY_LOCK.format(copy_id=copy_id))
+    except RedisError:
+        pass
+
+
 async def run_copies(
     session_factory: async_sessionmaker[AsyncSession],
     redis: Redis,
     platforms: dict[Platforms, OAuthPlatform],
     *,
     now: datetime,
+    user_id: UUID | None = None,
+    rounds: int = 1,
 ) -> dict[str, int]:
-    async with session_factory() as session:
-        copies = await sync_repositories.due_copies(
-            session,
-            now=now,
-            limit=COPIES_A_RUN,
-        )
-
+    ran: set[UUID] = set()
     searched = 0
-    for copy in copies:
-        searched += await _run_copy(session_factory, redis, platforms, copy, now=now)
+    for _ in range(rounds):
+        async with session_factory() as session:
+            copies = await sync_repositories.due_copies(
+                session,
+                now=now,
+                limit=COPIES_A_RUN,
+                user_id=user_id,
+            )
 
-    if copies:
+        found = 0
+        for copy in copies:
+            if not await _lock(redis, copy.id):
+                continue
+            try:
+                found += await _run_copy(
+                    session_factory,
+                    redis,
+                    platforms,
+                    copy,
+                    now=now,
+                )
+            finally:
+                await _unlock(redis, copy.id)
+            ran.add(copy.id)
+
+        searched += found
+        if not found:
+            break
+
+    if ran:
         logger.info(
             "[Copy] Ran",
-            copies=len(copies),
+            copies=len(ran),
             searched=searched,
         )
 
-    return {"copies": len(copies), "searched": searched}
+    return {"copies": len(ran), "searched": searched}
 
 
 async def similar_songs(
