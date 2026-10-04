@@ -111,17 +111,22 @@ async def _move_entries(
     at: str,
     keep: UUID,
     drop: UUID,
+    *,
+    newest: bool,
 ) -> None:
     pair = (keep, drop)
     other = aliased(table)
+    mine, theirs = getattr(table, at), getattr(other, at)
+    if newest:
+        mine, theirs = theirs, mine
     await session.execute(
         delete(table).where(
             table.track_id.in_(pair),
             other.track_id.in_(pair),
             getattr(other, owner) == getattr(table, owner),
             other.id != table.id,
-            tuple_(table.removed_at.is_not(None), getattr(table, at), table.id)
-            > tuple_(other.removed_at.is_not(None), getattr(other, at), other.id),
+            tuple_(table.removed_at.is_not(None), mine, table.id)
+            > tuple_(other.removed_at.is_not(None), theirs, other.id),
         ),
     )
     await session.execute(
@@ -141,6 +146,7 @@ async def merge_track(
         "liked_at",
         keep,
         drop,
+        newest=True,
     )
     await _move_entries(
         session,
@@ -149,6 +155,7 @@ async def merge_track(
         "added_at",
         keep,
         drop,
+        newest=False,
     )
 
     await session.execute(

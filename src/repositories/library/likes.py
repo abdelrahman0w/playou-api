@@ -47,10 +47,7 @@ async def set_like(
         .on_conflict_do_update(
             index_elements=["user_id", "track_id"],
             set_={
-                "liked_at": case(
-                    (like.removed_at.is_(None), like.liked_at),
-                    else_=now,
-                ),
+                "liked_at": now,
                 "removed_at": None,
                 "removed_by": None,
                 "updated_at": func.now(),
@@ -223,7 +220,10 @@ async def import_likes(
             index_elements=["user_id", "track_id"],
             set_={
                 "liked_at": case(
-                    (like.removed_at.is_(None), like.liked_at),
+                    (
+                        like.removed_at.is_(None),
+                        func.greatest(like.liked_at, statement.excluded.liked_at),
+                    ),
                     else_=statement.excluded.liked_at,
                 ),
                 "removed_at": None,
