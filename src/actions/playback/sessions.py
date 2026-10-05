@@ -58,16 +58,11 @@ async def save_session(
     *,
     now: datetime,
 ) -> PlaybackSessionSaved:
-    stored = await playback_repositories.save_session(
-        session, user_id, request, now=now
-    )
-    if stored is None:
+    saved = await playback_repositories.save_session(session, user_id, request, now=now)
+    if saved is None:
         raise PlaybackSessionChangedError("Another device changed what is playing")
 
-    return PlaybackSessionSaved(
-        version=stored.version,
-        position_at=stored.position_at,
-    )
+    return saved
 
 
 async def claim_session(

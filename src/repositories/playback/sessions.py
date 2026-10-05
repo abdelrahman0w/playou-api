@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.structs import tables
 from src.structs.models import StoredPlaybackSession
 from src.structs.models.requests import SavePlaybackSessionRequest
+from src.structs.models.responses import PlaybackSessionSaved
 
 
 def _stored(row: tables.PlaybackSession) -> StoredPlaybackSession:
@@ -46,7 +47,7 @@ async def save_session(
     request: SavePlaybackSessionRequest,
     *,
     now: datetime,
-) -> StoredPlaybackSession | None:
+) -> PlaybackSessionSaved | None:
     table = tables.PlaybackSession
     values = request.model_dump(exclude={"version"}) | {"position_at": now}
 
@@ -55,19 +56,23 @@ async def save_session(
             insert(table)
             .values(user_id=user_id, version=1, updated_at=now, **values)
             .on_conflict_do_nothing(index_elements=[table.user_id])
-            .returning(table)
+            .returning(table.version, table.position_at)
         )
     else:
         statement = (
             update(table)
             .where(table.user_id == user_id, table.version == request.version)
             .values(version=table.version + 1, updated_at=now, **values)
-            .returning(table)
+            .returning(table.version, table.position_at)
         )
 
-    row = (await session.execute(statement)).scalar_one_or_none()
+    row = (await session.execute(statement)).one_or_none()
 
-    return _stored(row) if row else None
+    return (
+        PlaybackSessionSaved(version=row.version, position_at=row.position_at)
+        if row
+        else None
+    )
 
 
 async def claim_session(
