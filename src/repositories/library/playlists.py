@@ -113,15 +113,12 @@ async def create_playlist(
     return playlist.id
 
 
-async def get_playlist(
+async def get_playlist_summary(
     session: AsyncSession,
     user_id: UUID,
     playlist_id: UUID,
-    *,
-    include_removed: bool = False,
-) -> PlaylistDetail | None:
+) -> Playlist | None:
     playlist = tables.Playlist
-    item = tables.PlaylistItem
     row = await session.scalar(
         select(playlist).where(
             playlist.id == playlist_id,
@@ -131,6 +128,29 @@ async def get_playlist(
     if row is None:
         return None
 
+    return _to_playlist(
+        row,
+        counts=await _item_counts(session, [row.id]),
+        links=await _links(session, [row.id]),
+    )
+
+
+async def get_playlist(
+    session: AsyncSession,
+    user_id: UUID,
+    playlist_id: UUID,
+    *,
+    include_removed: bool = False,
+) -> PlaylistDetail | None:
+    summary = await get_playlist_summary(
+        session,
+        user_id,
+        playlist_id,
+    )
+    if summary is None:
+        return None
+
+    item = tables.PlaylistItem
     where = [item.playlist_id == playlist_id]
     if not include_removed:
         where.append(item.removed_at.is_(None))
@@ -142,11 +162,6 @@ async def get_playlist(
         )
     )
     tracks = await get_tracks(session, [entry.track_id for entry in items])
-    summary = _to_playlist(
-        row,
-        counts=await _item_counts(session, [row.id]),
-        links=await _links(session, [row.id]),
-    )
 
     return PlaylistDetail(
         **summary.model_dump(),

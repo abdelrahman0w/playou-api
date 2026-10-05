@@ -15,6 +15,7 @@ from src.structs.enums import PlaylistImports
 from src.structs.enums import PlaylistKinds
 from src.structs.enums import RemovedBy
 from src.structs.enums import SyncSubjects
+from src.structs.models.responses import Playlist
 from src.structs.models.responses import PlaylistDetail
 
 
@@ -24,8 +25,8 @@ async def _active_playlist(
     playlist_id: UUID,
     *,
     editing: bool = False,
-) -> PlaylistDetail:
-    playlist = await library_repositories.get_playlist(
+) -> Playlist:
+    playlist = await library_repositories.get_playlist_summary(
         session,
         user_id,
         playlist_id,
@@ -55,7 +56,11 @@ async def _pushed(
         now=now,
     )
 
-    return await _active_playlist(session, user_id, playlist_id)
+    playlist = await library_repositories.get_playlist(session, user_id, playlist_id)
+    if playlist is None or playlist.removed_at is not None:
+        raise NotFoundError("The playlist does not exist")
+
+    return playlist
 
 
 async def create_playlist(
@@ -144,7 +149,11 @@ async def choose_importing(
     importing: PlaylistImports,
     now: datetime,
 ) -> None:
-    playlist = await library_repositories.get_playlist(session, user_id, playlist_id)
+    playlist = await library_repositories.get_playlist_summary(
+        session,
+        user_id,
+        playlist_id,
+    )
     if playlist is None or (
         playlist.removed_at is not None and playlist.removed_by is not RemovedBy.SKIPPED
     ):

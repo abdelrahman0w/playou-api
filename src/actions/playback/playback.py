@@ -132,7 +132,7 @@ async def _from_playlist(
     if request.playlist_id is None:
         raise NotFoundError("The playlist does not exist")
 
-    playlist = await library_repositories.get_playlist(
+    playlist = await library_repositories.get_playlist_summary(
         session,
         user_id,
         request.playlist_id,

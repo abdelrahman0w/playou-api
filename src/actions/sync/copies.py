@@ -88,7 +88,7 @@ async def _scope(
         return service, scope, None
 
     playlist = (
-        await library_repositories.get_playlist(session, user_id, playlist_id)
+        await library_repositories.get_playlist_summary(session, user_id, playlist_id)
         if playlist_id is not None
         else None
     )
