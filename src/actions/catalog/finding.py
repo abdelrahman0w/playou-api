@@ -59,6 +59,16 @@ async def _search(
     )
 
 
+def _queries(service: OAuthPlatform, track: CatalogTrack) -> list[str]:
+    isrc = (
+        [f"isrc:{track.isrc}"]
+        if track.isrc and service.capabilities.search_isrc
+        else []
+    )
+
+    return [*isrc, _query(track)]
+
+
 async def _found(
     session_factory: async_sessionmaker[AsyncSession],
     redis: Redis,
@@ -70,30 +80,30 @@ async def _found(
     now: datetime,
 ) -> list[Track]:
     found: dict[str, Track] = {}
-    if track.isrc and service.capabilities.search_isrc:
+    for query in _queries(service, track):
         for result in await _search(
             session_factory,
             redis,
             service,
             account,
-            f"isrc:{track.isrc}",
+            query,
             limit=limit,
             now=now,
         ):
             found.setdefault(result.platform_id, result)
 
-    for result in await _search(
-        session_factory,
-        redis,
-        service,
-        account,
-        _query(track),
-        limit=limit,
-        now=now,
-    ):
-        found.setdefault(result.platform_id, result)
-
     return list(found.values())
+
+
+def _is_match(track: CatalogTrack, result: Track) -> bool:
+    if track.isrc and result.isrc:
+        return result.isrc == track.isrc
+
+    return same_song(
+        _song(track),
+        _song(result),
+        across_scripts=settings.catalog.match_across_scripts,
+    )
 
 
 async def find_match(
@@ -105,25 +115,22 @@ async def find_match(
     *,
     now: datetime,
 ) -> Track | None:
-    for result in await _found(
-        session_factory,
-        redis,
-        service,
-        account,
-        track,
-        limit=FIND_LIMIT,
-        now=now,
-    ):
-        if track.isrc and result.isrc:
-            if result.isrc == track.isrc:
-                return result
-            continue
-        if same_song(
-            _song(track),
-            _song(result),
-            across_scripts=settings.catalog.match_across_scripts,
+    seen: set[str] = set()
+    for query in _queries(service, track):
+        for result in await _search(
+            session_factory,
+            redis,
+            service,
+            account,
+            query,
+            limit=FIND_LIMIT,
+            now=now,
         ):
-            return result
+            if result.platform_id in seen:
+                continue
+            seen.add(result.platform_id)
+            if _is_match(track, result):
+                return result
 
     return None
 
