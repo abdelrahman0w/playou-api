@@ -1,4 +1,6 @@
 from redis.asyncio import Redis
+from redis.asyncio.retry import Retry
+from redis.backoff import ExponentialWithJitterBackoff
 
 from src.settings import settings
 from src.utils import Singleton
@@ -15,6 +17,14 @@ class RedisConnection(Singleton[Redis]):
             db=redis.db,
             password=redis.password.get_secret_value() if redis.password else None,
             decode_responses=True,
+            socket_timeout=redis.timeout_seconds,
+            socket_connect_timeout=redis.connect_timeout_seconds,
+            retry=Retry(
+                ExponentialWithJitterBackoff(base=0.01, cap=0.1),
+                redis.retries,
+            ),
+            health_check_interval=redis.health_check_seconds,
+            max_connections=redis.max_connections,
         )
 
     @classmethod

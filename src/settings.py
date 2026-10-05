@@ -83,6 +83,11 @@ class RedisSettings(BaseAppSettings):
     db: int = 0
     password: SecretStr | None = None
     cache_ttl_seconds: int = Field(default=300, ge=1)
+    timeout_seconds: float = Field(default=1.0, gt=0)
+    connect_timeout_seconds: float = Field(default=1.0, gt=0)
+    retries: int = Field(default=1, ge=0)
+    health_check_seconds: int = Field(default=30, ge=0)
+    max_connections: int = Field(default=100, ge=1)
 
 
 class ErrorTrackingSettings(BaseAppSettings):
