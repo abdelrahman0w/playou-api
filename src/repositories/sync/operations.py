@@ -66,7 +66,9 @@ async def claim_next(
         statement = statement.where(operation.user_id == user_id)
 
     row = await session.scalar(
-        statement.order_by(operation.id).limit(1).with_for_update(skip_locked=True),
+        statement.order_by(operation.next_attempt_at, operation.id)
+        .limit(1)
+        .with_for_update(skip_locked=True),
     )
     if row is None:
         return None

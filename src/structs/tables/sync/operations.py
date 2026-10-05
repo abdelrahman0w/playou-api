@@ -47,6 +47,7 @@ class SyncOperation(Base):
         Index(
             None,
             "next_attempt_at",
+            "id",
             postgresql_where=text("status = 'PENDING'"),
         ),
         Index(None, "user_id", "subject", "subject_id", "id"),
