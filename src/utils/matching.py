@@ -1,5 +1,6 @@
 import re
 import unicodedata
+from functools import lru_cache
 
 from src.structs.enums import Closeness
 
@@ -34,6 +35,7 @@ VERSION_NAMES = {
     "\u0643\u0648\u0641\u0631": "cover",
 }
 SHORTEST_SOUND = 3
+CACHED_NAMES = 16_384
 
 ARABIC = re.compile("[\u0600-\u06ff]")
 HALVES = re.compile("\\s+[-\u2013\u2014/|]\\s+|\\s*/\\s*")
@@ -82,6 +84,7 @@ SOUNDS = str.maketrans(
 REPEATS = re.compile(r"(.)\1+")
 
 
+@lru_cache(maxsize=CACHED_NAMES)
 def _fold(value: str) -> str:
     return unicodedata.normalize("NFKC", value).casefold()
 
@@ -93,18 +96,21 @@ def clean_title(title: str) -> str:
     return SPACES.sub(" ", cleaned).strip().strip("\"'\u201c\u201d\u2018\u2019").strip()
 
 
+@lru_cache(maxsize=CACHED_NAMES)
 def normalize_title(title: str) -> str:
     folded = FEATURING.sub("", clean_title(_fold(title)))
 
     return SPACES.sub(" ", SYMBOLS.sub(" ", folded)).strip()
 
 
+@lru_cache(maxsize=CACHED_NAMES)
 def normalize_artist(artist: str) -> str:
     folded = VEVO.sub("", TOPIC.sub("", _fold(artist).strip()))
 
     return SPACES.sub("", SYMBOLS.sub("", folded))
 
 
+@lru_cache(maxsize=CACHED_NAMES)
 def sounds(value: str) -> str:
     folded = SYMBOLS.sub("", SPACES.sub("", _fold(value)))
     folded = "".join(
@@ -131,8 +137,11 @@ def _halves(title: str, names: set[str]) -> set[str]:
     }
 
 
-def _versions(title: str) -> set[str]:
-    return {VERSION_NAMES.get(word, word) for word in VERSION.findall(_fold(title))}
+@lru_cache(maxsize=CACHED_NAMES)
+def _versions(title: str) -> frozenset[str]:
+    return frozenset(
+        {VERSION_NAMES.get(word, word) for word in VERSION.findall(_fold(title))}
+    )
 
 
 def _sound_alike(
