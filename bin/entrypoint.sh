@@ -22,7 +22,7 @@ if [ "${mode}" = "--dev" ]; then
 else
     echo "INFO  Running in production mode..." >&2
 
-    set -- "$@" --workers "${APP_WORKERS:-1}"
+    set -- "$@" --workers "${APP_WORKERS:-2}"
 fi
 
 exec uvicorn src.main:app "$@"
