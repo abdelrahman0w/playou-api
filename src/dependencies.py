@@ -48,6 +48,9 @@ def get_client_ip(request: Request) -> str | None:
     )
 
 
+CACHED_USER_ID = "cached_user_id"
+
+
 def get_session_token(request: Request) -> str | None:
     if token := request.cookies.get(settings.auth.cookie_name):
         return token
@@ -89,11 +92,18 @@ async def get_user_id(
     if not token:
         return None
 
+    state = request.scope.get("state", {})
+    checked = CACHED_USER_ID in state
+    cached: UUID | None = state.get(CACHED_USER_ID)
+    if cached is not None:
+        return cached
+
     return await auth_actions.resolve_session(
         session,
         redis,
         token,
         now=now,
+        check_cache=not checked,
     )
 
 

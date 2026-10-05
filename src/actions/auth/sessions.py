@@ -87,10 +87,11 @@ async def resolve_session(
     token: str,
     *,
     now: datetime,
+    check_cache: bool = True,
 ) -> UUID | None:
     auth = settings.auth
 
-    if (user_id := await cached_user_id(redis, token)) is not None:
+    if check_cache and (user_id := await cached_user_id(redis, token)) is not None:
         return user_id
 
     hashed = token_hash(token)

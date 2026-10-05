@@ -10,6 +10,7 @@ from starlette.types import Send
 
 from src.actions import auth as auth_actions
 from src.actions import rate_limit as rate_limit_actions
+from src.dependencies import CACHED_USER_ID
 from src.dependencies import get_client_ip
 from src.dependencies import get_redis
 from src.dependencies import get_session_token
@@ -56,6 +57,8 @@ class RateLimitMiddleware:
         redis = scope["app"].dependency_overrides.get(get_redis, get_redis)()
         token = get_session_token(request)
         user_id = await auth_actions.cached_user_id(redis, token) if token else None
+        if token:
+            scope.setdefault("state", {})[CACHED_USER_ID] = user_id
         result = await rate_limit_actions.hit(
             redis,
             f"user:{user_id}" if user_id is not None else client_key(ip),
