@@ -1,4 +1,5 @@
 from collections.abc import Collection
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 from uuid import uuid7
@@ -26,6 +27,7 @@ from src.utils.sql import any_of
 
 
 BATCH = 500
+VALUES = ("title", "artists", "album", "duration_ms", "explicit", "artwork_url")
 
 
 def _values(track: Track) -> dict[str, object]:
@@ -100,25 +102,44 @@ async def _matches(
     return matched
 
 
-async def _updatable(
-    session: AsyncSession,
-    known: dict[tuple[Platforms, str], tuple[UUID, UUID]],
-    by_key: dict[tuple[Platforms, str], Track],
-) -> dict[tuple[Platforms, str], tuple[UUID, UUID]]:
-    fuzzy = {key for key in known if by_key[key].isrc is None}
-    if not fuzzy:
-        return known
+@dataclass(frozen=True)
+class _Stored:
+    source_id: UUID
+    track_id: UUID
+    url: str | None
+    isrc: str | None
+    values: dict[str, object]
 
+
+async def _stored(
+    session: AsyncSession,
+    keys: list[tuple[Platforms, str]],
+) -> dict[tuple[Platforms, str], _Stored]:
+    source = tables.TrackSource
+    track = tables.Track
     rows = await session.execute(
-        select(tables.Track.id).where(
-            tables.Track.id.in_({known[key][1] for key in fuzzy}),
-            tables.Track.isrc.is_(None),
-        ),
+        select(
+            source.platform,
+            source.platform_id,
+            source.id.label("source_id"),
+            source.url,
+            track.id.label("track_id"),
+            track.isrc,
+            *(getattr(track, column) for column in VALUES),
+        )
+        .join(track, track.id == source.track_id)
+        .where(tuple_(source.platform, source.platform_id).in_(keys)),
     )
-    plain = set(rows.scalars())
 
     return {
-        key: ids for key, ids in known.items() if key not in fuzzy or ids[1] in plain
+        (row.platform, row.platform_id): _Stored(
+            source_id=row.source_id,
+            track_id=row.track_id,
+            url=row.url,
+            isrc=row.isrc,
+            values={column: getattr(row, column) for column in VALUES},
+        )
+        for row in rows
     }
 
 
@@ -128,29 +149,27 @@ async def _save_batch(
 ) -> dict[tuple[Platforms, str], UUID]:
     by_key = {(track.platform, track.platform_id): track for track in tracks}
     keys = list(by_key)
-    known = await _source_ids(session, keys)
+    known = await _stored(session, keys)
 
-    if known:
-        updatable = await _updatable(session, known, by_key)
-        if updatable:
-            await session.execute(
-                update(tables.Track),
-                [
-                    {"id": track_id, **_values(by_key[key])}
-                    for key, (_, track_id) in updatable.items()
-                ],
-            )
-        await session.execute(
-            update(tables.TrackSource),
-            [
-                {"id": source_id, "url": by_key[key].url}
-                for key, (source_id, _) in known.items()
-            ],
-        )
+    changed_tracks = [
+        {"id": stored.track_id, **values}
+        for key, stored in known.items()
+        if (by_key[key].isrc is not None or stored.isrc is None)
+        and (values := _values(by_key[key])) != stored.values
+    ]
+    if changed_tracks:
+        await session.execute(update(tables.Track), changed_tracks)
+    changed_sources = [
+        {"id": stored.source_id, "url": by_key[key].url}
+        for key, stored in known.items()
+        if by_key[key].url != stored.url
+    ]
+    if changed_sources:
+        await session.execute(update(tables.TrackSource), changed_sources)
 
     new = [by_key[key] for key in keys if key not in known]
     if not new:
-        return {key: track_id for key, (_, track_id) in known.items()}
+        return {key: stored.track_id for key, stored in known.items()}
 
     isrcs = {track.isrc for track in new if track.isrc}
     by_isrc: dict[str, UUID] = {}
