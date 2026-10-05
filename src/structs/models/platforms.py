@@ -214,6 +214,7 @@ class SyncTask(BaseModel):
     subject: SyncSubjects
     subject_id: UUID
     attempts: int
+    requests: int | None = None
 
 
 class StoredPlaybackSession(BaseModel):

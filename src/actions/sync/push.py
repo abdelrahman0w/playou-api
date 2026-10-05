@@ -1,4 +1,7 @@
+from collections.abc import Awaitable
+from collections.abc import Callable
 from dataclasses import dataclass
+from dataclasses import field
 from datetime import datetime
 from datetime import timedelta
 from uuid import UUID
@@ -25,7 +28,10 @@ from src.structs.enums import PlaylistKinds
 from src.structs.enums import RemovedBy
 from src.structs.enums import SyncOutcomes
 from src.structs.enums import SyncSubjects
+from src.structs.models import LikeSyncState
 from src.structs.models import PlatformPlaylist
+from src.structs.models import PlaylistSyncState
+from src.structs.models import StoredAccount
 from src.structs.models import SyncTask
 
 
@@ -51,20 +57,33 @@ def _retry_delay(attempts: int) -> timedelta:
     return timedelta(seconds=seconds)
 
 
+Apply = Callable[[AsyncSession], Awaitable[None]]
+
+
+async def _nothing(_: AsyncSession) -> None:
+    return None
+
+
+@dataclass(frozen=True)
+class _Pushed:
+    outcomes: list[_Outcome]
+    apply: Apply = _nothing
+
+
+@dataclass(frozen=True)
+class _Prepared:
+    platform: OAuthPlatform
+    account: StoredAccount
+    likes: dict[UUID, LikeSyncState] = field(default_factory=dict)
+    playlist: PlaylistSyncState | None = None
+
+
 async def _push_likes(
-    session: AsyncSession,
     platform: OAuthPlatform,
     token: str,
     tasks: list[SyncTask],
-) -> list[_Outcome]:
-    first = tasks[0]
-    states = await library_repositories.like_sync_states(
-        session,
-        first.user_id,
-        [task.subject_id for task in tasks],
-        first.platform,
-    )
-
+    states: dict[UUID, LikeSyncState],
+) -> _Pushed:
     outcomes: list[_Outcome] = []
     saves: list[str] = []
     unsaves: list[str] = []
@@ -85,7 +104,7 @@ async def _push_likes(
     if unsaves:
         await platform.unsave_tracks(token, unsaves)
 
-    return outcomes
+    return _Pushed(outcomes)
 
 
 async def _remember_link(
@@ -102,42 +121,50 @@ async def _remember_link(
         )
 
 
+def _linking(
+    task: SyncTask,
+    remote: PlatformPlaylist | None,
+) -> Apply:
+    async def apply(session: AsyncSession) -> None:
+        await library_repositories.save_link(
+            session,
+            task.subject_id,
+            task.platform,
+            remote,
+        )
+
+    return apply
+
+
 async def _push_playlist(
-    session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],
     platform: OAuthPlatform,
     token: str,
     task: SyncTask,
+    state: PlaylistSyncState | None,
     *,
     now: datetime,
-) -> _Outcome:
-    state = await library_repositories.playlist_sync_state(
-        session,
-        task.subject_id,
-        task.platform,
-    )
+) -> _Pushed:
     if state is None:
-        return _Outcome(SyncOutcomes.SKIPPED, "The playlist is gone")
+        return _Pushed([_Outcome(SyncOutcomes.SKIPPED, "The playlist is gone")])
     if state.skipped:
-        return _Outcome(SyncOutcomes.SKIPPED, "The playlist is not imported")
+        return _Pushed([_Outcome(SyncOutcomes.SKIPPED, "The playlist is not imported")])
     if state.kind is PlaylistKinds.FOLLOWED and not state.removed:
-        return _Outcome(SyncOutcomes.SKIPPED, "A followed playlist is not pushed")
+        return _Pushed(
+            [_Outcome(SyncOutcomes.SKIPPED, "A followed playlist is not pushed")],
+        )
 
     remote = state.link
     if state.removed:
-        if remote is not None:
-            try:
-                await platform.delete_playlist(token, remote.platform_id)
-            except PlatformNotFoundError:
-                pass
-            await library_repositories.save_link(
-                session,
-                task.subject_id,
-                task.platform,
-                None,
-            )
+        if remote is None:
+            return _Pushed([DONE])
 
-        return DONE
+        try:
+            await platform.delete_playlist(token, remote.platform_id)
+        except PlatformNotFoundError:
+            pass
+
+        return _Pushed([DONE], _linking(task, None))
 
     if remote is None:
         remote = await platform.create_playlist(
@@ -157,20 +184,20 @@ async def _push_playlist(
             )
             remote_ids = await platform.playlist_track_ids(token, remote.platform_id)
         except PlatformNotFoundError:
-            await library_repositories.remove_playlist(
-                session,
-                task.subject_id,
-                now=now,
-                removed_by=RemovedBy.PLATFORM,
-            )
-            await library_repositories.save_link(
-                session,
-                task.subject_id,
-                task.platform,
-                None,
-            )
 
-            return _Outcome(SyncOutcomes.DONE, "The platform deleted the playlist")
+            async def gone(session: AsyncSession) -> None:
+                await library_repositories.remove_playlist(
+                    session,
+                    task.subject_id,
+                    now=now,
+                    removed_by=RemovedBy.PLATFORM,
+                )
+                await _linking(task, None)(session)
+
+            return _Pushed(
+                [_Outcome(SyncOutcomes.DONE, "The platform deleted the playlist")],
+                gone,
+            )
 
     there = set(remote_ids)
     to_remove = [pid for pid in state.removed_platform_ids if pid in there]
@@ -188,28 +215,24 @@ async def _push_playlist(
             or snapshot
         )
 
-    await library_repositories.save_link(
-        session,
-        task.subject_id,
-        task.platform,
-        PlatformPlaylist(platform_id=remote.platform_id, snapshot_id=snapshot),
+    return _Pushed(
+        [DONE],
+        _linking(
+            task,
+            PlatformPlaylist(platform_id=remote.platform_id, snapshot_id=snapshot),
+        ),
     )
 
-    return DONE
 
-
-async def _push(
+async def _prepare(
     session: AsyncSession,
-    session_factory: async_sessionmaker[AsyncSession],
     platforms: dict[Platforms, OAuthPlatform],
     tasks: list[SyncTask],
-    *,
-    now: datetime,
-) -> list[_Outcome]:
+) -> _Prepared | _Pushed:
     first = tasks[0]
 
-    def every(outcome: _Outcome) -> list[_Outcome]:
-        return [outcome] * len(tasks)
+    def every(outcome: _Outcome) -> _Pushed:
+        return _Pushed([outcome] * len(tasks))
 
     platform = platforms.get(first.platform)
     if platform is None:
@@ -231,26 +254,59 @@ async def _push(
     if not wanted:
         return every(_Outcome(SyncOutcomes.SKIPPED, "Pushing it was turned off"))
 
-    async def dispatch(token: str) -> list[_Outcome]:
-        if first.subject is SyncSubjects.LIKE:
-            return await _push_likes(session, platform, token, tasks)
-
-        return [
-            await _push_playlist(
+    if first.subject is SyncSubjects.LIKE:
+        return _Prepared(
+            platform,
+            account,
+            likes=await library_repositories.like_sync_states(
                 session,
-                session_factory,
-                platform,
-                token,
-                first,
-                now=now,
+                first.user_id,
+                [task.subject_id for task in tasks],
+                first.platform,
             ),
-        ]
+        )
 
-    with charged_to(account.id):
+    return _Prepared(
+        platform,
+        account,
+        playlist=await library_repositories.playlist_sync_state(
+            session,
+            first.subject_id,
+            first.platform,
+        ),
+    )
+
+
+async def _push(
+    session_factory: async_sessionmaker[AsyncSession],
+    prepared: _Prepared | _Pushed,
+    tasks: list[SyncTask],
+    *,
+    now: datetime,
+) -> _Pushed:
+    if isinstance(prepared, _Pushed):
+        return prepared
+
+    platform = prepared.platform
+
+    async def dispatch(token: str) -> _Pushed:
+        if tasks[0].subject is SyncSubjects.LIKE:
+            return await _push_likes(platform, token, tasks, prepared.likes)
+
+        return await _push_playlist(
+            session_factory,
+            platform,
+            token,
+            tasks[0],
+            prepared.playlist,
+            now=now,
+        )
+
+    with charged_to(prepared.account.id):
         return await accounts_actions.with_token(
             session_factory,
             platform,
-            account,
+            prepared.account,
             dispatch,
             now=now,
         )
@@ -265,13 +321,16 @@ async def fail_attempt(
 ) -> SyncOutcomes | None:
     sync = settings.sync
     if task.attempts + 1 >= sync.max_attempts:
-        await sync_repositories.finish(
+        if not await sync_repositories.finish(
             session,
             task.id,
             SyncOutcomes.FAILED,
             now=now,
             error=message,
-        )
+            requests=task.requests,
+        ):
+            return None
+
         logger.warning(
             "[Sync] Push Failed - Out Of Attempts",
             operation_id=task.id,
@@ -295,68 +354,106 @@ async def fail_attempt(
 
 async def _settle(
     session: AsyncSession,
-    session_factory: async_sessionmaker[AsyncSession],
-    platforms: dict[Platforms, OAuthPlatform],
     tasks: list[SyncTask],
+    pushed: _Pushed | Exception,
     *,
     now: datetime,
 ) -> list[SyncOutcomes | None]:
-    try:
-        outcomes = await _push(session, session_factory, platforms, tasks, now=now)
-    except PlatformReconnectRequiredError, PlatformNotLinkedError:
-        for task in tasks:
-            await sync_repositories.retry_later(
-                session,
-                task.id,
-                at=now + timedelta(seconds=settings.sync.reconnect_retry_seconds),
-                error="The account has to be linked again",
-                count_attempt=False,
+    match pushed:
+        case PlatformReconnectRequiredError() | PlatformNotLinkedError():
+            for task in tasks:
+                await sync_repositories.retry_later(
+                    session,
+                    task.id,
+                    at=now + timedelta(seconds=settings.sync.reconnect_retry_seconds),
+                    error="The account has to be linked again",
+                    count_attempt=False,
+                )
+
+            return [None] * len(tasks)
+        case PlatformRateLimitedError():
+            for task in tasks:
+                await sync_repositories.retry_later(
+                    session,
+                    task.id,
+                    at=now + timedelta(seconds=pushed.retry_after_seconds),
+                    error=pushed.message,
+                    count_attempt=False,
+                )
+
+            return [None] * len(tasks)
+        case QuotaExhaustedError():
+            for task in tasks:
+                await sync_repositories.retry_later(
+                    session,
+                    task.id,
+                    at=pushed.retry_at,
+                    error=pushed.message,
+                    count_attempt=False,
+                )
+
+            return [None] * len(tasks)
+        case Exception():
+            message = (
+                pushed.message if isinstance(pushed, PlatformError) else repr(pushed)
             )
+            if not isinstance(pushed, PlatformError):
+                logger.exception(
+                    "[Sync] Push Crashed",
+                    exc_info=pushed,
+                    operation_ids=[task.id for task in tasks],
+                )
 
-        return [None] * len(tasks)
-    except PlatformRateLimitedError as error:
-        for task in tasks:
-            await sync_repositories.retry_later(
-                session,
-                task.id,
-                at=now + timedelta(seconds=error.retry_after_seconds),
-                error=error.message,
-                count_attempt=False,
-            )
+            return [
+                await fail_attempt(session, task, message, now=now) for task in tasks
+            ]
 
-        return [None] * len(tasks)
-    except QuotaExhaustedError as error:
-        for task in tasks:
-            await sync_repositories.retry_later(
-                session,
-                task.id,
-                at=error.retry_at,
-                error=error.message,
-                count_attempt=False,
-            )
-
-        return [None] * len(tasks)
-    except Exception as error:
-        message = error.message if isinstance(error, PlatformError) else repr(error)
-        if not isinstance(error, PlatformError):
-            logger.exception(
-                "[Sync] Push Crashed",
-                exc_info=error,
-                operation_ids=[task.id for task in tasks],
-            )
-
-        return [await fail_attempt(session, task, message, now=now) for task in tasks]
-
-    for task, outcome in zip(tasks, outcomes, strict=True):
-        await sync_repositories.finish(
+    await pushed.apply(session)
+    settled: list[SyncOutcomes | None] = []
+    for task, outcome in zip(tasks, pushed.outcomes, strict=True):
+        finished = await sync_repositories.finish(
             session,
             task.id,
             outcome.outcome,
             now=now,
             error=outcome.reason if outcome.outcome is SyncOutcomes.SKIPPED else None,
+            requests=task.requests,
         )
+        settled.append(outcome.outcome if finished else None)
 
-    return [outcome.outcome for outcome in outcomes]
+    return settled
+
+
+async def _claim(
+    session: AsyncSession,
+    *,
+    now: datetime,
+    user_id: UUID | None,
+) -> list[SyncTask]:
+    task = await sync_repositories.claim_next(
+        session,
+        now=now,
+        subjects=PUSHED,
+        user_id=user_id,
+    )
+    if task is None:
+        return []
+
+    tasks = [task]
+    if task.subject is SyncSubjects.LIKE:
+        tasks += await sync_repositories.claim_alike(
+            session,
+            task,
+            now=now,
+            limit=LIKES_A_PUSH - 1,
+        )
+    await sync_repositories.lease(
+        session,
+        [task.id for task in tasks],
+        seconds=settings.sync.lease_seconds,
+    )
+
+    return tasks
 
 
 async def push_pending(
@@ -372,31 +469,20 @@ async def push_pending(
     pushed = 0
     while pushed < (limit or settings.sync.push_batch_size):
         async with session_factory() as session, session.begin():
-            task = await sync_repositories.claim_next(
-                session,
-                now=now,
-                subjects=PUSHED,
-                user_id=user_id,
-            )
-            if task is None:
+            tasks = await _claim(session, now=now, user_id=user_id)
+            if not tasks:
                 break
 
-            tasks = [task]
-            if task.subject is SyncSubjects.LIKE:
-                tasks += await sync_repositories.claim_alike(
-                    session,
-                    task,
-                    now=now,
-                    limit=LIKES_A_PUSH - 1,
-                )
+            prepared = await _prepare(session, platforms, tasks)
 
-            outcomes = await _settle(
-                session,
-                session_factory,
-                platforms,
-                tasks,
-                now=now,
-            )
+        result: _Pushed | Exception
+        try:
+            result = await _push(session_factory, prepared, tasks, now=now)
+        except Exception as error:
+            result = error
+
+        async with session_factory() as session, session.begin():
+            outcomes = await _settle(session, tasks, result, now=now)
 
         pushed += len(tasks)
         for outcome in outcomes:

@@ -1,10 +1,13 @@
 from collections.abc import Collection
 from datetime import datetime
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import ColumnElement
 from sqlalchemy import delete
 from sqlalchemy import func
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy import text
 from sqlalchemy import update
@@ -44,8 +47,32 @@ async def enqueue(
         .on_conflict_do_update(
             index_elements=["user_id", "platform", "subject", "subject_id"],
             index_where=text("status = 'PENDING'"),
-            set_={"next_attempt_at": now, "updated_at": func.now()},
+            set_={
+                "next_attempt_at": now,
+                "requests": operation.requests + 1,
+                "updated_at": func.now(),
+            },
         ),
+    )
+
+
+def _unleased() -> ColumnElement[bool]:
+    leased_until = tables.SyncOperation.leased_until
+
+    return or_(leased_until.is_(None), leased_until <= func.now())
+
+
+def _task(
+    row: tables.SyncOperation,
+) -> SyncTask:
+    return SyncTask(
+        id=row.id,
+        user_id=row.user_id,
+        platform=row.platform,
+        subject=row.subject,
+        subject_id=row.subject_id,
+        attempts=row.attempts,
+        requests=row.requests,
     )
 
 
@@ -61,6 +88,7 @@ async def claim_next(
         operation.status == SyncStatuses.PENDING,
         operation.next_attempt_at <= now,
         operation.subject.in_(subjects),
+        _unleased(),
     )
     if user_id is not None:
         statement = statement.where(operation.user_id == user_id)
@@ -73,14 +101,7 @@ async def claim_next(
     if row is None:
         return None
 
-    return SyncTask(
-        id=row.id,
-        user_id=row.user_id,
-        platform=row.platform,
-        subject=row.subject,
-        subject_id=row.subject_id,
-        attempts=row.attempts,
-    )
+    return _task(row)
 
 
 async def claim_alike(
@@ -100,23 +121,27 @@ async def claim_alike(
             operation.platform == task.platform,
             operation.subject == task.subject,
             operation.id != task.id,
+            _unleased(),
         )
         .order_by(operation.id)
         .limit(limit)
         .with_for_update(skip_locked=True),
     )
 
-    return [
-        SyncTask(
-            id=row.id,
-            user_id=row.user_id,
-            platform=row.platform,
-            subject=row.subject,
-            subject_id=row.subject_id,
-            attempts=row.attempts,
-        )
-        for row in rows
-    ]
+    return [_task(row) for row in rows]
+
+
+async def lease(
+    session: AsyncSession,
+    operation_ids: list[int],
+    *,
+    seconds: int,
+) -> None:
+    await session.execute(
+        update(tables.SyncOperation)
+        .where(tables.SyncOperation.id.in_(operation_ids))
+        .values(leased_until=func.now() + timedelta(seconds=seconds)),
+    )
 
 
 async def finish(
@@ -126,12 +151,26 @@ async def finish(
     *,
     now: datetime,
     error: str | None = None,
-) -> None:
-    await session.execute(
-        update(tables.SyncOperation)
-        .where(tables.SyncOperation.id == operation_id)
-        .values(outcome=outcome, finished_at=now, last_error=error),
+    requests: int | None = None,
+) -> bool:
+    operation = tables.SyncOperation
+    where = [operation.id == operation_id]
+    if requests is not None:
+        where.append(operation.requests == requests)
+
+    result: CursorResult[Any] = await session.execute(  # type: ignore[assignment]
+        update(operation)
+        .where(*where)
+        .values(outcome=outcome, finished_at=now, last_error=error, leased_until=None),
     )
+    if result.rowcount:
+        return True
+
+    await session.execute(
+        update(operation).where(operation.id == operation_id).values(leased_until=None),
+    )
+
+    return False
 
 
 async def save_progress(
@@ -162,6 +201,7 @@ async def retry_later(
             next_attempt_at=at,
             last_error=error,
             attempts=operation.attempts + 1 if count_attempt else operation.attempts,
+            leased_until=None,
         ),
     )
 

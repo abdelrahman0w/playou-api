@@ -28,15 +28,19 @@ async def playback_token(
     rejected: str | None = None,
 ) -> PlaybackToken:
     async with session.begin():
-        return await playback_actions.playback_token(
+        target = await playback_actions.playable(
             session,
-            session_factory,
             platforms,
             user_id=user_id,
             platform=platform,
-            now=now,
-            rejected=rejected,
         )
+
+    return await playback_actions.playback_token(
+        session_factory,
+        target,
+        now=now,
+        rejected=rejected,
+    )
 
 
 async def list_devices(
@@ -49,14 +53,14 @@ async def list_devices(
     now: datetime,
 ) -> list[PlaybackDevice]:
     async with session.begin():
-        return await playback_actions.list_devices(
+        target = await playback_actions.playable(
             session,
-            session_factory,
             platforms,
             user_id=user_id,
             platform=platform,
-            now=now,
         )
+
+    return await playback_actions.list_devices(session_factory, target, now=now)
 
 
 async def play(
@@ -70,15 +74,20 @@ async def play(
     now: datetime,
 ) -> None:
     async with session.begin():
-        await playback_actions.play(
+        target = await playback_actions.playable(
             session,
-            session_factory,
             platforms,
-            request,
             user_id=user_id,
             platform=platform,
-            now=now,
         )
+        playback = await playback_actions.playback_request(
+            session,
+            target,
+            request,
+            user_id=user_id,
+        )
+
+    await playback_actions.play(session_factory, target, playback, now=now)
 
 
 async def block_embedding(

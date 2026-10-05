@@ -75,6 +75,8 @@ class SyncOperation(Base):
     last_error: Mapped[str | None] = mapped_column(Text)
     progress: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    leased_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    requests: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     outcome: Mapped[SyncOutcomes | None] = mapped_column(
         Enum(SyncOutcomes, native_enum=False, length=32, values_callable=_values),
     )

@@ -26,6 +26,7 @@ from src.structs.models import StoredAccount
 @dataclass(frozen=True)
 class _Refreshed:
     access_token: str | None = None
+    expires_at: datetime | None = None
     refreshed: bool = False
     reconnect: PlatformReconnectRequiredError | None = None
 
@@ -59,19 +60,19 @@ def _next_refresh_expiry(
     return locked.refresh_expires_at
 
 
-async def access_token(
+async def access_token_until(
     session_factory: async_sessionmaker[AsyncSession],
     platform: OAuthPlatform,
     account: StoredAccount,
     *,
     now: datetime,
     rejected: str | None = None,
-) -> str:
+) -> tuple[str, datetime | None]:
     if account.status_at(now) is AccountStatuses.NEEDS_RECONNECT:
         raise PlatformReconnectRequiredError("The account has to be linked again")
 
     if rejected is None and _is_fresh(account, now=now):
-        return unseal(account.access_token)
+        return unseal(account.access_token), account.expires_at
 
     refreshed = await _refresh_when_due(
         session_factory,
@@ -87,7 +88,26 @@ async def access_token(
     if refreshed.access_token is None:
         raise PlatformReconnectRequiredError("The account has to be linked again")
 
-    return refreshed.access_token
+    return refreshed.access_token, refreshed.expires_at
+
+
+async def access_token(
+    session_factory: async_sessionmaker[AsyncSession],
+    platform: OAuthPlatform,
+    account: StoredAccount,
+    *,
+    now: datetime,
+    rejected: str | None = None,
+) -> str:
+    token, _ = await access_token_until(
+        session_factory,
+        platform,
+        account,
+        now=now,
+        rejected=rejected,
+    )
+
+    return token
 
 
 async def with_token[T](
@@ -202,6 +222,7 @@ async def _refresh(
     if not is_due(locked):
         return _Refreshed(
             access_token=unseal(locked.access_token),
+            expires_at=locked.expires_at,
         )
 
     if locked.refresh_token is None:
@@ -217,6 +238,7 @@ async def _refresh(
         return _Refreshed(reconnect=exc)
 
     rotated = tokens.refresh_token
+    expires = expires_at(tokens, now=now)
     await accounts_repositories.update_tokens(
         session,
         locked.id,
@@ -224,11 +246,12 @@ async def _refresh(
         refresh_token=seal(rotated.get_secret_value())
         if rotated
         else locked.refresh_token,
-        expires_at=expires_at(tokens, now=now),
+        expires_at=expires,
         refresh_expires_at=_next_refresh_expiry(platform, tokens, locked, now=now),
     )
 
     return _Refreshed(
         access_token=tokens.access_token.get_secret_value(),
+        expires_at=expires,
         refreshed=True,
     )

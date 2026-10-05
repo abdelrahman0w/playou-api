@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
@@ -21,13 +22,19 @@ from src.structs.models.requests import PlayRequest
 from src.structs.models.responses import PlaybackToken
 
 
-async def _playable(
+@dataclass(frozen=True)
+class Playable:
+    service: OAuthPlatform
+    account: StoredAccount
+
+
+async def playable(
     session: AsyncSession,
     platforms: dict[Platforms, OAuthPlatform],
     *,
     user_id: UUID,
     platform: Platforms,
-) -> tuple[OAuthPlatform, StoredAccount]:
+) -> Playable:
     service = platforms.get(platform)
     if service is None or not service.capabilities.playback:
         raise UnsupportedError(f"{platform.title()} cannot play here")
@@ -41,62 +48,38 @@ async def _playable(
             f"Link {platform.title()} again to allow playing on it",
         )
 
-    return service, account
+    return Playable(service=service, account=account)
 
 
 async def playback_token(
-    session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],
-    platforms: dict[Platforms, OAuthPlatform],
+    target: Playable,
     *,
-    user_id: UUID,
-    platform: Platforms,
     now: datetime,
     rejected: str | None = None,
 ) -> PlaybackToken:
-    service, account = await _playable(
-        session,
-        platforms,
-        user_id=user_id,
-        platform=platform,
-    )
-    token = await accounts_actions.access_token(
+    token, expires_at = await accounts_actions.access_token_until(
         session_factory,
-        service,
-        account,
+        target.service,
+        target.account,
         now=now,
         rejected=rejected,
     )
 
-    async with session_factory() as fresh:
-        stored = await accounts_repositories.get_account_by_id(fresh, account.id)
-
-    return PlaybackToken(
-        access_token=token,
-        expires_at=stored.expires_at if stored else account.expires_at,
-    )
+    return PlaybackToken(access_token=token, expires_at=expires_at)
 
 
 async def list_devices(
-    session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],
-    platforms: dict[Platforms, OAuthPlatform],
+    target: Playable,
     *,
-    user_id: UUID,
-    platform: Platforms,
     now: datetime,
 ) -> list[PlaybackDevice]:
-    service, account = await _playable(
-        session,
-        platforms,
-        user_id=user_id,
-        platform=platform,
-    )
     return await accounts_actions.with_token(
         session_factory,
-        service,
-        account,
-        service.devices,
+        target.service,
+        target.account,
+        target.service.devices,
         now=now,
     )
 
@@ -169,33 +152,32 @@ async def _from_playlist(
     )
 
 
-async def play(
+async def playback_request(
     session: AsyncSession,
-    session_factory: async_sessionmaker[AsyncSession],
-    platforms: dict[Platforms, OAuthPlatform],
+    target: Playable,
     request: PlayRequest,
     *,
     user_id: UUID,
-    platform: Platforms,
+) -> PlaybackRequest:
+    platform = target.account.platform
+    if request.track_ids is not None:
+        return await _from_tracks(session, platform, request)
+
+    return await _from_playlist(session, platform, request, user_id=user_id)
+
+
+async def play(
+    session_factory: async_sessionmaker[AsyncSession],
+    target: Playable,
+    playback: PlaybackRequest,
+    *,
     now: datetime,
 ) -> None:
-    service, account = await _playable(
-        session,
-        platforms,
-        user_id=user_id,
-        platform=platform,
-    )
-    playback = (
-        await _from_tracks(session, platform, request)
-        if request.track_ids is not None
-        else await _from_playlist(session, platform, request, user_id=user_id)
-    )
-
     await accounts_actions.with_token(
         session_factory,
-        service,
-        account,
-        lambda token: service.play(token, playback),
+        target.service,
+        target.account,
+        lambda token: target.service.play(token, playback),
         now=now,
     )
 

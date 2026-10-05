@@ -22,6 +22,7 @@ from .operations import enqueue
 from .operations import enqueue_import
 from .operations import finish
 from .operations import latest_imports
+from .operations import lease
 from .operations import lease_imports
 from .operations import pending_subject_ids
 from .operations import prune_finished
@@ -41,6 +42,7 @@ __all__ = [
     "enqueue_import",
     "finish",
     "latest_imports",
+    "lease",
     "lease_imports",
     "likes_to_send",
     "list_copies",

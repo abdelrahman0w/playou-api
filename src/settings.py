@@ -203,6 +203,7 @@ class SyncSettings(BaseAppSettings):
     retry_seconds: int = Field(default=30, ge=1)
     longest_retry_seconds: int = Field(default=60 * 60, ge=1)
     reconnect_retry_seconds: int = Field(default=60 * 60, ge=1)
+    lease_seconds: int = Field(default=10 * 60, ge=1)
     retention_days: int = Field(default=30, ge=1)
 
 
