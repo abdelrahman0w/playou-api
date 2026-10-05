@@ -13,6 +13,7 @@ from .imports import import_account
 from .imports import import_user
 from .imports import library_sync
 from .imports import request_imports
+from .imports import request_stale_imports
 from .imports import run_imports
 from .push import prune_finished
 from .push import push_pending
@@ -35,6 +36,7 @@ __all__ = [
     "prune_finished",
     "push_pending",
     "request_imports",
+    "request_stale_imports",
     "run_copies",
     "run_imports",
     "similar_songs",

@@ -113,12 +113,14 @@ ImporterDep = Annotated[Importer, Depends()]
 async def list_likes(
     user_id: UserIDDep,
     session: DBSessionDep,
+    redis: RedisDep,
     platforms: PlatformsDep,
     now: NowDep,
     request: Annotated[LikeListRequest, Query()],
 ) -> Page[LikedTrack]:
     return await library_controller.list_likes(
         session,
+        redis,
         platforms,
         request,
         user_id=user_id,
@@ -181,12 +183,14 @@ async def unlike(
 async def list_playlists(
     user_id: UserIDDep,
     session: DBSessionDep,
+    redis: RedisDep,
     platforms: PlatformsDep,
     now: NowDep,
     request: Annotated[PlaylistListRequest, Query()],
 ) -> Page[Playlist]:
     return await library_controller.list_playlists(
         session,
+        redis,
         platforms,
         request,
         user_id=user_id,

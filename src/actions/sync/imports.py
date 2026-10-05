@@ -4,6 +4,8 @@ from datetime import datetime
 from datetime import timedelta
 from uuid import UUID
 
+from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -23,6 +25,7 @@ from src.repositories import sync as sync_repositories
 from src.services import OAuthPlatform
 from src.settings import settings
 from src.structs.enums import AccountStatuses
+from src.structs.enums import CacheKeys
 from src.structs.enums import ImportStatuses
 from src.structs.enums import Platforms
 from src.structs.enums import PlaylistImports
@@ -398,6 +401,34 @@ async def request_imports(
             account_id=account.id,
             now=now,
         )
+
+
+async def request_stale_imports(
+    session: AsyncSession,
+    redis: Redis,
+    platforms: dict[Platforms, OAuthPlatform],
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    try:
+        if not await redis.set(
+            CacheKeys.IMPORTS_CHECKED.format(user_id=user_id),
+            "1",
+            ex=settings.imports.check_seconds,
+            nx=True,
+        ):
+            return
+    except RedisError:
+        pass
+
+    await request_imports(
+        session,
+        platforms,
+        user_id=user_id,
+        now=now,
+        stale_before=now - timedelta(minutes=settings.imports.stale_minutes),
+    )
 
 
 async def library_sync(
