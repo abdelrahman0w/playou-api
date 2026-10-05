@@ -81,6 +81,7 @@ class PlaylistItem(Base):
     __table_args__ = (
         UniqueConstraint("playlist_id", "track_id"),
         Index(None, "playlist_id", "position"),
+        Index(None, "track_id"),
     )
 
     id: Mapped[UUID] = mapped_column(

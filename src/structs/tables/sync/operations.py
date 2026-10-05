@@ -49,6 +49,12 @@ class SyncOperation(Base):
             "next_attempt_at",
             postgresql_where=text("status = 'PENDING'"),
         ),
+        Index(None, "user_id", "subject", "subject_id", "id"),
+        Index(
+            None,
+            "finished_at",
+            postgresql_where=text("status <> 'PENDING'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

@@ -27,6 +27,7 @@ class Like(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "track_id"),
         Index(None, "user_id", "liked_at"),
+        Index(None, "track_id"),
     )
 
     id: Mapped[UUID] = mapped_column(

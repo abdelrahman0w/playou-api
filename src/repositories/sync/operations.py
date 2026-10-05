@@ -286,7 +286,7 @@ async def latest_imports(
             operation.subject == SyncSubjects.IMPORT,
         )
         .ext(distinct_on(operation.subject_id))
-        .order_by(operation.subject_id, operation.id.desc()),
+        .order_by(operation.subject_id.desc(), operation.id.desc()),
     )
 
     return {

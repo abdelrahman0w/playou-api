@@ -45,6 +45,12 @@ class Copy(Base):
             postgresql_nulls_not_distinct=True,
         ),
         Index(None, "status", "resume_at"),
+        Index(None, "user_id", "created_at", "id"),
+        Index(
+            None,
+            "playlist_id",
+            postgresql_where=text("playlist_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -81,6 +87,12 @@ class CopyItem(Base):
     __table_args__ = (
         UniqueConstraint("copy_id", "track_id"),
         Index(None, "track_id"),
+        Index(
+            None,
+            "copy_id",
+            "id",
+            postgresql_where=text("status = 'PENDING'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
