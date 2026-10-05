@@ -1,5 +1,6 @@
 import math
 from datetime import datetime
+from itertools import batched
 from uuid import UUID
 
 from sqlalchemy import case
@@ -28,6 +29,9 @@ from src.structs.models.responses import PlaylistDetail
 from src.structs.models.responses import PlaylistItem
 from src.structs.models.responses import PlaylistLink
 from src.utils.search import matching
+from src.utils.sql import ROWS_PER_INSERT
+from src.utils.sql import any_of
+from src.utils.sql import none_of
 
 
 async def _links(
@@ -270,7 +274,7 @@ async def add_items(
     rows = await session.execute(
         select(item.track_id, item.removed_at).where(
             item.playlist_id == playlist_id,
-            item.track_id.in_(track_ids),
+            any_of(item.track_id, track_ids),
         ),
     )
     active = {track_id for track_id, removed_at in rows if removed_at is None}
@@ -524,39 +528,37 @@ async def reconcile_items(
         .where(
             item.playlist_id == playlist_id,
             item.removed_at.is_(None),
-            item.track_id.not_in(ordered),
+            none_of(item.track_id, ordered),
         )
         .values(removed_at=now, removed_by=RemovedBy.PLATFORM),
     )
-    if not ordered:
-        return
-
-    statement = insert(item).values(
-        [
-            {
-                "playlist_id": playlist_id,
-                "track_id": track_id,
-                "position": position,
-                "added_at": now,
-            }
-            for position, track_id in enumerate(ordered)
-        ],
-    )
-    await session.execute(
-        statement.on_conflict_do_update(
-            index_elements=["playlist_id", "track_id"],
-            set_={
-                "position": statement.excluded.position,
-                "added_at": case(
-                    (item.removed_at.is_(None), item.added_at),
-                    else_=statement.excluded.added_at,
-                ),
-                "removed_at": None,
-                "removed_by": None,
-                "updated_at": func.now(),
-            },
-        ),
-    )
+    for chunk in batched(enumerate(ordered), ROWS_PER_INSERT, strict=False):
+        statement = insert(item).values(
+            [
+                {
+                    "playlist_id": playlist_id,
+                    "track_id": track_id,
+                    "position": position,
+                    "added_at": now,
+                }
+                for position, track_id in chunk
+            ],
+        )
+        await session.execute(
+            statement.on_conflict_do_update(
+                index_elements=["playlist_id", "track_id"],
+                set_={
+                    "position": statement.excluded.position,
+                    "added_at": case(
+                        (item.removed_at.is_(None), item.added_at),
+                        else_=statement.excluded.added_at,
+                    ),
+                    "removed_at": None,
+                    "removed_by": None,
+                    "updated_at": func.now(),
+                },
+            ),
+        )
 
 
 async def remove_playlists(

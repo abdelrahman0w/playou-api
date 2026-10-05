@@ -1,5 +1,6 @@
 import math
 from datetime import datetime
+from itertools import batched
 from uuid import UUID
 
 from sqlalchemy import case
@@ -21,6 +22,8 @@ from src.structs.models import Page
 from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import LikedTrack
 from src.utils.search import matching
+from src.utils.sql import ROWS_PER_INSERT
+from src.utils.sql import any_of
 
 
 def _to_liked(
@@ -176,7 +179,7 @@ async def like_sync_states(
             source,
             (source.track_id == like.track_id) & (source.platform == platform),
         )
-        .where(like.user_id == user_id, like.track_id.in_(track_ids)),
+        .where(like.user_id == user_id, any_of(like.track_id, track_ids)),
     )
 
     return {
@@ -216,34 +219,35 @@ async def import_likes(
         return
 
     like = tables.Like
-    statement = insert(like).values(
-        [
-            {
-                "user_id": user_id,
-                "track_id": track_id,
-                "liked_at": liked_at,
-                "imported_from": platform,
-            }
-            for track_id, liked_at in dict(likes).items()
-        ],
-    )
-    await session.execute(
-        statement.on_conflict_do_update(
-            index_elements=["user_id", "track_id"],
-            set_={
-                "liked_at": case(
-                    (
-                        like.removed_at.is_(None),
-                        func.greatest(like.liked_at, statement.excluded.liked_at),
+    for chunk in batched(dict(likes).items(), ROWS_PER_INSERT, strict=False):
+        statement = insert(like).values(
+            [
+                {
+                    "user_id": user_id,
+                    "track_id": track_id,
+                    "liked_at": liked_at,
+                    "imported_from": platform,
+                }
+                for track_id, liked_at in chunk
+            ],
+        )
+        await session.execute(
+            statement.on_conflict_do_update(
+                index_elements=["user_id", "track_id"],
+                set_={
+                    "liked_at": case(
+                        (
+                            like.removed_at.is_(None),
+                            func.greatest(like.liked_at, statement.excluded.liked_at),
+                        ),
+                        else_=statement.excluded.liked_at,
                     ),
-                    else_=statement.excluded.liked_at,
-                ),
-                "removed_at": None,
-                "removed_by": None,
-                "updated_at": func.now(),
-            },
-        ),
-    )
+                    "removed_at": None,
+                    "removed_by": None,
+                    "updated_at": func.now(),
+                },
+            ),
+        )
 
 
 async def remove_likes(
@@ -262,7 +266,7 @@ async def remove_likes(
         update(like)
         .where(
             like.user_id == user_id,
-            like.track_id.in_(track_ids),
+            any_of(like.track_id, track_ids),
             like.removed_at.is_(None),
         )
         .values(removed_at=now, removed_by=removed_by),

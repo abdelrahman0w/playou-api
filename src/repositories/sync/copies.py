@@ -1,4 +1,5 @@
 from datetime import datetime
+from itertools import batched
 from typing import Any
 from uuid import UUID
 
@@ -19,6 +20,8 @@ from src.structs.enums import CopyStatuses
 from src.structs.enums import Platforms
 from src.structs.enums import PlaylistKinds
 from src.structs.models.responses import CopyProgress
+from src.utils.sql import ROWS_PER_INSERT
+from src.utils.sql import any_of
 
 
 WITH_LIKES = {CopyScopes.LIKES, CopyScopes.LIBRARY}
@@ -86,7 +89,7 @@ async def tracks_without(
     track = tables.Track
     found = set(
         await session.scalars(
-            select(track.id).where(track.id.in_(track_ids), ~_on(platform)),
+            select(track.id).where(any_of(track.id, track_ids), ~_on(platform)),
         ),
     )
 
@@ -135,7 +138,7 @@ async def create_copy(
     )
     session.add(copy)
     await session.flush()
-    if missing:
+    for chunk in batched(missing, ROWS_PER_INSERT, strict=False):
         await session.execute(
             insert(tables.CopyItem).values(
                 [
@@ -144,7 +147,7 @@ async def create_copy(
                         "track_id": track_id,
                         "status": CopyItemStatuses.PENDING,
                     }
-                    for track_id in missing
+                    for track_id in chunk
                 ],
             ),
         )

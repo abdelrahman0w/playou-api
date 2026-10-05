@@ -22,6 +22,7 @@ from src.structs.models.responses import TrackSource
 from src.utils.matching import SAME_DURATION_MS
 from src.utils.matching import same_song
 from src.utils.search import matching
+from src.utils.sql import any_of
 
 
 BATCH = 500
@@ -254,11 +255,11 @@ async def get_tracks(
         return {}
 
     tracks = await session.scalars(
-        select(tables.Track).where(tables.Track.id.in_(track_ids)),
+        select(tables.Track).where(any_of(tables.Track.id, track_ids)),
     )
     sources = await session.scalars(
         select(tables.TrackSource)
-        .where(tables.TrackSource.track_id.in_(track_ids))
+        .where(any_of(tables.TrackSource.track_id, track_ids))
         .order_by(tables.TrackSource.created_at, tables.TrackSource.id),
     )
 
@@ -304,7 +305,7 @@ async def platform_track_ids(
     source = tables.TrackSource
     rows = await session.execute(
         select(source.track_id, source.platform_id)
-        .where(source.track_id.in_(track_ids), source.platform == platform)
+        .where(any_of(source.track_id, track_ids), source.platform == platform)
         .order_by(source.created_at),
     )
 
