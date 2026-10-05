@@ -11,9 +11,15 @@ from src.utils import Singleton
 class DatabaseConnection(Singleton[AsyncEngine]):
     @classmethod
     def create(cls) -> AsyncEngine:
+        database = settings.database
+
         return create_async_engine(
-            settings.database.url,
-            pool_pre_ping=True,
+            database.url,
+            pool_size=database.pool_size,
+            max_overflow=database.max_overflow,
+            pool_timeout=database.pool_timeout_seconds,
+            pool_recycle=database.pool_recycle_seconds,
+            pool_pre_ping=database.pool_pre_ping,
         )
 
     @classmethod

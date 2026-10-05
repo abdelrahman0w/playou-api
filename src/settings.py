@@ -55,6 +55,11 @@ class DatabaseSettings(BaseAppSettings):
     user: str
     password: SecretStr
     name: str
+    pool_size: int = Field(default=5, ge=1)
+    max_overflow: int = Field(default=3, ge=0)
+    pool_timeout_seconds: float = Field(default=10.0, gt=0)
+    pool_recycle_seconds: int = Field(default=30 * 60, ge=-1)
+    pool_pre_ping: bool = True
 
     @property
     def url(self) -> URL:
