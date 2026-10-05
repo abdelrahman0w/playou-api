@@ -246,6 +246,7 @@ class SpotifySettings(BaseAppSettings):
     refresh_token_days: int | None = Field(default=180, ge=1)
     search_max_limit: int = Field(default=10, ge=1, le=50)
     rate_limit_seconds: int = Field(default=30, ge=1)
+    copy_searches: int = Field(default=4, ge=1)
     accounts_url: str = "https://accounts.spotify.com"
     api_url: str = "https://api.spotify.com/v1"
     timeout_seconds: float = Field(default=10.0, gt=0)
@@ -273,6 +274,7 @@ class YouTubeSettings(BaseAppSettings):
     copy_likes: bool = False
     refresh_token_days: int | None = Field(default=None, ge=1)
     rate_limit_seconds: int = Field(default=30, ge=1)
+    copy_searches: int = Field(default=2, ge=1)
     accounts_url: str = "https://accounts.google.com"
     oauth_url: str = "https://oauth2.googleapis.com"
     userinfo_url: str = "https://openidconnect.googleapis.com/v1"

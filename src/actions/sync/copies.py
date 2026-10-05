@@ -1,3 +1,4 @@
+import asyncio
 import math
 from datetime import datetime
 from datetime import timedelta
@@ -38,6 +39,7 @@ from src.structs.enums import Platforms
 from src.structs.enums import PlaylistKinds
 from src.structs.enums import SyncSubjects
 from src.structs.models import StoredAccount
+from src.structs.models import Track
 from src.structs.models.responses import Candidate
 from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import CopyEstimate
@@ -391,40 +393,64 @@ async def keep_in_sync(
     return started
 
 
-async def _find(
+def _copy_searches(platform: Platforms) -> int:
+    return {
+        Platforms.SPOTIFY: settings.spotify.copy_searches,
+        Platforms.YOUTUBE: settings.youtube.copy_searches,
+    }.get(platform, 1)
+
+
+async def _find_all(
     session_factory: async_sessionmaker[AsyncSession],
     redis: Redis,
     service: OAuthPlatform,
     account: StoredAccount,
-    copy: tables.Copy,
-    track_id: UUID,
+    tracks: list[CatalogTrack],
     *,
     now: datetime,
+) -> tuple[list[tuple[CatalogTrack, Track | None]], Exception | None]:
+    searches = asyncio.Semaphore(_copy_searches(account.platform))
+    failure: Exception | None = None
+
+    async def look(track: CatalogTrack) -> tuple[CatalogTrack, Track | None] | None:
+        nonlocal failure
+        if any(source.platform == account.platform for source in track.sources):
+            return track, None
+
+        async with searches:
+            if failure is not None:
+                return None
+            try:
+                found = await find_match(
+                    session_factory,
+                    redis,
+                    service,
+                    account,
+                    track,
+                    now=now,
+                )
+            except Exception as error:
+                failure = failure or error
+                return None
+
+        return track, found
+
+    looked = await asyncio.gather(*(look(track) for track in tracks))
+
+    return [result for result in looked if result is not None], failure
+
+
+async def _settle_found(
+    session_factory: async_sessionmaker[AsyncSession],
+    copy: tables.Copy,
+    track: CatalogTrack,
+    found: Track | None,
 ) -> None:
-    async with session_factory() as session:
-        track = (await catalog_repositories.get_tracks(session, [track_id])).get(
-            track_id,
-        )
-    if track is None:
-        return
-
-    there = any(source.platform == copy.platform for source in track.sources)
-    found = (
-        None
-        if there
-        else await find_match(
-            session_factory,
-            redis,
-            service,
-            account,
-            track,
-            now=now,
-        )
+    there = found is None and any(
+        source.platform == copy.platform for source in track.sources
     )
-
     async with session_factory() as session, session.begin():
-        if found is not None:
-            track_id = await attach(session, track, found)
+        track_id = await attach(session, track, found) if found else track.id
         await sync_repositories.set_item(
             session,
             copy.id,
@@ -458,6 +484,7 @@ async def _run_copy(
             copy.id,
             limit=settings.catalog.copy_batch_size,
         )
+        found_tracks = await catalog_repositories.get_tracks(session, pending)
 
     if service is None:
         async with session_factory() as session, session.begin():
@@ -472,16 +499,18 @@ async def _run_copy(
     until: datetime | None = None
     try:
         with charged_to(account.id, FINDS):
-            for track_id in pending:
-                await _find(
-                    session_factory,
-                    redis,
-                    service,
-                    account,
-                    copy,
-                    track_id,
-                    now=now,
-                )
+            looked, failure = await _find_all(
+                session_factory,
+                redis,
+                service,
+                account,
+                [found_tracks[id_] for id_ in pending if id_ in found_tracks],
+                now=now,
+            )
+        for track, found in looked:
+            await _settle_found(session_factory, copy, track, found)
+        if failure is not None:
+            raise failure
     except QuotaExhaustedError as error:
         until = error.retry_at
     except PlatformRateLimitedError as error:
