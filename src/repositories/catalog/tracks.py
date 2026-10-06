@@ -4,6 +4,12 @@ from datetime import datetime
 from uuid import UUID
 from uuid import uuid7
 
+from sqlalchemy import ARRAY
+from sqlalchemy import Integer
+from sqlalchemy import Row
+from sqlalchemy import Text
+from sqlalchemy import Uuid
+from sqlalchemy import bindparam
 from sqlalchemy import exists
 from sqlalchemy import func
 from sqlalchemy import or_
@@ -21,6 +27,7 @@ from src.structs.models import Track
 from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import TrackSource
 from src.utils.matching import SAME_DURATION_MS
+from src.utils.matching import normalize_title
 from src.utils.matching import same_song
 from src.utils.search import matching
 from src.utils.sql import any_of
@@ -58,6 +65,81 @@ async def _source_ids(
     }
 
 
+NEAREST = (
+    text(
+        "select wanted.n, found.id, found.title, found.artists, found.duration_ms, "
+        "found.isrc "
+        "from unnest(:durations, :titles) "
+        "with ordinality as wanted(duration_ms, title, n) "
+        "cross join lateral ("
+        "select id, title, artists, duration_ms, isrc from tracks "
+        "where duration_ms between wanted.duration_ms - :window "
+        "and wanted.duration_ms + :window "
+        "order by sort_title <-> search_fold(wanted.title) "
+        "limit :limit"
+        ") as found",
+    )
+    .bindparams(
+        bindparam("durations", type_=ARRAY(Integer)),
+        bindparam("titles", type_=ARRAY(Text)),
+    )
+    .columns(
+        n=Integer,
+        id=Uuid,
+        title=Text,
+        artists=ARRAY(Text),
+        duration_ms=Integer,
+        isrc=Text,
+    )
+)
+NEAREST_TITLES = 50
+
+type Candidate = Row[tuple[UUID, str, list[str], int | None, str | None]]
+
+
+def _pick(
+    timed: list[Track],
+    candidates: list[list[Candidate]],
+) -> dict[tuple[Platforms, str], UUID]:
+    matched: dict[tuple[Platforms, str], UUID] = {}
+    claimed: set[UUID] = set()
+    for track, found in zip(timed, candidates, strict=True):
+        for candidate in sorted(found, key=lambda candidate: candidate.isrc is None):
+            if track.isrc and (candidate.isrc is not None or candidate.id in claimed):
+                continue
+            if same_song(
+                (track.title, track.artists, track.duration_ms),
+                (candidate.title, list(candidate.artists), candidate.duration_ms),
+                across_scripts=settings.catalog.match_across_scripts,
+            ):
+                matched[(track.platform, track.platform_id)] = candidate.id
+                if track.isrc:
+                    claimed.add(candidate.id)
+                break
+
+    return matched
+
+
+async def _nearest_matches(
+    session: AsyncSession,
+    timed: list[Track],
+) -> dict[tuple[Platforms, str], UUID]:
+    rows = await session.execute(
+        NEAREST,
+        {
+            "durations": [track.duration_ms for track in timed],
+            "titles": [normalize_title(track.title) for track in timed],
+            "window": SAME_DURATION_MS,
+            "limit": NEAREST_TITLES,
+        },
+    )
+    candidates: list[list[Candidate]] = [[] for _ in timed]
+    for row in rows:
+        candidates[row.n - 1].append(row)
+
+    return _pick(timed, candidates)
+
+
 async def _matches(
     session: AsyncSession,
     tracks: list[Track],
@@ -65,7 +147,16 @@ async def _matches(
     timed = [track for track in tracks if track.duration_ms is not None]
     if not timed:
         return {}
+    if not settings.catalog.match_across_scripts:
+        return await _nearest_matches(session, timed)
 
+    return await _window_matches(session, timed)
+
+
+async def _window_matches(
+    session: AsyncSession,
+    timed: list[Track],
+) -> dict[tuple[Platforms, str], UUID]:
     row = tables.Track
     candidates = await session.execute(
         select(row.id, row.title, row.artists, row.duration_ms, row.isrc).where(
@@ -81,25 +172,9 @@ async def _matches(
             ),
         ),
     )
-    found = sorted(candidates.all(), key=lambda candidate: candidate.isrc is None)
+    found = list(candidates.all())
 
-    matched: dict[tuple[Platforms, str], UUID] = {}
-    claimed: set[UUID] = set()
-    for track in timed:
-        for candidate in found:
-            if track.isrc and (candidate.isrc is not None or candidate.id in claimed):
-                continue
-            if same_song(
-                (track.title, track.artists, track.duration_ms),
-                (candidate.title, list(candidate.artists), candidate.duration_ms),
-                across_scripts=settings.catalog.match_across_scripts,
-            ):
-                matched[(track.platform, track.platform_id)] = candidate.id
-                if track.isrc:
-                    claimed.add(candidate.id)
-                break
-
-    return matched
+    return _pick(timed, [found] * len(timed))  # type: ignore[list-item]
 
 
 @dataclass(frozen=True)

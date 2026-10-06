@@ -40,6 +40,13 @@ class Track(Base):
             text("track_search_text(title, artists, album) gin_trgm_ops"),
             postgresql_using="gin",
         ),
+        Index(
+            None,
+            "duration_ms",
+            "sort_title",
+            postgresql_using="gist",
+            postgresql_ops={"sort_title": "gist_trgm_ops"},
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

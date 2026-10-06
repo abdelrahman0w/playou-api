@@ -21,6 +21,7 @@ FOLDED_TO = ALEF * len(ALEFS) + chr(0x0647) + chr(0x064A)
 SEARCH_DDL = [
     "create extension if not exists pg_trgm",
     "create extension if not exists unaccent",
+    "create extension if not exists btree_gist",
     (
         "create or replace function search_fold(value text) returns text "
         "language sql immutable strict parallel safe "
