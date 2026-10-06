@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import ARRAY
 from sqlalchemy import Boolean
+from sqlalchemy import Computed
 from sqlalchemy import DateTime
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
@@ -53,6 +54,14 @@ class Track(Base):
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     explicit: Mapped[bool | None] = mapped_column(Boolean)
     artwork_url: Mapped[str | None] = mapped_column(Text)
+    sort_title: Mapped[str] = mapped_column(
+        Text,
+        Computed("search_fold(title)", persisted=True),
+    )
+    sort_artist: Mapped[str | None] = mapped_column(
+        Text,
+        Computed("search_fold(artists[1])", persisted=True),
+    )
 
 
 class TrackSource(Base):

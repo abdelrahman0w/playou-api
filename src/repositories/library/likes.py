@@ -137,12 +137,11 @@ async def list_likes(
         select(func.count()).select_from(like).where(*where),
     )
     sorted_by = aliased(tables.Track)
-    title = func.search_fold(sorted_by.title)
     order = {
         LikeSorts.RECENT: (like.liked_at.desc(), like.id.desc()),
         LikeSorts.OLDEST: (like.liked_at, like.id),
-        LikeSorts.TITLE: (title, like.id),
-        LikeSorts.ARTIST: (func.search_fold(sorted_by.artists[1]), title, like.id),
+        LikeSorts.TITLE: (sorted_by.sort_title, like.id),
+        LikeSorts.ARTIST: (sorted_by.sort_artist, sorted_by.sort_title, like.id),
     }[sort]
     rows = list(
         await session.scalars(
