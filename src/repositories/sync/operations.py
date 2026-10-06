@@ -1,6 +1,7 @@
 from collections.abc import Collection
 from datetime import datetime
 from datetime import timedelta
+from itertools import batched
 from typing import Any
 from uuid import UUID
 
@@ -22,6 +23,7 @@ from src.structs.enums import SyncOutcomes
 from src.structs.enums import SyncStatuses
 from src.structs.enums import SyncSubjects
 from src.structs.models import SyncTask
+from src.utils.sql import ROWS_PER_INSERT
 
 
 async def enqueue(
@@ -54,6 +56,43 @@ async def enqueue(
             },
         ),
     )
+
+
+async def enqueue_many(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    platform: Platforms,
+    subject: SyncSubjects,
+    subject_ids: list[UUID],
+    now: datetime,
+) -> None:
+    operation = tables.SyncOperation
+    for chunk in batched(dict.fromkeys(subject_ids), ROWS_PER_INSERT, strict=False):
+        statement = insert(operation).values(
+            [
+                {
+                    "user_id": user_id,
+                    "platform": platform,
+                    "subject": subject,
+                    "subject_id": subject_id,
+                    "attempts": 0,
+                    "next_attempt_at": now,
+                }
+                for subject_id in chunk
+            ],
+        )
+        await session.execute(
+            statement.on_conflict_do_update(
+                index_elements=["user_id", "platform", "subject", "subject_id"],
+                index_where=text("status = 'PENDING'"),
+                set_={
+                    "next_attempt_at": now,
+                    "requests": operation.requests + 1,
+                    "updated_at": func.now(),
+                },
+            ),
+        )
 
 
 def _unleased() -> ColumnElement[bool]:
@@ -210,13 +249,19 @@ async def prune_finished(
     session: AsyncSession,
     *,
     before: datetime,
+    limit: int,
 ) -> int:
     operation = tables.SyncOperation
-    result: CursorResult[Any] = await session.execute(  # type: ignore[assignment]
-        delete(operation).where(
+    oldest = (
+        select(operation.id)
+        .where(
             operation.status != SyncStatuses.PENDING,
             operation.finished_at < before,
-        ),
+        )
+        .limit(limit)
+    )
+    result: CursorResult[Any] = await session.execute(  # type: ignore[assignment]
+        delete(operation).where(operation.id.in_(oldest.scalar_subquery())),
     )
 
     return result.rowcount

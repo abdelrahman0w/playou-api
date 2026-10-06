@@ -14,12 +14,12 @@ from .copies import running_copy
 from .copies import scope_tracks
 from .copies import set_item
 from .copies import settle_track
-from .copies import settled_tracks
 from .copies import tracks_without
 from .operations import claim_alike
 from .operations import claim_next
 from .operations import enqueue
 from .operations import enqueue_import
+from .operations import enqueue_many
 from .operations import finish
 from .operations import latest_imports
 from .operations import lease
@@ -40,6 +40,7 @@ __all__ = [
     "end_copy",
     "enqueue",
     "enqueue_import",
+    "enqueue_many",
     "finish",
     "latest_imports",
     "lease",
@@ -59,6 +60,5 @@ __all__ = [
     "scope_tracks",
     "set_item",
     "settle_track",
-    "settled_tracks",
     "tracks_without",
 ]

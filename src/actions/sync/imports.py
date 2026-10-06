@@ -147,7 +147,7 @@ async def _import_likes(
             platform=account.platform,
             subject=SyncSubjects.LIKE,
         )
-        catalog = await catalog_repositories.save_platform_tracks(
+        catalog = await catalog_repositories.save_platform_track_ids(
             session,
             [item.track for item in kept],
         )
@@ -155,15 +155,15 @@ async def _import_likes(
             session,
             account.user_id,
             [
-                (track.id, item.added_at or now)
-                for track, item in zip(catalog, kept, strict=True)
-                if track.id not in pending
+                (track_id, item.added_at or now)
+                for track_id, item in zip(catalog, kept, strict=True)
+                if track_id not in pending
             ],
             platform=account.platform,
         )
 
         if read_all:
-            there = {track.id for track in catalog}
+            there = set(catalog)
             await library_repositories.remove_likes(
                 session,
                 account.user_id,
@@ -256,14 +256,13 @@ async def _import_playlists(
             if skipped:
                 await library_repositories.skip_playlist(session, playlist_id, now=now)
             elif contents is not None:
-                catalog = await catalog_repositories.save_platform_tracks(
-                    session,
-                    contents.tracks,
-                )
                 await library_repositories.reconcile_items(
                     session,
                     playlist_id,
-                    [track.id for track in catalog],
+                    await catalog_repositories.save_platform_track_ids(
+                        session,
+                        contents.tracks,
+                    ),
                     now=now,
                 )
 
@@ -533,6 +532,24 @@ async def _settle(
     return outcome
 
 
+async def _lease_one(
+    session_factory: async_sessionmaker[AsyncSession],
+    *,
+    now: datetime,
+    user_id: UUID | None = None,
+) -> SyncTask | None:
+    async with session_factory() as session, session.begin():
+        leased = await sync_repositories.lease_imports(
+            session,
+            now=now,
+            until=now + timedelta(minutes=settings.imports.lease_minutes),
+            limit=1,
+            user_id=user_id,
+        )
+
+    return leased[0] if leased else None
+
+
 async def import_user(
     session_factory: async_sessionmaker[AsyncSession],
     platforms: dict[Platforms, OAuthPlatform],
@@ -540,16 +557,11 @@ async def import_user(
     user_id: UUID,
     now: datetime,
 ) -> None:
-    async with session_factory() as session, session.begin():
-        tasks = await sync_repositories.lease_imports(
-            session,
-            now=now,
-            until=now + timedelta(minutes=settings.imports.lease_minutes),
-            limit=settings.imports.batch_size,
-            user_id=user_id,
-        )
+    for _ in range(settings.imports.batch_size):
+        task = await _lease_one(session_factory, now=now, user_id=user_id)
+        if task is None:
+            return
 
-    for task in tasks:
         await _settle(session_factory, platforms, task, now=now)
 
 
@@ -569,7 +581,7 @@ async def run_imports(
             ],
             now=now,
             before=now - timedelta(minutes=imports.every_minutes),
-            limit=imports.batch_size,
+            limit=imports.schedule_batch_size,
         )
         for account in due:
             await sync_repositories.enqueue_import(
@@ -580,21 +592,20 @@ async def run_imports(
                 now=now,
             )
 
-        tasks = await sync_repositories.lease_imports(
-            session,
-            now=now,
-            until=now + timedelta(minutes=imports.lease_minutes),
-            limit=imports.batch_size,
-        )
-
     counts = {"scheduled": len(due), "pending": 0} | {
         outcome.lower(): 0 for outcome in SyncOutcomes
     }
-    for task in tasks:
+    ran = 0
+    for _ in range(imports.batch_size):
+        task = await _lease_one(session_factory, now=now)
+        if task is None:
+            break
+
         outcome = await _settle(session_factory, platforms, task, now=now)
         counts[outcome.lower() if outcome is not None else "pending"] += 1
+        ran += 1
 
-    if tasks or due:
+    if ran or due:
         logger.info(
             "[Imports] Imported",
             **counts,

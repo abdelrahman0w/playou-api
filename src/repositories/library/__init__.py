@@ -13,6 +13,7 @@ from .playlists import add_items
 from .playlists import create_playlist
 from .playlists import delete_playlists
 from .playlists import get_playlist
+from .playlists import get_playlist_row
 from .playlists import get_playlist_summary
 from .playlists import import_playlist
 from .playlists import list_playlists
@@ -37,6 +38,7 @@ __all__ = [
     "delete_playlists",
     "get_like",
     "get_playlist",
+    "get_playlist_row",
     "get_playlist_summary",
     "import_likes",
     "import_playlist",

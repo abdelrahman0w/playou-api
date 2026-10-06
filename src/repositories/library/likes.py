@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import case
 from sqlalchemy import exists
 from sqlalchemy import func
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert
@@ -246,6 +247,10 @@ async def import_likes(
                     "removed_by": None,
                     "updated_at": func.now(),
                 },
+                where=or_(
+                    like.removed_at.is_not(None),
+                    like.liked_at < statement.excluded.liked_at,
+                ),
             ),
         )
 

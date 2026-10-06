@@ -1,3 +1,4 @@
+import tempfile
 from enum import StrEnum
 from pathlib import Path
 
@@ -219,6 +220,7 @@ class ImportSettings(BaseAppSettings):
     full_every_hours: int = Field(default=24, ge=1)
     lease_minutes: int = Field(default=15, ge=1)
     batch_size: int = Field(default=10, ge=1)
+    schedule_batch_size: int = Field(default=500, ge=1)
 
 
 class WorkerSettings(BaseAppSettings):
@@ -230,6 +232,9 @@ class WorkerSettings(BaseAppSettings):
     sweep_seconds: int = Field(default=15, ge=1)
     heartbeat_seconds: int = Field(default=5, ge=1)
     wait_seconds: int = Field(default=5, ge=1)
+    health_file: Path | None = Field(
+        default_factory=lambda: Path(tempfile.gettempdir()) / "playou-worker-alive",
+    )
 
 
 class SpotifySettings(BaseAppSettings):

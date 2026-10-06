@@ -252,15 +252,22 @@ async def _save_batch(
     return {key: track_id for key, (_, track_id) in saved.items()}
 
 
-async def save_platform_tracks(
+async def save_platform_track_ids(
     session: AsyncSession,
     tracks: list[Track],
-) -> list[CatalogTrack]:
+) -> list[UUID]:
     ids: dict[tuple[Platforms, str], UUID] = {}
     for start in range(0, len(tracks), BATCH):
         ids |= await _save_batch(session, tracks[start : start + BATCH])
 
-    ordered = [ids[(track.platform, track.platform_id)] for track in tracks]
+    return [ids[(track.platform, track.platform_id)] for track in tracks]
+
+
+async def save_platform_tracks(
+    session: AsyncSession,
+    tracks: list[Track],
+) -> list[CatalogTrack]:
+    ordered = await save_platform_track_ids(session, tracks)
     found = await get_tracks(session, ordered)
 
     return [found[track_id] for track_id in ordered]

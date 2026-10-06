@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import case
 from sqlalchemy import delete
+from sqlalchemy import exists
 from sqlalchemy import func
 from sqlalchemy import or_
 from sqlalchemy import select
@@ -15,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.structs import tables
 from src.structs.enums import Platforms
+from src.structs.enums import SyncStatuses
+from src.structs.enums import SyncSubjects
 from src.structs.models import AccountOwner
 from src.structs.models import ExpiringAccount
 from src.structs.models import StoredAccount
@@ -382,6 +385,13 @@ async def list_accounts_to_import(
         return []
 
     account = tables.LinkedAccount
+    operation = tables.SyncOperation
+    imports = [
+        operation.user_id == account.user_id,
+        operation.platform == account.platform,
+        operation.subject == SyncSubjects.IMPORT,
+        operation.subject_id == account.id,
+    ]
     rows = await session.scalars(
         select(account)
         .where(
@@ -389,6 +399,12 @@ async def list_accounts_to_import(
             account.reconnect_required_at.is_(None),
             or_(account.refresh_expires_at.is_(None), account.refresh_expires_at > now),
             or_(account.imported_at.is_(None), account.imported_at < before),
+            ~exists().where(*imports, operation.status == SyncStatuses.PENDING),
+            ~exists().where(
+                *imports,
+                operation.status == SyncStatuses.FAILED,
+                operation.finished_at >= before,
+            ),
         )
         .order_by(account.imported_at.nulls_first())
         .limit(limit),

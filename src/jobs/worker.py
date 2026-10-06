@@ -146,6 +146,8 @@ class SyncWorker:
                 )
             except RedisError:
                 logger.warning("[Worker] Heartbeat Failed - Redis Is Unavailable")
+            if worker.health_file is not None:
+                worker.health_file.touch()
             await _wait(stop, worker.heartbeat_seconds)
 
     async def _sweep(self, stop: asyncio.Event) -> None:

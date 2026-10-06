@@ -3,6 +3,7 @@ from itertools import batched
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import ColumnElement
 from sqlalchemy import Select
 from sqlalchemy import exists
 from sqlalchemy import func
@@ -11,6 +12,7 @@ from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.expression import Exists
 
 from src.structs import tables
@@ -46,20 +48,58 @@ def _owned_playlists(user_id: UUID) -> Select[UUID]:
     )
 
 
+def _missing_on(
+    user_id: UUID,
+    track_id: InstrumentedAttribute[UUID],
+    platform: Platforms,
+    *,
+    unsettled: bool,
+) -> list[ColumnElement[bool]]:
+    source = tables.TrackSource
+    item = tables.CopyItem
+    copy = tables.Copy
+    where = [
+        ~exists().where(source.track_id == track_id, source.platform == platform),
+    ]
+    if unsettled:
+        where.append(
+            ~exists().where(
+                item.track_id == track_id,
+                item.status.in_([CopyItemStatuses.MISSING, CopyItemStatuses.DISMISSED]),
+                copy.id == item.copy_id,
+                copy.user_id == user_id,
+                copy.platform == platform,
+            ),
+        )
+
+    return where
+
+
 async def scope_tracks(
     session: AsyncSession,
     user_id: UUID,
     scope: CopyScopes,
     playlist_id: UUID | None,
+    *,
+    without: Platforms | None = None,
+    unsettled: bool = False,
 ) -> list[UUID]:
     like = tables.Like
     item = tables.PlaylistItem
+
+    def missing(track_id: InstrumentedAttribute[UUID]) -> list[ColumnElement[bool]]:
+        if without is None:
+            return []
+
+        return _missing_on(user_id, track_id, without, unsettled=unsettled)
+
     found: list[UUID] = []
     if scope in WITH_LIKES:
         found += await session.scalars(
             select(like.track_id).where(
                 like.user_id == user_id,
                 like.removed_at.is_(None),
+                *missing(like.track_id),
             ),
         )
     if scope is not CopyScopes.LIKES:
@@ -72,6 +112,7 @@ async def scope_tracks(
             select(item.track_id).where(
                 item.playlist_id.in_(playlists),
                 item.removed_at.is_(None),
+                *missing(item.track_id),
             ),
         )
 
@@ -323,29 +364,6 @@ async def playlists_to_send(
         )
 
     return list(await session.scalars(owned))
-
-
-async def settled_tracks(
-    session: AsyncSession,
-    user_id: UUID,
-    platform: Platforms,
-) -> set[UUID]:
-    item = tables.CopyItem
-    copy = tables.Copy
-
-    return set(
-        await session.scalars(
-            select(item.track_id)
-            .join(copy, copy.id == item.copy_id)
-            .where(
-                copy.user_id == user_id,
-                copy.platform == platform,
-                item.status.in_(
-                    [CopyItemStatuses.MISSING, CopyItemStatuses.DISMISSED],
-                ),
-            ),
-        ),
-    )
 
 
 async def playlists_with(

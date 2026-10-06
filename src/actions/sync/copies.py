@@ -90,7 +90,7 @@ async def _scope(
         return service, scope, None
 
     playlist = (
-        await library_repositories.get_playlist_summary(session, user_id, playlist_id)
+        await library_repositories.get_playlist_row(session, user_id, playlist_id)
         if playlist_id is not None
         else None
     )
@@ -299,15 +299,14 @@ async def _send(
         (SyncSubjects.LIKE, likes),
         (SyncSubjects.PLAYLIST, playlists),
     ):
-        for subject_id in subject_ids:
-            await sync_repositories.enqueue(
-                session,
-                user_id=copy.user_id,
-                platform=copy.platform,
-                subject=subject,
-                subject_id=subject_id,
-                now=now,
-            )
+        await sync_repositories.enqueue_many(
+            session,
+            user_id=copy.user_id,
+            platform=copy.platform,
+            subject=subject,
+            subject_ids=subject_ids,
+            now=now,
+        )
     if copy.auto and account is not None:
         await accounts_repositories.mark_synced(session, account.id, at=copy.created_at)
 
@@ -344,21 +343,14 @@ async def keep_in_sync(
         ):
             continue
 
-        tracks = await sync_repositories.scope_tracks(session, user_id, scope, None)
-        settled = await sync_repositories.settled_tracks(
+        missing = await sync_repositories.scope_tracks(
             session,
             user_id,
-            account.platform,
+            scope,
+            None,
+            without=account.platform,
+            unsettled=True,
         )
-        missing = [
-            track_id
-            for track_id in await sync_repositories.tracks_without(
-                session,
-                tracks,
-                account.platform,
-            )
-            if track_id not in settled
-        ]
         since = account.synced_at
         sending = (
             scope in WITH_LIKES

@@ -7,6 +7,7 @@ from sqlalchemy import case
 from sqlalchemy import delete
 from sqlalchemy import exists
 from sqlalchemy import func
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert
@@ -113,18 +114,27 @@ async def create_playlist(
     return playlist.id
 
 
-async def get_playlist_summary(
+async def get_playlist_row(
     session: AsyncSession,
     user_id: UUID,
     playlist_id: UUID,
-) -> Playlist | None:
+) -> tables.Playlist | None:
     playlist = tables.Playlist
-    row = await session.scalar(
+
+    return await session.scalar(
         select(playlist).where(
             playlist.id == playlist_id,
             playlist.user_id == user_id,
         ),
     )
+
+
+async def get_playlist_summary(
+    session: AsyncSession,
+    user_id: UUID,
+    playlist_id: UUID,
+) -> Playlist | None:
+    row = await get_playlist_row(session, user_id, playlist_id)
     if row is None:
         return None
 
@@ -572,6 +582,10 @@ async def reconcile_items(
                     "removed_by": None,
                     "updated_at": func.now(),
                 },
+                where=or_(
+                    item.removed_at.is_not(None),
+                    item.position != statement.excluded.position,
+                ),
             ),
         )
 

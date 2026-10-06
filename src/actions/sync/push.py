@@ -44,6 +44,7 @@ class _Outcome:
 DONE = _Outcome(SyncOutcomes.DONE)
 
 LIKES_A_PUSH = 40
+PRUNE_BATCH = 5_000
 PUSHED = (SyncSubjects.LIKE, SyncSubjects.PLAYLIST)
 
 
@@ -503,8 +504,18 @@ async def prune_finished(
     now: datetime,
 ) -> int:
     before = now - timedelta(days=settings.sync.retention_days)
-    async with session_factory() as session, session.begin():
-        pruned = await sync_repositories.prune_finished(session, before=before)
+    pruned = 0
+    while True:
+        async with session_factory() as session, session.begin():
+            deleted = await sync_repositories.prune_finished(
+                session,
+                before=before,
+                limit=PRUNE_BATCH,
+            )
+
+        pruned += deleted
+        if deleted < PRUNE_BATCH:
+            break
 
     logger.info(
         "[Sync] Pruned",

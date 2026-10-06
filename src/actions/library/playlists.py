@@ -15,7 +15,6 @@ from src.structs.enums import PlaylistImports
 from src.structs.enums import PlaylistKinds
 from src.structs.enums import RemovedBy
 from src.structs.enums import SyncSubjects
-from src.structs.models.responses import Playlist
 from src.structs.models.responses import PlaylistDetail
 
 
@@ -25,8 +24,8 @@ async def _active_playlist(
     playlist_id: UUID,
     *,
     editing: bool = False,
-) -> Playlist:
-    playlist = await library_repositories.get_playlist_summary(
+) -> None:
+    playlist = await library_repositories.get_playlist_row(
         session,
         user_id,
         playlist_id,
@@ -35,8 +34,6 @@ async def _active_playlist(
         raise NotFoundError("The playlist does not exist")
     if editing and playlist.kind is PlaylistKinds.FOLLOWED:
         raise UnsupportedError("A followed playlist is its owner's to change")
-
-    return playlist
 
 
 async def _pushed(

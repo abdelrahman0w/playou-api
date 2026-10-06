@@ -246,7 +246,7 @@ async def find_on(
         now=now,
     )
     async with session_factory() as session, session.begin():
-        await catalog_repositories.save_platform_tracks(session, found)
+        await catalog_repositories.save_platform_track_ids(session, found)
         updated = await catalog_repositories.get_tracks(session, [track_id])
 
     return updated.get(track_id, track)
