@@ -152,29 +152,36 @@ async def get_playlist(
     *,
     include_removed: bool = False,
 ) -> PlaylistDetail | None:
-    summary = await get_playlist_summary(
-        session,
-        user_id,
-        playlist_id,
-    )
-    if summary is None:
+    row = await get_playlist_row(session, user_id, playlist_id)
+    if row is None:
         return None
 
     item = tables.PlaylistItem
     where = [item.playlist_id == playlist_id]
     if not include_removed:
         where.append(item.removed_at.is_(None))
-    items = list(
-        await session.scalars(
-            select(item)
+    items = (
+        await session.execute(
+            select(
+                item.track_id,
+                item.position,
+                item.added_at,
+                item.removed_at,
+                item.removed_by,
+            )
             .where(*where)
             .order_by(item.removed_at.is_not(None), item.position)
         )
-    )
+    ).all()
     tracks = await get_tracks(session, [entry.track_id for entry in items])
+    summary = _to_playlist(
+        row,
+        counts={row.id: sum(entry.removed_at is None for entry in items)},
+        links=await _links(session, [row.id]),
+    )
 
     return PlaylistDetail(
-        **summary.model_dump(),
+        **dict(summary),
         items=[
             PlaylistItem(
                 track=tracks[entry.track_id],
