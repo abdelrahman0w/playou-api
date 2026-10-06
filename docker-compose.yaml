@@ -34,6 +34,28 @@ services:
       - "${APP_PORT:-8081}:${APP_PORT:-8081}"
     entrypoint: ["/app/bin/entrypoint.sh", "--dev"]
 
+  playou-jobs:
+    image: playou-api:local
+    container_name: playou-jobs
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - DATABASE_HOST=playou-db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=playou
+      - DATABASE_PASSWORD=playou
+      - DATABASE_NAME=playou
+      - REDIS_HOST=playou-redis
+      - REDIS_PORT=6379
+      - APP_LOG_JSON=false
+    volumes:
+      - .:/app
+    depends_on:
+      playou-api:
+        condition: service_started
+    entrypoint: ["/app/bin/jobs.sh", "schedule"]
+
   playou-db:
     image: postgres:18
     container_name: playou-db

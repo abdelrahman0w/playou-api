@@ -11,5 +11,7 @@ class CacheKeys(StrEnum):
     CATALOG_CANDIDATES = "catalog:candidates:{user_id}:{track_id}:{platform}"
     COPY_LOCK = "copy:lock:{copy_id}"
     IMPORTS_CHECKED = "imports:checked:{user_id}"
+    SYNC_NUDGES = "sync:nudges"
+    SYNC_WORKER_ALIVE = "sync:worker:alive"
     PLATFORM_PAUSED = "platform:{platform}:paused"
     PLATFORM_QUOTA = "platform:{platform}:quota:{day}"

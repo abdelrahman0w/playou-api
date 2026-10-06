@@ -15,12 +15,17 @@ from .imports import library_sync
 from .imports import request_imports
 from .imports import request_stale_imports
 from .imports import run_imports
+from .nudges import beat
+from .nudges import next_nudge
+from .nudges import nudge
+from .nudges import stop_beating
 from .push import prune_finished
 from .push import push_pending
 from .queue import enqueue_push
 
 
 __all__ = [
+    "beat",
     "cancel_copy",
     "choose_similar",
     "copy_missing",
@@ -33,6 +38,8 @@ __all__ = [
     "library_sync",
     "list_copies",
     "list_missing",
+    "next_nudge",
+    "nudge",
     "prune_finished",
     "push_pending",
     "request_imports",
@@ -41,4 +48,5 @@ __all__ = [
     "run_imports",
     "similar_songs",
     "start_copy",
+    "stop_beating",
 ]

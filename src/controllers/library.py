@@ -13,6 +13,7 @@ from src.repositories import library as library_repositories
 from src.services import OAuthPlatform
 from src.settings import settings
 from src.structs.enums import Platforms
+from src.structs.enums import SyncNudges
 from src.structs.models import Page
 from src.structs.models.requests import CreatePlaylistRequest
 from src.structs.models.requests import LikeListRequest
@@ -314,6 +315,15 @@ async def import_now(
         user_id=user_id,
         now=now,
     )
+
+
+async def nudge(
+    redis: Redis,
+    kind: SyncNudges,
+    *,
+    user_id: UUID,
+) -> bool:
+    return await sync_actions.nudge(redis, kind, user_id)
 
 
 async def push_changes(

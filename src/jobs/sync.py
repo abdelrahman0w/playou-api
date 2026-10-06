@@ -53,20 +53,14 @@ JOBS: dict[str, Job] = {
     "push_library_changes": Job(
         run=push_library_changes,
         help="push the library's changes the platforms do not have yet",
-        monitor_every_seconds=60,
-        cron="* * * * *",
     ),
     "import_libraries": Job(
         run=import_libraries,
         help="import the linked accounts' libraries that are due, and the asked for",
-        monitor_every_seconds=60,
-        cron="* * * * *",
     ),
     "copy_libraries": Job(
         run=copy_libraries,
         help="find the songs being copied to another app, then send them there",
-        monitor_every_seconds=60,
-        cron="* * * * *",
     ),
     "prune_sync_operations": Job(
         run=prune_sync_operations,

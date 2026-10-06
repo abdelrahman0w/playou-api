@@ -20,6 +20,7 @@ from src.dependencies import UserIDDep
 from src.dependencies import require_trusted_origin
 from src.routes.library import CopierDep
 from src.structs.enums import Platforms
+from src.structs.enums import SyncNudges
 from src.structs.models.requests import PushPreferencesRequest
 from src.structs.models.responses import LinkedAccount
 from src.structs.models.responses import PushPreferences
@@ -75,7 +76,22 @@ async def finish_connect(
     state: Annotated[str | None, Query(max_length=256)] = None,
     error: Annotated[str | None, Query(max_length=256)] = None,
 ) -> RedirectResponse:
-    if user_id is not None:
+    redirect = await accounts_controller.finish_connect(
+        session,
+        redis,
+        platforms,
+        platform,
+        user_id=user_id,
+        code=code,
+        state=state,
+        error=error,
+        now=now,
+    )
+    if user_id is not None and not await library_controller.nudge(
+        redis,
+        SyncNudges.IMPORT,
+        user_id=user_id,
+    ):
         background.add_task(
             library_controller.import_now,
             session_factory,
@@ -84,20 +100,7 @@ async def finish_connect(
             now=now,
         )
 
-    return RedirectResponse(
-        await accounts_controller.finish_connect(
-            session,
-            redis,
-            platforms,
-            platform,
-            user_id=user_id,
-            code=code,
-            state=state,
-            error=error,
-            now=now,
-        ),
-        status_code=status.HTTP_303_SEE_OTHER,
-    )
+    return RedirectResponse(redirect, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.delete(
@@ -159,6 +162,6 @@ async def set_preferences(
         now=now,
     )
     if body.keep_in_sync:
-        copier.run()
+        await copier.run()
 
     return preferences

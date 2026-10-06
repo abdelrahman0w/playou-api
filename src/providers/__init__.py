@@ -6,6 +6,7 @@ from .error_tracking import setup_error_tracking
 from .logger import logger
 from .logger import setup_logging
 from .redis import RedisConnection
+from .redis import make_redis
 
 
 __all__ = [
@@ -14,6 +15,7 @@ __all__ = [
     "RedisConnection",
     "enable_async_error_tracking",
     "logger",
+    "make_redis",
     "monitor_job",
     "setup_error_tracking",
     "setup_logging",

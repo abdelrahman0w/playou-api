@@ -221,6 +221,17 @@ class ImportSettings(BaseAppSettings):
     batch_size: int = Field(default=10, ge=1)
 
 
+class WorkerSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="WORKER_",
+    )
+
+    concurrency: int = Field(default=4, ge=1)
+    sweep_seconds: int = Field(default=15, ge=1)
+    heartbeat_seconds: int = Field(default=5, ge=1)
+    wait_seconds: int = Field(default=5, ge=1)
+
+
 class SpotifySettings(BaseAppSettings):
     model_config = SettingsConfigDict(
         env_prefix="SPOTIFY_",
@@ -315,6 +326,7 @@ class Settings(BaseAppSettings):
     catalog: CatalogSettings = Field(default_factory=CatalogSettings)
     sync: SyncSettings = Field(default_factory=SyncSettings)
     imports: ImportSettings = Field(default_factory=ImportSettings)
+    worker: WorkerSettings = Field(default_factory=WorkerSettings)
     spotify: SpotifySettings = Field(default_factory=SpotifySettings)
     youtube: YouTubeSettings = Field(default_factory=YouTubeSettings)
     data: DataSettings = Field(default_factory=DataSettings)

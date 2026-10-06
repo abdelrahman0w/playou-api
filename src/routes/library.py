@@ -17,6 +17,7 @@ from src.dependencies import SessionFactoryDep
 from src.dependencies import UserIDDep
 from src.dependencies import require_trusted_origin
 from src.structs.enums import Platforms
+from src.structs.enums import SyncNudges
 from src.structs.models import Page
 from src.structs.models.requests import CreatePlaylistRequest
 from src.structs.models.requests import LikeListRequest
@@ -45,17 +46,25 @@ class Pusher:
         self,
         background: BackgroundTasks,
         session_factory: SessionFactoryDep,
+        redis: RedisDep,
         platforms: PlatformsDep,
         user_id: UserIDDep,
         now: NowDep,
     ) -> None:
         self._background = background
         self._session_factory = session_factory
+        self._redis = redis
         self._platforms = platforms
         self._user_id = user_id
         self._now = now
 
-    def push(self) -> None:
+    async def _nudged(self, kind: SyncNudges) -> bool:
+        return await library_controller.nudge(self._redis, kind, user_id=self._user_id)
+
+    async def push(self) -> None:
+        if await self._nudged(SyncNudges.PUSH):
+            return
+
         self._background.add_task(
             library_controller.push_changes,
             self._session_factory,
@@ -69,19 +78,10 @@ PusherDep = Annotated[Pusher, Depends()]
 
 
 class Copier(Pusher):
-    def __init__(
-        self,
-        background: BackgroundTasks,
-        session_factory: SessionFactoryDep,
-        redis: RedisDep,
-        platforms: PlatformsDep,
-        user_id: UserIDDep,
-        now: NowDep,
-    ) -> None:
-        super().__init__(background, session_factory, platforms, user_id, now)
-        self._redis = redis
+    async def run(self) -> None:
+        if await self._nudged(SyncNudges.COPY):
+            return
 
-    def run(self) -> None:
         self._background.add_task(
             library_controller.copy_now,
             self._session_factory,
@@ -96,7 +96,10 @@ CopierDep = Annotated[Copier, Depends()]
 
 
 class Importer(Pusher):
-    def run(self) -> None:
+    async def run(self) -> None:
+        if await self._nudged(SyncNudges.IMPORT):
+            return
+
         self._background.add_task(
             library_controller.import_now,
             self._session_factory,
@@ -147,7 +150,7 @@ async def like(
         user_id=user_id,
         now=now,
     )
-    pusher.push()
+    await pusher.push()
 
     return liked
 
@@ -172,7 +175,7 @@ async def unlike(
         user_id=user_id,
         now=now,
     )
-    pusher.push()
+    await pusher.push()
 
     return Response(
         status_code=status.HTTP_204_NO_CONTENT,
@@ -221,7 +224,7 @@ async def request_import(
         user_id=user_id,
         now=now,
     )
-    importer.run()
+    await importer.run()
 
     return synced
 
@@ -246,7 +249,7 @@ async def create_playlist(
         user_id=user_id,
         now=now,
     )
-    pusher.push()
+    await pusher.push()
 
     return playlist
 
@@ -288,7 +291,7 @@ async def update_playlist(
         user_id=user_id,
         now=now,
     )
-    pusher.push()
+    await pusher.push()
 
     return playlist
 
@@ -313,7 +316,7 @@ async def remove_playlist(
         user_id=user_id,
         now=now,
     )
-    pusher.push()
+    await pusher.push()
 
     return Response(
         status_code=status.HTTP_204_NO_CONTENT,
@@ -342,7 +345,7 @@ async def choose_importing(
         user_id=user_id,
         now=now,
     )
-    importer.run()
+    await importer.run()
 
     return Response(
         status_code=status.HTTP_204_NO_CONTENT,
@@ -370,7 +373,7 @@ async def add_playlist_items(
         user_id=user_id,
         now=now,
     )
-    pusher.push()
+    await pusher.push()
 
     return playlist
 
@@ -397,7 +400,7 @@ async def remove_playlist_item(
         user_id=user_id,
         now=now,
     )
-    pusher.push()
+    await pusher.push()
 
     return Response(
         status_code=status.HTTP_204_NO_CONTENT,
@@ -495,7 +498,7 @@ async def start_copy(
         body,
         user_id=user_id,
     )
-    copier.run()
+    await copier.run()
 
     return copy
 

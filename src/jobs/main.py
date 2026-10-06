@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import signal
 import time
 from contextlib import nullcontext
 from datetime import datetime
@@ -11,17 +12,20 @@ from src.jobs import accounts
 from src.jobs import auth
 from src.jobs import data
 from src.jobs import sync
+from src.jobs.worker import SyncWorker
 from src.providers import DatabaseConnection
 from src.providers import DatabaseSessions
 from src.providers import RedisConnection
 from src.providers import enable_async_error_tracking
 from src.providers import logger
+from src.providers import make_redis
 from src.providers import monitor_job
 from src.providers import setup_error_tracking
 from src.providers import setup_logging
 from src.services import ResendConnection
 from src.services import SpotifyConnection
 from src.services import YouTubeConnection
+from src.services import available_platforms
 from src.settings import settings
 from src.utils import connect_singletons
 from src.utils import cron_matches
@@ -45,6 +49,7 @@ JOBS: dict[str, Job] = {
 
 
 SCHEDULE = "schedule"
+WORKER = "worker"
 
 
 def _elapsed_ms(
@@ -65,7 +70,11 @@ def parse_args(
 
     subcommands.add_parser(
         SCHEDULE,
-        help="run every job on its cron, until stopped, for local development",
+        help="run every job on its cron and the sync worker, until stopped, locally",
+    )
+    subcommands.add_parser(
+        WORKER,
+        help="push, copy and import as they are asked for, and sweep what is due",
     )
     for name, job in sorted(JOBS.items()):
         job.arguments(
@@ -124,7 +133,30 @@ async def _run_quietly(
         pass
 
 
+async def work(stop: asyncio.Event) -> None:
+    waiting = make_redis(socket_timeout=settings.worker.wait_seconds + 5)
+    try:
+        await SyncWorker(
+            DatabaseSessions.get(),
+            RedisConnection.get(),
+            waiting,
+            available_platforms(),
+        ).run(stop)
+    finally:
+        await waiting.aclose()
+
+
+def _stopping() -> asyncio.Event:
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(signum, stop.set)
+
+    return stop
+
+
 async def schedule() -> None:
+    worker = asyncio.create_task(work(asyncio.Event()))
     logger.info(
         "[Jobs] Scheduling",
         jobs=sorted(name for name, job in JOBS.items() if job.cron),
@@ -140,6 +172,8 @@ async def schedule() -> None:
 
         later = datetime.now().astimezone()
         await asyncio.sleep(60 - later.second - later.microsecond / 1_000_000)
+        if worker.done():
+            worker.result()
 
 
 async def run(
@@ -150,6 +184,8 @@ async def run(
     async with connect_singletons(*SINGLETONS):
         if args.job == SCHEDULE:
             await schedule()
+        elif args.job == WORKER:
+            await work(_stopping())
         else:
             await run_job(args.job, args)
 

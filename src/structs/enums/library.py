@@ -13,6 +13,12 @@ class SyncSubjects(StrEnum):
     IMPORT = "IMPORT"
 
 
+class SyncNudges(StrEnum):
+    PUSH = "PUSH"
+    COPY = "COPY"
+    IMPORT = "IMPORT"
+
+
 class PlaylistKinds(StrEnum):
     OWNED = "OWNED"
     FOLLOWED = "FOLLOWED"

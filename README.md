@@ -499,9 +499,9 @@ Jobs are run once by name through `bin/jobs.sh`, `bin/jobs.sh <job> --help` list
 
 | Job | Cron | Description |
 | --- | --- | --- |
-| `push_library_changes` | `* * * * *` | Pushes the library's changes that are due, the ones the push after a request did not finish, `SYNC_PUSH_BATCH_SIZE` a run |
-| `import_libraries` | `* * * * *` | Asks for the imports that are due, and imports the asked for, `IMPORT_BATCH_SIZE` a run, see [imports](#imports) |
-| `copy_libraries` | `* * * * *` | Finds the songs being copied to another app, `CATALOG_COPY_BATCH_SIZE` a copy a run, then sends the likes and playlists there |
+| `push_library_changes` | the worker | Pushes the library's changes that are due, the ones the push after a request did not finish, `SYNC_PUSH_BATCH_SIZE` a run |
+| `import_libraries` | the worker | Asks for the imports that are due, and imports the asked for, `IMPORT_BATCH_SIZE` a run, see [imports](#imports) |
+| `copy_libraries` | the worker | Finds the songs being copied to another app, `CATALOG_COPY_BATCH_SIZE` a copy a run, then sends the likes and playlists there |
 | `prune_sync_operations` | `0 1 * * *` | Drops the sync operations finished more than `SYNC_RETENTION_DAYS` ago |
 | `check_expiring_accounts` | `0 3 * * *` | Emails the users of the accounts expiring within `ACCOUNTS_EXPIRY_WARNING_DAYS` to reconnect, once, then refreshes the ones expiring within `ACCOUNTS_KEEP_ALIVE_DAYS`, on the platforms whose refresh extends the lifetime, the soonest first, `ACCOUNTS_KEEP_ALIVE_BATCH_SIZE` a run, one at a time. A refused refresh sets `reconnect_required_at`, a failed one is tried again the next run |
 | `warn_disconnected_accounts` | `*/5 * * * *` | Emails the users whose platform refused their account, once, until it is linked again |
@@ -515,9 +515,6 @@ with the `sh` shell, running `/app/bin/jobs.sh <job>` in the api's container, wi
 
 | Name | Cron | Command | Enabled |
 | --- | --- | --- | --- |
-| `push_library_changes` | `* * * * *` | `/app/bin/jobs.sh push_library_changes` | Yes |
-| `import_libraries` | `* * * * *` | `/app/bin/jobs.sh import_libraries` | Yes |
-| `copy_libraries` | `* * * * *` | `/app/bin/jobs.sh copy_libraries` | Yes |
 | `prune_sync_operations` | `0 1 * * *` | `/app/bin/jobs.sh prune_sync_operations` | Yes |
 | `check_expiring_accounts` | `0 3 * * *` | `/app/bin/jobs.sh check_expiring_accounts` | Yes |
 | `warn_disconnected_accounts` | `*/5 * * * *` | `/app/bin/jobs.sh warn_disconnected_accounts` | Yes |
@@ -529,12 +526,30 @@ with the `sh` shell, running `/app/bin/jobs.sh <job>` in the api's container, wi
 
 > The sync jobs, `push_library_changes`, `import_libraries`, and `prune_sync_operations`, come with the library, see [the plan](docs/plan.md#sync)
 
+#### The sync worker
+
+Pushing, importing and copying run in their own application in dokploy, `playou-worker`, from the api's image,
+running `/app/bin/jobs.sh worker`, with the api's environment, and `DATABASE_POOL_SIZE` of its own, 5 is plenty.
+It runs no migrations, the api does.
+
+After a like, an edit, a copy or an import asked for, the api hands the user's work to the worker on the `sync:nudges` list in redis,
+and it starts within milliseconds, `WORKER_CONCURRENCY` users at a time, a user's work asked for again while it runs is run once more after.
+Every `WORKER_SWEEP_SECONDS`, 15, it also sweeps what is due, the same as `push_library_changes`, `import_libraries` and `copy_libraries`,
+retries, scheduled imports and paused copies.
+
+It keeps `sync:worker:alive` in redis, every `WORKER_HEARTBEAT_SECONDS`, and drops it when stopped.
+While the key is missing, or redis is down, the api does the work itself after the response, as it did before the worker,
+so the worker going down slows nothing for the users. Several workers can run, a push is leased, an import too, and a copy is locked.
+
+It logs `[Worker] Started` and `[Worker] Stopped`, a failed nudge or sweep as `[Worker] Nudge Failed` and `[Worker] Sweep Failed`,
+and checks in with the `jobs-sync-worker` sentry cron monitor every sweep. On `SIGTERM` it finishes the work it took and stops.
+
 Every run logs `[Jobs] Job Started` and `[Jobs] Job Finished` with its `duration_ms`, or `[Jobs] Job Failed` with the error.
 With error tracking on, each job with a cron also checks in with a [sentry cron monitor](https://docs.sentry.io/product/crons/),
-`jobs-push-library-changes`, `jobs-import-libraries`, `jobs-prune-sync-operations`, `jobs-check-expiring-accounts`, `jobs-warn-disconnected-accounts`, and `jobs-prune-auth`.
+`jobs-prune-sync-operations`, `jobs-check-expiring-accounts`, `jobs-warn-disconnected-accounts`, and `jobs-prune-auth`.
 
-Locally, one process runs every job on its cron, the same as the table, until it is stopped,
-a job still running when its minute comes again is left to finish:
+Locally, one process runs every job on its cron, the same as the table, and the sync worker, until it is stopped,
+a job still running when its minute comes again is left to finish, `docker compose up` runs it as `playou-jobs`:
 
 ```shell
 uv run bin/jobs.sh schedule

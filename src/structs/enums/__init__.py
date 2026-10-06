@@ -11,6 +11,7 @@ from .library import PlaylistImports
 from .library import PlaylistKinds
 from .library import PlaylistSorts
 from .library import RemovedBy
+from .library import SyncNudges
 from .library import SyncOutcomes
 from .library import SyncStatuses
 from .library import SyncSubjects
@@ -38,6 +39,7 @@ __all__ = [
     "RemovedBy",
     "SearchStatuses",
     "SessionTransports",
+    "SyncNudges",
     "SyncOutcomes",
     "SyncStatuses",
     "SyncSubjects",
