@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import time
 from collections.abc import Awaitable
 from collections.abc import Callable
 from datetime import UTC
@@ -44,6 +45,7 @@ class SyncWorker:
         self._push_slots = asyncio.Semaphore(settings.worker.push_concurrency)
         self._running: dict[Key, asyncio.Task[None]] = {}
         self._again: set[Key] = set()
+        self._listened_at = time.monotonic()
 
     async def handle(self, kind: SyncNudges, user_id: UUID) -> None:
         now = self._clock()
@@ -99,63 +101,78 @@ class SyncWorker:
         finally:
             del self._running[key]
 
-    async def sweep(self) -> None:
-        now = self._clock()
-        sweeps: list[tuple[str, Callable[[], Awaitable[object]]]] = [
-            (
-                "push",
-                lambda: sync_actions.push_pending(
-                    self._session_factory,
-                    self._platforms,
-                    now=now,
-                ),
+    async def sweep_pushes(self) -> None:
+        await self._sweep_one(
+            "push",
+            lambda: sync_actions.push_pending(
+                self._session_factory,
+                self._platforms,
+                now=self._clock(),
             ),
-            (
-                "import",
-                lambda: sync_actions.run_imports(
-                    self._session_factory,
-                    self._platforms,
-                    now=now,
-                ),
+        )
+
+    async def sweep_others(self) -> None:
+        await self._sweep_one(
+            "import",
+            lambda: sync_actions.run_imports(
+                self._session_factory,
+                self._platforms,
+                now=self._clock(),
             ),
-            (
-                "copy",
-                lambda: sync_actions.run_copies(
-                    self._session_factory,
-                    self._redis,
-                    self._platforms,
-                    now=now,
-                ),
+        )
+        await self._sweep_one(
+            "copy",
+            lambda: sync_actions.run_copies(
+                self._session_factory,
+                self._redis,
+                self._platforms,
+                now=self._clock(),
             ),
-        ]
-        for name, run in sweeps:
-            try:
-                await run()
-            except Exception as error:
-                logger.exception(
-                    "[Worker] Sweep Failed",
-                    exc_info=error,
-                    sweep=name,
-                )
+        )
+
+    async def _sweep_one(
+        self,
+        name: str,
+        run: Callable[[], Awaitable[object]],
+    ) -> None:
+        try:
+            await run()
+        except Exception as error:
+            logger.exception(
+                "[Worker] Sweep Failed",
+                exc_info=error,
+                sweep=name,
+            )
+
+    def _listening(self) -> bool:
+        worker = settings.worker
+
+        return time.monotonic() - self._listened_at < worker.wait_seconds * 3
 
     async def _beat(self, stop: asyncio.Event) -> None:
         worker = settings.worker
         while not stop.is_set():
-            try:
-                await sync_actions.beat(
-                    self._redis,
-                    seconds=worker.heartbeat_seconds * 3,
-                )
-            except RedisError:
-                logger.warning("[Worker] Heartbeat Failed - Redis Is Unavailable")
-            if worker.health_file is not None:
-                worker.health_file.touch()
+            if self._listening():
+                try:
+                    await sync_actions.beat(
+                        self._redis,
+                        seconds=worker.heartbeat_seconds * 3,
+                    )
+                except RedisError:
+                    logger.warning("[Worker] Heartbeat Failed - Redis Is Unavailable")
+                if worker.health_file is not None:
+                    worker.health_file.touch()
             await _wait(stop, worker.heartbeat_seconds)
 
-    async def _sweep(self, stop: asyncio.Event) -> None:
+    async def _sweep_pushes(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
             with monitor_job(WORKER, 60):
-                await self.sweep()
+                await self.sweep_pushes()
+            await _wait(stop, settings.worker.sweep_seconds)
+
+    async def _sweep_others(self, stop: asyncio.Event) -> None:
+        while not stop.is_set():
+            await self.sweep_others()
             await _wait(stop, settings.worker.sweep_seconds)
 
     async def _listen(self, stop: asyncio.Event) -> None:
@@ -170,6 +187,7 @@ class SyncWorker:
                 await _wait(stop, 1)
                 continue
 
+            self._listened_at = time.monotonic()
             if nudge is not None:
                 self.take(*nudge)
 
@@ -177,11 +195,18 @@ class SyncWorker:
         logger.info(
             "[Worker] Started",
             concurrency=settings.worker.concurrency,
+            push_concurrency=settings.worker.push_concurrency,
             sweep_seconds=settings.worker.sweep_seconds,
         )
+        self._listened_at = time.monotonic()
         loops = [
             asyncio.create_task(loop(stop))
-            for loop in (self._beat, self._sweep, self._listen)
+            for loop in (
+                self._beat,
+                self._sweep_pushes,
+                self._sweep_others,
+                self._listen,
+            )
         ]
         await stop.wait()
 
@@ -190,7 +215,16 @@ class SyncWorker:
         await asyncio.gather(*loops, return_exceptions=True)
         with contextlib.suppress(RedisError):
             await sync_actions.stop_beating(self._redis)
-        await asyncio.gather(*self._running.values(), return_exceptions=True)
+
+        running = list(self._running.values())
+        if running:
+            _, unfinished = await asyncio.wait(
+                running,
+                timeout=settings.worker.stop_seconds,
+            )
+            for task in unfinished:
+                task.cancel()
+            await asyncio.gather(*running, return_exceptions=True)
 
         logger.info("[Worker] Stopped")
 

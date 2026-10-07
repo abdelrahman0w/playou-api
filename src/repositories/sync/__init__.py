@@ -26,6 +26,7 @@ from .operations import lease
 from .operations import lease_imports
 from .operations import pending_subject_ids
 from .operations import prune_finished
+from .operations import release
 from .operations import retry_later
 from .operations import save_progress
 
@@ -54,6 +55,7 @@ __all__ = [
     "playlists_to_send",
     "playlists_with",
     "prune_finished",
+    "release",
     "retry_later",
     "running_copy",
     "save_progress",

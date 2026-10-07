@@ -505,6 +505,10 @@ async def push_pending(
             result = await _push(session_factory, prepared, tasks, now=now)
         except Exception as error:
             result = error
+        except asyncio.CancelledError:
+            async with session_factory() as session, session.begin():
+                await sync_repositories.release(session, [task.id for task in tasks])
+            raise
         finally:
             renewing.cancel()
 

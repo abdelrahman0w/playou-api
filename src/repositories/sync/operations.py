@@ -183,6 +183,14 @@ async def lease(
     )
 
 
+async def release(session: AsyncSession, operation_ids: list[int]) -> None:
+    await session.execute(
+        update(tables.SyncOperation)
+        .where(tables.SyncOperation.id.in_(operation_ids))
+        .values(leased_until=None),
+    )
+
+
 async def finish(
     session: AsyncSession,
     operation_id: int,

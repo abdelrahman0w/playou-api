@@ -233,6 +233,7 @@ class WorkerSettings(BaseAppSettings):
     sweep_seconds: int = Field(default=15, ge=1)
     heartbeat_seconds: int = Field(default=5, ge=1)
     wait_seconds: int = Field(default=5, ge=1)
+    stop_seconds: int = Field(default=45, ge=0)
     health_file: Path | None = Field(
         default_factory=lambda: Path(tempfile.gettempdir()) / "playou-worker-alive",
     )
