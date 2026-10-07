@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 from datetime import datetime
 from uuid import UUID
 
@@ -108,10 +110,27 @@ async def block_embedding(
 
 async def get_session(
     session: AsyncSession,
+    changes: playback_actions.PlaybackChanges,
     *,
     user_id: UUID,
     seen: str | None = None,
+    wait: float = 0,
 ) -> playback_actions.SessionRead:
+    if wait <= 0:
+        async with session.begin():
+            return await playback_actions.get_session(session, user_id, seen=seen)
+
+    with changes.watch(user_id) as changed:
+        async with session.begin():
+            read = await playback_actions.get_session(session, user_id, seen=seen)
+        if not read.unchanged:
+            return read
+
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(changed.wait(), timeout=wait)
+        if not changed.is_set():
+            return read
+
     async with session.begin():
         return await playback_actions.get_session(session, user_id, seen=seen)
 

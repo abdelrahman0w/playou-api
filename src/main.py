@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
+from src.actions.playback import PlaybackListener
 from src.exceptions import register_exception_handlers
 from src.middlewares import LogsContextualizerMiddleware
 from src.middlewares import RateLimitMiddleware
@@ -45,6 +46,7 @@ SINGLETONS = (
     ResendConnection,
     SpotifyConnection,
     YouTubeConnection,
+    PlaybackListener,
 )
 
 
@@ -107,6 +109,7 @@ app.add_middleware(
         "baggage",
     ],
     expose_headers=[
+        "ETag",
         "RateLimit-Limit",
         "RateLimit-Remaining",
         "RateLimit-Reset",

@@ -1,3 +1,6 @@
+from .changes import PlaybackChanges
+from .changes import PlaybackListener
+from .changes import announce
 from .playback import Playable
 from .playback import block_embedding
 from .playback import list_devices
@@ -14,7 +17,10 @@ from .sessions import save_session
 
 __all__ = [
     "Playable",
+    "PlaybackChanges",
+    "PlaybackListener",
     "SessionRead",
+    "announce",
     "block_embedding",
     "claim_session",
     "forget_session",

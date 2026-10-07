@@ -14,4 +14,5 @@ class CacheKeys(StrEnum):
     SYNC_NUDGES = "sync:nudges"
     SYNC_WORKER_ALIVE = "sync:worker:alive"
     PLATFORM_PAUSED = "platform:{platform}:paused"
+    PLAYBACK_CHANGED = "playback:changed"
     PLATFORM_QUOTA = "platform:{platform}:quota:{day}"

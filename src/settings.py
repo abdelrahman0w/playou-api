@@ -314,6 +314,7 @@ class PlaybackSettings(BaseAppSettings):
     )
 
     session_days: int = Field(default=30, ge=1)
+    longest_wait_seconds: int = Field(default=20, ge=0)
 
 
 class Settings(BaseAppSettings):

@@ -1,16 +1,23 @@
+from typing import Annotated
+
 from fastapi import APIRouter
 from fastapi import Depends
+from fastapi import Query
 from fastapi import Request
 from fastapi import Response
 from fastapi import status
 
+from src.actions import playback as playback_actions
 from src.controllers import playback as playback_controller
 from src.dependencies import DBSessionDep
 from src.dependencies import NowDep
 from src.dependencies import PlatformsDep
+from src.dependencies import PlaybackChangesDep
+from src.dependencies import RedisDep
 from src.dependencies import SessionFactoryDep
 from src.dependencies import UserIDDep
 from src.dependencies import require_trusted_origin
+from src.settings import settings
 from src.structs.enums import Platforms
 from src.structs.models import PlaybackDevice
 from src.structs.models.requests import DeviceRequest
@@ -32,11 +39,16 @@ async def get_session(
     response: Response,
     user_id: UserIDDep,
     session: DBSessionDep,
+    changes: PlaybackChangesDep,
+    wait: Annotated[int, Query(ge=0, le=60)] = 0,
+    seen: Annotated[str | None, Query(max_length=100)] = None,
 ) -> PlaybackSession | None:
     read = await playback_controller.get_session(
         session,
+        changes,
         user_id=user_id,
-        seen=request.headers.get("if-none-match"),
+        seen=seen or request.headers.get("if-none-match"),
+        wait=min(wait, settings.playback.longest_wait_seconds),
     )
     headers = {"ETag": read.tag, "Cache-Control": "private, no-cache"}
     if read.unchanged:
@@ -58,11 +70,15 @@ async def save_session(
     body: SavePlaybackSessionRequest,
     user_id: UserIDDep,
     session: DBSessionDep,
+    redis: RedisDep,
     now: NowDep,
 ) -> PlaybackSessionSaved:
-    return await playback_controller.save_session(
+    saved = await playback_controller.save_session(
         session, body, user_id=user_id, now=now
     )
+    await playback_actions.announce(redis, user_id)
+
+    return saved
 
 
 @router.post(
@@ -73,11 +89,15 @@ async def claim_session(
     body: DeviceRequest,
     user_id: UserIDDep,
     session: DBSessionDep,
+    redis: RedisDep,
     now: NowDep,
 ) -> PlaybackSession:
-    return await playback_controller.claim_session(
+    claimed = await playback_controller.claim_session(
         session, body, user_id=user_id, now=now
     )
+    await playback_actions.announce(redis, user_id)
+
+    return claimed
 
 
 @router.delete(
@@ -85,8 +105,13 @@ async def claim_session(
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_trusted_origin)],
 )
-async def forget_session(user_id: UserIDDep, session: DBSessionDep) -> Response:
+async def forget_session(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    redis: RedisDep,
+) -> Response:
     await playback_controller.forget_session(session, user_id=user_id)
+    await playback_actions.announce(redis, user_id)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
