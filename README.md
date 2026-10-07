@@ -301,7 +301,8 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
 - A full read reports how far it got, `progress` in `GET /library/sync`, the liked songs read, then the playlists,
     a refresh, which stops at the first known like, reports none
 - A playlist is linked once per user, two users following the same one each have their own
-- The sweep runs up to `IMPORT_BATCH_SIZE`, one at a time, each leased for `IMPORT_LEASE_MINUTES` when it starts, so one account is imported once at a time,
+- The sweep runs up to `IMPORT_BATCH_SIZE`, one at a time, each leased for `IMPORT_LEASE_MINUTES` when it starts, and renewed every third of it while it runs, so one account is imported once at a time,
+    an import whose lease ran out without it settling stopped the worker, it counts as a failed attempt, and gives up after `SYNC_MAX_ATTEMPTS`,
     a run that crashes is taken again once its lease is up, and asking again while it runs joins it
 - Liked songs are read newest first, up to the first one already liked, and Spotify's count is compared with the last import's,
     `likes_total`, a count that does not add up reads them all, and so does the first import of the day, `IMPORT_FULL_EVERY_HOURS`,

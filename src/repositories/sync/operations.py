@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import ColumnElement
+from sqlalchemy import case
 from sqlalchemy import delete
 from sqlalchemy import func
 from sqlalchemy import or_
@@ -328,24 +329,45 @@ async def lease_imports(
             .with_for_update(skip_locked=True),
         ),
     )
-    if rows:
-        await session.execute(
-            update(operation)
-            .where(operation.id.in_([row.id for row in rows]))
-            .values(next_attempt_at=until),
-        )
-
-    return [
+    tasks = [
         SyncTask(
             id=row.id,
             user_id=row.user_id,
             platform=row.platform,
             subject=row.subject,
             subject_id=row.subject_id,
-            attempts=row.attempts,
+            attempts=row.attempts + (row.leased_until is not None),
         )
         for row in rows
     ]
+    if rows:
+        await session.execute(
+            update(operation)
+            .where(operation.id.in_([row.id for row in rows]))
+            .values(
+                next_attempt_at=until,
+                leased_until=until,
+                attempts=operation.attempts
+                + case((operation.leased_until.is_not(None), 1), else_=0),
+            ),
+        )
+
+    return tasks
+
+
+async def renew_import(
+    session: AsyncSession,
+    operation_id: int,
+    *,
+    seconds: int,
+) -> None:
+    operation = tables.SyncOperation
+    until = func.now() + timedelta(seconds=seconds)
+    await session.execute(
+        update(operation)
+        .where(operation.id == operation_id, operation.leased_until.is_not(None))
+        .values(next_attempt_at=until, leased_until=until),
+    )
 
 
 async def pending_subject_ids(

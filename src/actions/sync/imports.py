@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Awaitable
 from collections.abc import Callable
 from datetime import datetime
@@ -538,16 +539,75 @@ async def _lease_one(
     now: datetime,
     user_id: UUID | None = None,
 ) -> SyncTask | None:
-    async with session_factory() as session, session.begin():
-        leased = await sync_repositories.lease_imports(
-            session,
-            now=now,
-            until=now + timedelta(minutes=settings.imports.lease_minutes),
-            limit=1,
-            user_id=user_id,
+    while True:
+        async with session_factory() as session, session.begin():
+            leased = await sync_repositories.lease_imports(
+                session,
+                now=now,
+                until=now + timedelta(minutes=settings.imports.lease_minutes),
+                limit=1,
+                user_id=user_id,
+            )
+            if not leased:
+                return None
+
+            (task,) = leased
+            if task.attempts < settings.sync.max_attempts:
+                return task
+
+            await sync_repositories.finish(
+                session,
+                task.id,
+                SyncOutcomes.FAILED,
+                now=now,
+                error="The import stopped the worker too many times",
+            )
+
+        logger.warning(
+            "[Imports] Import Failed - It Stopped The Worker Too Many Times",
+            operation_id=task.id,
+            account_id=str(task.subject_id),
         )
 
-    return leased[0] if leased else None
+
+def _renew_every() -> float:
+    return settings.imports.lease_minutes * 60 / 3
+
+
+async def _keep_leased(
+    session_factory: async_sessionmaker[AsyncSession],
+    task: SyncTask,
+) -> None:
+    while True:
+        await asyncio.sleep(_renew_every())
+        try:
+            async with session_factory() as session, session.begin():
+                await sync_repositories.renew_import(
+                    session,
+                    task.id,
+                    seconds=settings.imports.lease_minutes * 60,
+                )
+        except Exception as error:
+            logger.warning(
+                "[Imports] Lease Renewal Failed",
+                operation_id=task.id,
+                error=repr(error),
+            )
+
+
+async def _settle_leased(
+    session_factory: async_sessionmaker[AsyncSession],
+    platforms: dict[Platforms, OAuthPlatform],
+    task: SyncTask,
+    *,
+    now: datetime,
+) -> SyncOutcomes | None:
+    renewing = asyncio.create_task(_keep_leased(session_factory, task))
+    try:
+        return await _settle(session_factory, platforms, task, now=now)
+    finally:
+        renewing.cancel()
+        await asyncio.wait([renewing])
 
 
 async def import_user(
@@ -562,7 +622,7 @@ async def import_user(
         if task is None:
             return
 
-        await _settle(session_factory, platforms, task, now=now)
+        await _settle_leased(session_factory, platforms, task, now=now)
 
 
 async def run_imports(
@@ -601,7 +661,7 @@ async def run_imports(
         if task is None:
             break
 
-        outcome = await _settle(session_factory, platforms, task, now=now)
+        outcome = await _settle_leased(session_factory, platforms, task, now=now)
         counts[outcome.lower() if outcome is not None else "pending"] += 1
         ran += 1
 
