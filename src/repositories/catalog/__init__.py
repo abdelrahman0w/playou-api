@@ -8,6 +8,7 @@ from .tracks import save_platform_track_ids
 from .tracks import save_platform_tracks
 from .tracks import search_catalog
 from .tracks import track_exists
+from .tracks import tracks_changed
 
 
 __all__ = [
@@ -20,5 +21,6 @@ __all__ = [
     "save_platform_tracks",
     "search_catalog",
     "track_exists",
+    "tracks_changed",
     "uppercase_isrcs",
 ]

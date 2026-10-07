@@ -29,6 +29,7 @@ def _stored(row: tables.PlaybackSession) -> StoredPlaybackSession:
         position_ms=row.position_ms,
         position_at=row.position_at,
         version=row.version,
+        updated_at=row.updated_at,
     )
 
 

@@ -511,6 +511,7 @@ async def push_pending(
             raise
         finally:
             renewing.cancel()
+            await asyncio.wait([renewing])
 
         async with session_factory() as session, session.begin():
             outcomes = await _settle(session, tasks, result, now=now)

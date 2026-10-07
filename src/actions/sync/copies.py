@@ -397,39 +397,44 @@ async def _find_all(
     redis: Redis,
     service: OAuthPlatform,
     account: StoredAccount,
+    copy: tables.Copy,
     tracks: list[CatalogTrack],
     *,
     now: datetime,
-) -> tuple[list[tuple[CatalogTrack, Track | None]], Exception | None]:
+) -> Exception | None:
     searches = asyncio.Semaphore(_copy_searches(account.platform))
+    saving = asyncio.Lock()
     failure: Exception | None = None
 
-    async def look(track: CatalogTrack) -> tuple[CatalogTrack, Track | None] | None:
+    async def look(track: CatalogTrack) -> None:
         nonlocal failure
-        if any(source.platform == account.platform for source in track.sources):
-            return track, None
+        found: Track | None = None
+        if not any(source.platform == account.platform for source in track.sources):
+            async with searches:
+                if failure is not None:
+                    return
+                try:
+                    found = await find_match(
+                        session_factory,
+                        redis,
+                        service,
+                        account,
+                        track,
+                        now=now,
+                    )
+                except Exception as error:
+                    failure = failure or error
+                    return
 
-        async with searches:
-            if failure is not None:
-                return None
+        async with saving:
             try:
-                found = await find_match(
-                    session_factory,
-                    redis,
-                    service,
-                    account,
-                    track,
-                    now=now,
-                )
+                await _settle_found(session_factory, copy, track, found)
             except Exception as error:
                 failure = failure or error
-                return None
 
-        return track, found
+    await asyncio.gather(*(look(track) for track in tracks))
 
-    looked = await asyncio.gather(*(look(track) for track in tracks))
-
-    return [result for result in looked if result is not None], failure
+    return failure
 
 
 async def _settle_found(
@@ -491,16 +496,15 @@ async def _run_copy(
     until: datetime | None = None
     try:
         with charged_to(account.id, FINDS):
-            looked, failure = await _find_all(
+            failure = await _find_all(
                 session_factory,
                 redis,
                 service,
                 account,
+                copy,
                 [found_tracks[id_] for id_ in pending if id_ in found_tracks],
                 now=now,
             )
-        for track, found in looked:
-            await _settle_found(session_factory, copy, track, found)
         if failure is not None:
             raise failure
     except QuotaExhaustedError as error:

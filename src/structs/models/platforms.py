@@ -231,3 +231,4 @@ class StoredPlaybackSession(BaseModel):
     position_ms: int = 0
     position_at: datetime
     version: int
+    updated_at: datetime | None = None

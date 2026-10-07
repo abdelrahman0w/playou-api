@@ -227,17 +227,18 @@ async def _save_batch(
     known = await _stored(session, keys)
 
     changed_tracks = [
-        {"id": stored.track_id, **values}
-        for key, stored in known.items()
-        if (by_key[key].isrc is not None or stored.isrc is None)
-        and (values := _values(by_key[key])) != stored.values
+        {"id": row.track_id, **values}
+        for key in keys
+        if (row := known.get(key)) is not None
+        and (by_key[key].isrc is not None or row.isrc is None)
+        and (values := _values(by_key[key])) != row.values
     ]
     if changed_tracks:
         await session.execute(update(tables.Track), changed_tracks)
     changed_sources = [
-        {"id": stored.source_id, "url": by_key[key].url}
-        for key, stored in known.items()
-        if by_key[key].url != stored.url
+        {"id": row.source_id, "url": by_key[key].url}
+        for key in keys
+        if (row := known.get(key)) is not None and by_key[key].url != row.url
     ]
     if changed_sources:
         await session.execute(update(tables.TrackSource), changed_sources)
@@ -327,13 +328,18 @@ async def _save_batch(
     return {key: track_id for key, (_, track_id) in saved.items()}
 
 
+def _lock_order(track: Track) -> tuple[bool, str, str, str]:
+    return track.isrc is None, track.isrc or "", track.platform, track.platform_id
+
+
 async def save_platform_track_ids(
     session: AsyncSession,
     tracks: list[Track],
 ) -> list[UUID]:
+    ordered = sorted(tracks, key=_lock_order)
     ids: dict[tuple[Platforms, str], UUID] = {}
-    for start in range(0, len(tracks), BATCH):
-        ids |= await _save_batch(session, tracks[start : start + BATCH])
+    for start in range(0, len(ordered), BATCH):
+        ids |= await _save_batch(session, ordered[start : start + BATCH])
 
     return [ids[(track.platform, track.platform_id)] for track in tracks]
 
@@ -389,6 +395,30 @@ async def get_tracks(
         )
         for track in tracks
     }
+
+
+async def tracks_changed(
+    session: AsyncSession,
+    track_ids: Collection[UUID],
+) -> tuple[int, datetime | None]:
+    if not track_ids:
+        return 0, None
+
+    track = tables.Track
+    source = tables.TrackSource
+    row = (
+        await session.execute(
+            select(
+                func.count(func.distinct(track.id)),
+                func.greatest(func.max(track.updated_at), func.max(source.updated_at)),
+            )
+            .select_from(track)
+            .outerjoin(source, source.track_id == track.id)
+            .where(any_of(track.id, track_ids)),
+        )
+    ).one()
+
+    return row[0], row[1]
 
 
 async def track_exists(session: AsyncSession, track_id: UUID) -> bool:

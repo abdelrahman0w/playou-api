@@ -214,7 +214,12 @@ async def finish(
         return True
 
     await session.execute(
-        update(operation).where(operation.id == operation_id).values(leased_until=None),
+        update(operation)
+        .where(operation.id == operation_id)
+        .values(
+            leased_until=None,
+            next_attempt_at=func.least(operation.next_attempt_at, now),
+        ),
     )
 
     return False

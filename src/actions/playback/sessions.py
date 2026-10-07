@@ -21,12 +21,7 @@ async def _with_tracks(
     stored: StoredPlaybackSession,
 ) -> PlaybackSession:
     current = stored.current_track_id
-    ids = {
-        *stored.track_ids,
-        *stored.up_next,
-        *([current] if current else []),
-    }
-    tracks = await catalog_repositories.get_tracks(session, ids)
+    tracks = await catalog_repositories.get_tracks(session, _queued(stored))
 
     return PlaybackSession(
         device_id=stored.device_id,
@@ -51,8 +46,25 @@ class SessionRead:
     unchanged: bool = False
 
 
-def _tag(user_id: UUID, version: int) -> str:
-    digest = hashlib.blake2b(f"{user_id}:{version}".encode(), digest_size=8)
+def _queued(stored: StoredPlaybackSession) -> set[UUID]:
+    current = stored.current_track_id
+
+    return {*stored.track_ids, *stored.up_next, *([current] if current else [])}
+
+
+async def _tag(
+    session: AsyncSession,
+    user_id: UUID,
+    stored: StoredPlaybackSession | None,
+) -> str:
+    parts: list[object] = [user_id]
+    if stored is not None:
+        found, changed = await catalog_repositories.tracks_changed(
+            session,
+            _queued(stored),
+        )
+        parts += [stored.version, stored.updated_at, found, changed]
+    digest = hashlib.blake2b(":".join(map(str, parts)).encode(), digest_size=8)
 
     return f'"{digest.hexdigest()}"'
 
@@ -68,7 +80,7 @@ async def get_session(
     seen: str | None = None,
 ) -> SessionRead:
     stored = await playback_repositories.get_session(session, user_id)
-    tag = _tag(user_id, stored.version if stored else 0)
+    tag = await _tag(session, user_id, stored)
     if tag in _seen(seen):
         return SessionRead(tag=tag, unchanged=True)
 

@@ -111,7 +111,7 @@ class SyncWorker:
             ),
         )
 
-    async def sweep_others(self) -> None:
+    async def sweep_imports(self) -> None:
         await self._sweep_one(
             "import",
             lambda: sync_actions.run_imports(
@@ -120,6 +120,8 @@ class SyncWorker:
                 now=self._clock(),
             ),
         )
+
+    async def sweep_copies(self) -> None:
         await self._sweep_one(
             "copy",
             lambda: sync_actions.run_copies(
@@ -161,7 +163,14 @@ class SyncWorker:
                 except RedisError:
                     logger.warning("[Worker] Heartbeat Failed - Redis Is Unavailable")
                 if worker.health_file is not None:
-                    worker.health_file.touch()
+                    try:
+                        worker.health_file.touch()
+                    except OSError as error:
+                        logger.warning(
+                            "[Worker] Health File Not Touched",
+                            path=str(worker.health_file),
+                            error=repr(error),
+                        )
             await _wait(stop, worker.heartbeat_seconds)
 
     async def _sweep_pushes(self, stop: asyncio.Event) -> None:
@@ -170,9 +179,14 @@ class SyncWorker:
                 await self.sweep_pushes()
             await _wait(stop, settings.worker.sweep_seconds)
 
-    async def _sweep_others(self, stop: asyncio.Event) -> None:
+    async def _sweep_imports(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
-            await self.sweep_others()
+            await self.sweep_imports()
+            await _wait(stop, settings.worker.sweep_seconds)
+
+    async def _sweep_copies(self, stop: asyncio.Event) -> None:
+        while not stop.is_set():
+            await self.sweep_copies()
             await _wait(stop, settings.worker.sweep_seconds)
 
     async def _listen(self, stop: asyncio.Event) -> None:
@@ -200,11 +214,12 @@ class SyncWorker:
         )
         self._listened_at = time.monotonic()
         loops = [
-            asyncio.create_task(loop(stop))
+            asyncio.create_task(_logged(loop(stop), loop.__name__))
             for loop in (
                 self._beat,
                 self._sweep_pushes,
-                self._sweep_others,
+                self._sweep_imports,
+                self._sweep_copies,
                 self._listen,
             )
         ]
@@ -227,6 +242,20 @@ class SyncWorker:
             await asyncio.gather(*running, return_exceptions=True)
 
         logger.info("[Worker] Stopped")
+
+
+async def _logged(loop: Awaitable[None], name: str) -> None:
+    try:
+        await loop
+    except asyncio.CancelledError:
+        raise
+    except Exception as error:
+        logger.exception(
+            "[Worker] Loop Died",
+            exc_info=error,
+            loop=name,
+        )
+        raise
 
 
 async def _wait(stop: asyncio.Event, seconds: float) -> None:

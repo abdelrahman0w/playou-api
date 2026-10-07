@@ -348,7 +348,9 @@ the token, devices, and play endpoints answer it `UNSUPPORTED`.
     - Claiming it moves it to another device, paused, at the position it got to, the device left behind sees that on its next read
     - It holds track ids, up to 100 in the list and 100 up next, and answers with their songs, the ones still in the catalog
     - It goes with the user's data, and `prune_auth` drops the ones untouched for `PLAYBACK_SESSION_DAYS`, 30
-    - `GET /playback/session` answers an `ETag`, the user and the version hashed, with `Cache-Control: private, no-cache`,
+    - `GET /playback/session` answers an `ETag`, the user, the version, when the session was last written, and the newest change
+        to its songs and their sources hashed, so a session started again, or a song given a new source, is sent again,
+        with `Cache-Control: private, no-cache`,
         and `304` with no body while it has not changed, the web fetches it with `cache: 'no-cache'`, so its browser asks
         with `If-None-Match`, and an unchanged poll loads no songs
 
@@ -552,12 +554,17 @@ After a like, an edit, a copy or an import asked for, the api hands the user's w
 and it starts within milliseconds, pushes `WORKER_PUSH_CONCURRENCY` users at a time, imports and copies `WORKER_CONCURRENCY`,
 in slots of their own, so a long import never holds a like back, and a user's work asked for again while it runs is run once more after.
 Every `WORKER_SWEEP_SECONDS`, 15, it also sweeps what is due, the same as `push_library_changes`, `import_libraries` and `copy_libraries`,
-retries, scheduled imports and paused copies, pushes in a loop of their own, imports and copies in another.
+retries, scheduled imports and paused copies, each in a loop of its own, so a long import never holds a retry or a copy back.
+A copy saves each song as soon as it is found, so a worker stopped midway loses none of the searches it finished.
 
 It keeps `sync:worker:alive` in redis, every `WORKER_HEARTBEAT_SECONDS`, and drops it when stopped,
 only while it is listening for nudges, so a worker that cannot hear them hands the work back.
 While the key is missing, or redis is down, the api does the work itself after the response, as it did before the worker,
 so the worker going down slows nothing for the users. Several workers can run, a push is leased, an import too, and a copy is locked.
+
+> The api only does what a request asks for, the sweeps are the worker's alone, so while it is down, and the schedules are off,
+> nothing retries a failed push, runs a scheduled import, or resumes a paused copy, when it is down for more than a few minutes,
+> turn the `push_library_changes`, `import_libraries` and `copy_libraries` schedules back on until it is back
 
 Its health is the image's `HEALTHCHECK`, `bin/healthcheck.py`, healthy while `/health/live` answers, the api,
 or the heartbeat file, `WORKER_HEALTH_FILE`, is newer than 30 seconds, the worker, so leave the health check empty in dokploy,
