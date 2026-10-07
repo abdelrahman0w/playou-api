@@ -60,6 +60,7 @@ so a new domain is a new folder in each layer rather than changes all over the p
 playou-api/
 ├── bin/
 │   ├── entrypoint.sh               the api entrypoint (--dev for reload)
+│   ├── healthcheck.py              the image's health check, the api's /health/live or the worker's heartbeat
 │   ├── jobs.sh                     runs a single job by name, or every job on its cron with schedule
 │   └── openapi.sh                  writes the api's schema, for the web client's types
 ├── docs/
@@ -79,7 +80,8 @@ playou-api/
 │   ├── repositories/               queries only
 │   ├── jobs/
 │   │   ├── base.py                 what a job is, its run, help, flags, and monitor
-│   │   └── main.py                 runs a job once, by name
+│   │   ├── main.py                 runs a job once, by name, the sync worker, or every job on its cron
+│   │   └── worker.py               the sync worker, nudged through redis, sweeping what is due
 │   ├── services/                   external systems
 │   │   ├── base.py                 what every music platform does, and its capabilities
 │   │   ├── registry.py             the platforms that are configured
@@ -226,6 +228,10 @@ its user links it again.
 1. A result is stored in the catalog, by its isrc, or for youtube, which has none, joined to the song with the same
     title and artist within 3 seconds of its length, so a song on Spotify and YouTube is one, with both its sources,
     and a source without an isrc never rewrites the details of a song that has one
+    - The songs it could be are the 50 closest titles within those 3 seconds, its title cleaned of `feat.` and `(Official Video)`,
+        found in postgres by a GiST index on `tracks (duration_ms, sort_title)`, and `same_song` decides,
+        so a crowded catalog costs no more, and a miss only ever stores the song twice, never joins the wrong one
+    - A song already stored is only written when something about it changed, so a search answered from the cache writes nothing
 1. The platforms are searched at once, and their results stored one after the other, in one transaction,
     the ones with an isrc first, so a song two platforms found in the same search is one
 1. `CATALOG_MATCH_ACROSS_SCRIPTS=true` also joins a song written in Arabic on one platform and in Latin letters on the other,
@@ -250,11 +256,14 @@ The library is the app's, likes and playlists live here, and are pushed to the p
 - `q` searches the likes by title, artists, and album, and the playlists by name, every word has to match,
     whatever the case, the accents, the Arabic marks, or the form of alef, `أ` `إ` `آ` are `ا`, `ة` is `ه`, `ى` is `ي`,
     through `search_fold` and `track_search_text`, Postgres functions on `unaccent`, the tracks' indexed by `pg_trgm`
+- `tracks.sort_title` and `sort_artist` are `search_fold` of the title and the first artist, stored, sorted by, and matched on,
+    postgres never computes them again when the function changes, so a migration that changes `search_fold`
+    recomputes them too, `update tracks set title = title`, in batches, or sorting and matching drift from it
 
 ```
 PUT /library/likes/{id} → postgres   (the like, and its operation, one transaction)
                         ← 200
-          after the response → spotify   (pushed now, the job retries what fails)
+          after the response → the sync worker → spotify   (or the api itself without a worker, the sweep retries what fails)
 ```
 
 - An operation holds what to match, not the change, a like or a playlist,
@@ -266,7 +275,10 @@ PUT /library/likes/{id} → postgres   (the like, and its operation, one transac
 - A playlist deleted in the platform's app is removed here too, by `PLATFORM`
 - A failed push waits `SYNC_RETRY_SECONDS`, doubled each attempt up to `SYNC_LONGEST_RETRY_SECONDS`,
     and gives up after `SYNC_MAX_ATTEMPTS`, an account that has to be linked again waits without using an attempt
-- Operations are claimed with `FOR UPDATE SKIP LOCKED`, so the push after a request and the job never take the same one
+- Operations are claimed with `FOR UPDATE SKIP LOCKED` and leased, `leased_until`, then the platform is called with no transaction open,
+    the lease renewed every third of `SYNC_LEASE_SECONDS` while it answers, so two workers never push the same one,
+    and one that crashed is pushed again once its lease is up, or right away when it was stopped
+- A change made while its push runs bumps the operation's `requests`, so the push leaves it pending, and it is pushed again right after
 - A user's due likes are pushed together, 40 a call, a playlist's tracks 100 a call
 - The catalog stores tracks in bulk, a few queries for a batch of 500, whatever its size
 - An operation's `status` is a column postgres computes, `PENDING` until `finished_at` is set, then its `outcome`, `DONE`, `SKIPPED`, or `FAILED`, it is never written, so it never disagrees with them
@@ -279,16 +291,17 @@ The platforms' libraries come in too, the user's liked songs, their own and coll
 and the ones they follow, without their tracks, which Spotify does not give, as `FOLLOWED`, read only, with their owner, cover, and link.
 
 - An import is a row in the same queue, `IMPORT`, asked for when an account is linked, when the library is opened
-    and the last import is older than `IMPORT_STALE_MINUTES`, by `POST /library/import`, and by the `import_libraries` job
-    for the accounts not imported for `IMPORT_EVERY_MINUTES`
+    and the last import is older than `IMPORT_STALE_MINUTES`, checked once every `IMPORT_CHECK_SECONDS` a user,
+    by `POST /library/import`, and by the worker's sweep for the accounts not imported for `IMPORT_EVERY_MINUTES`,
+    `IMPORT_SCHEDULE_BATCH_SIZE` a sweep, skipping the ones with an import pending, or one that failed within `IMPORT_EVERY_MINUTES`
 - `POST /library/import` within `IMPORT_COOLDOWN_SECONDS` of the last import starts nothing, it answers the status,
     so tapping sync again and again cannot flood spotify, an import already queued or running is joined, never doubled
-- Linking and `POST /library/import` import right after the response, without waiting for the job,
+- Linking and `POST /library/import` import right after the response, through the sync worker, without waiting for the sweep,
     which still takes the scheduled ones, and the ones a crash left
 - A full read reports how far it got, `progress` in `GET /library/sync`, the liked songs read, then the playlists,
     a refresh, which stops at the first known like, reports none
 - A playlist is linked once per user, two users following the same one each have their own
-- The job takes `IMPORT_BATCH_SIZE` at a time, each under a lease of `IMPORT_LEASE_MINUTES`, so one account is imported once at a time,
+- The sweep runs up to `IMPORT_BATCH_SIZE`, one at a time, each leased for `IMPORT_LEASE_MINUTES` when it starts, so one account is imported once at a time,
     a run that crashes is taken again once its lease is up, and asking again while it runs joins it
 - Liked songs are read newest first, up to the first one already liked, and Spotify's count is compared with the last import's,
     `likes_total`, a count that does not add up reads them all, and so does the first import of the day, `IMPORT_FULL_EVERY_HOURS`,
@@ -335,6 +348,9 @@ the token, devices, and play endpoints answer it `UNSUPPORTED`.
     - Claiming it moves it to another device, paused, at the position it got to, the device left behind sees that on its next read
     - It holds track ids, up to 100 in the list and 100 up next, and answers with their songs, the ones still in the catalog
     - It goes with the user's data, and `prune_auth` drops the ones untouched for `PLAYBACK_SESSION_DAYS`, 30
+    - `GET /playback/session` answers an `ETag`, the user and the version hashed, with `Cache-Control: private, no-cache`,
+        and `304` with no body while it has not changed, the web fetches it with `cache: 'no-cache'`, so its browser asks
+        with `If-None-Match`, and an unchanged poll loads no songs
 
 ## Usage
 
@@ -533,16 +549,24 @@ running `/app/bin/jobs.sh worker`, with the api's environment, and `DATABASE_POO
 It runs no migrations, the api does.
 
 After a like, an edit, a copy or an import asked for, the api hands the user's work to the worker on the `sync:nudges` list in redis,
-and it starts within milliseconds, `WORKER_CONCURRENCY` users at a time, a user's work asked for again while it runs is run once more after.
+and it starts within milliseconds, pushes `WORKER_PUSH_CONCURRENCY` users at a time, imports and copies `WORKER_CONCURRENCY`,
+in slots of their own, so a long import never holds a like back, and a user's work asked for again while it runs is run once more after.
 Every `WORKER_SWEEP_SECONDS`, 15, it also sweeps what is due, the same as `push_library_changes`, `import_libraries` and `copy_libraries`,
-retries, scheduled imports and paused copies.
+retries, scheduled imports and paused copies, pushes in a loop of their own, imports and copies in another.
 
-It keeps `sync:worker:alive` in redis, every `WORKER_HEARTBEAT_SECONDS`, and drops it when stopped.
+It keeps `sync:worker:alive` in redis, every `WORKER_HEARTBEAT_SECONDS`, and drops it when stopped,
+only while it is listening for nudges, so a worker that cannot hear them hands the work back.
 While the key is missing, or redis is down, the api does the work itself after the response, as it did before the worker,
 so the worker going down slows nothing for the users. Several workers can run, a push is leased, an import too, and a copy is locked.
 
+Its health is the image's `HEALTHCHECK`, `bin/healthcheck.py`, healthy while `/health/live` answers, the api,
+or the heartbeat file, `WORKER_HEALTH_FILE`, is newer than 30 seconds, the worker, so leave the health check empty in dokploy,
+it sends one written there as a single string, which docker cannot run, and every task then stays `Starting`.
+The swarm settings for the api, the worker, and the web are in [perf-updates.md](perf-updates.md#23-dokploy-swarm-settings).
+
 It logs `[Worker] Started` and `[Worker] Stopped`, a failed nudge or sweep as `[Worker] Nudge Failed` and `[Worker] Sweep Failed`,
-and checks in with the `jobs-sync-worker` sentry cron monitor every sweep. On `SIGTERM` it finishes the work it took and stops.
+and checks in with the `jobs-sync-worker` sentry cron monitor every push sweep.
+On `SIGTERM` it gives the work it took `WORKER_STOP_SECONDS`, 45, to finish, then cancels it, and a cancelled push gives its lease back.
 
 Every run logs `[Jobs] Job Started` and `[Jobs] Job Finished` with its `duration_ms`, or `[Jobs] Job Failed` with the error.
 With error tracking on, each job with a cron also checks in with a [sentry cron monitor](https://docs.sentry.io/product/crons/),
@@ -579,7 +603,12 @@ The ones without a usable default:
 | `RESEND_API_KEY` | Without it, codes are logged in `DEV`, and refused in `PROD`, and no reconnect warning is sent |
 
 > To rotate `ENCRYPTION_KEYS`, put the new key first and keep the old one after it,
-> the first key seals, every key unseals
+> the first key seals, every key unseals, on the api and the worker alike
+
+The api runs `APP_WORKERS` processes, one a cpu without it, set it, the cpu count ignores the container's limits,
+and each opens up to `DATABASE_POOL_SIZE` + `DATABASE_MAX_OVERFLOW` connections, 5 + 3, so a replica holds up to `APP_WORKERS` × 8,
+the worker 8, and a job 8, keep them under postgres' `max_connections`.
+Redis gives up after `REDIS_TIMEOUT_SECONDS`, 1, and one retry, so a redis that hangs costs a request about 4 seconds.
 
 ### Logging
 
