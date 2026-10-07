@@ -107,10 +107,13 @@ async def block_embedding(
 
 
 async def get_session(
-    session: AsyncSession, *, user_id: UUID
-) -> PlaybackSession | None:
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    seen: str | None = None,
+) -> playback_actions.SessionRead:
     async with session.begin():
-        return await playback_actions.get_session(session, user_id)
+        return await playback_actions.get_session(session, user_id, seen=seen)
 
 
 async def save_session(

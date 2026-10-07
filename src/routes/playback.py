@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from fastapi import Depends
+from fastapi import Request
 from fastapi import Response
 from fastapi import status
 
@@ -27,13 +28,26 @@ router = APIRouter(prefix="/playback")
 
 @router.get("/session")
 async def get_session(
+    request: Request,
     response: Response,
     user_id: UserIDDep,
     session: DBSessionDep,
 ) -> PlaybackSession | None:
-    response.headers["Cache-Control"] = "no-store"
+    read = await playback_controller.get_session(
+        session,
+        user_id=user_id,
+        seen=request.headers.get("if-none-match"),
+    )
+    headers = {"ETag": read.tag, "Cache-Control": "private, no-cache"}
+    if read.unchanged:
+        return Response(  # type: ignore[return-value]
+            status_code=status.HTTP_304_NOT_MODIFIED,
+            headers=headers,
+        )
 
-    return await playback_controller.get_session(session, user_id=user_id)
+    response.headers.update(headers)
+
+    return read.session
 
 
 @router.put(

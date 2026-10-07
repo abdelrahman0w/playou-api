@@ -5,6 +5,7 @@ from .playback import play
 from .playback import playable
 from .playback import playback_request
 from .playback import playback_token
+from .sessions import SessionRead
 from .sessions import claim_session
 from .sessions import forget_session
 from .sessions import get_session
@@ -13,6 +14,7 @@ from .sessions import save_session
 
 __all__ = [
     "Playable",
+    "SessionRead",
     "block_embedding",
     "claim_session",
     "forget_session",

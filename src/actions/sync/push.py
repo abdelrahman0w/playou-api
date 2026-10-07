@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Awaitable
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -425,6 +426,28 @@ async def _settle(
     return settled
 
 
+async def _keep_leased(
+    session_factory: async_sessionmaker[AsyncSession],
+    tasks: list[SyncTask],
+) -> None:
+    seconds = settings.sync.lease_seconds
+    while True:
+        await asyncio.sleep(seconds / 3)
+        try:
+            async with session_factory() as session, session.begin():
+                await sync_repositories.lease(
+                    session,
+                    [task.id for task in tasks],
+                    seconds=seconds,
+                )
+        except Exception as error:
+            logger.warning(
+                "[Sync] Lease Renewal Failed",
+                operation_ids=[task.id for task in tasks],
+                error=repr(error),
+            )
+
+
 async def _claim(
     session: AsyncSession,
     *,
@@ -477,10 +500,13 @@ async def push_pending(
             prepared = await _prepare(session, platforms, tasks)
 
         result: _Pushed | Exception
+        renewing = asyncio.create_task(_keep_leased(session_factory, tasks))
         try:
             result = await _push(session_factory, prepared, tasks, now=now)
         except Exception as error:
             result = error
+        finally:
+            renewing.cancel()
 
         async with session_factory() as session, session.begin():
             outcomes = await _settle(session, tasks, result, now=now)

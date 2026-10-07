@@ -1,3 +1,5 @@
+import hashlib
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
@@ -42,13 +44,38 @@ async def _with_tracks(
     )
 
 
+@dataclass(frozen=True)
+class SessionRead:
+    tag: str
+    session: PlaybackSession | None = None
+    unchanged: bool = False
+
+
+def _tag(user_id: UUID, version: int) -> str:
+    digest = hashlib.blake2b(f"{user_id}:{version}".encode(), digest_size=8)
+
+    return f'"{digest.hexdigest()}"'
+
+
+def _seen(header: str | None) -> set[str]:
+    return {tag.strip().removeprefix("W/") for tag in (header or "").split(",")}
+
+
 async def get_session(
     session: AsyncSession,
     user_id: UUID,
-) -> PlaybackSession | None:
+    *,
+    seen: str | None = None,
+) -> SessionRead:
     stored = await playback_repositories.get_session(session, user_id)
+    tag = _tag(user_id, stored.version if stored else 0)
+    if tag in _seen(seen):
+        return SessionRead(tag=tag, unchanged=True)
 
-    return await _with_tracks(session, stored) if stored else None
+    return SessionRead(
+        tag=tag,
+        session=await _with_tracks(session, stored) if stored else None,
+    )
 
 
 async def save_session(

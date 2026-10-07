@@ -41,6 +41,7 @@ class SyncWorker:
         self._waiting = waiting
         self._platforms = platforms
         self._slots = asyncio.Semaphore(settings.worker.concurrency)
+        self._push_slots = asyncio.Semaphore(settings.worker.push_concurrency)
         self._running: dict[Key, asyncio.Task[None]] = {}
         self._again: set[Key] = set()
 
@@ -82,7 +83,8 @@ class SyncWorker:
         try:
             while True:
                 self._again.discard(key)
-                async with self._slots:
+                slots = self._push_slots if key[0] is SyncNudges.PUSH else self._slots
+                async with slots:
                     try:
                         await self.handle(*key)
                     except Exception as error:

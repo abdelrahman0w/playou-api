@@ -204,7 +204,7 @@ class SyncSettings(BaseAppSettings):
     retry_seconds: int = Field(default=30, ge=1)
     longest_retry_seconds: int = Field(default=60 * 60, ge=1)
     reconnect_retry_seconds: int = Field(default=60 * 60, ge=1)
-    lease_seconds: int = Field(default=10 * 60, ge=1)
+    lease_seconds: int = Field(default=60, ge=3)
     retention_days: int = Field(default=30, ge=1)
 
 
@@ -229,6 +229,7 @@ class WorkerSettings(BaseAppSettings):
     )
 
     concurrency: int = Field(default=4, ge=1)
+    push_concurrency: int = Field(default=4, ge=1)
     sweep_seconds: int = Field(default=15, ge=1)
     heartbeat_seconds: int = Field(default=5, ge=1)
     wait_seconds: int = Field(default=5, ge=1)
