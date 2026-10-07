@@ -79,8 +79,8 @@ RUN python -m compileall -q src migrations
 USER ${NON_ROOT_USER}:${NON_ROOT_USER}
 
 # health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get('APP_PORT', '8080')}/health/live', timeout=3)"
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD ["python", "/app/bin/healthcheck.py"]
 
 # start the app
 ENTRYPOINT [ "/app/bin/entrypoint.sh" ]
