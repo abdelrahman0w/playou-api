@@ -103,6 +103,22 @@ async def get_like(
     )
 
 
+async def liked_track_ids(
+    session: AsyncSession,
+    user_id: UUID,
+) -> list[UUID]:
+    like = tables.Like
+
+    return list(
+        await session.scalars(
+            select(like.track_id).where(
+                like.user_id == user_id,
+                like.removed_at.is_(None),
+            ),
+        ),
+    )
+
+
 async def list_likes(
     session: AsyncSession,
     user_id: UUID,

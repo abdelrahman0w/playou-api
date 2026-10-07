@@ -61,6 +61,7 @@ class Track(Base):
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     explicit: Mapped[bool | None] = mapped_column(Boolean)
     artwork_url: Mapped[str | None] = mapped_column(Text)
+    thumbnail_url: Mapped[str | None] = mapped_column(Text)
     sort_title: Mapped[str] = mapped_column(
         Text,
         Computed("search_fold(title)", persisted=True),

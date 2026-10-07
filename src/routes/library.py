@@ -112,6 +112,14 @@ class Importer(Pusher):
 ImporterDep = Annotated[Importer, Depends()]
 
 
+@router.get("/likes/ids")
+async def liked_track_ids(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> list[UUID]:
+    return await library_controller.liked_track_ids(session, user_id=user_id)
+
+
 @router.get("/likes")
 async def list_likes(
     user_id: UserIDDep,

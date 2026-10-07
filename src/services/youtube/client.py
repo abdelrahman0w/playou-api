@@ -62,6 +62,7 @@ READ_COST = 1
 WRITE_COST = 50
 PAGE = 50
 THUMBNAILS = ("maxres", "high", "medium", "default")
+SMALL_THUMBNAILS = ("medium", "high", "default")
 
 
 CAPABILITIES = Capabilities(
@@ -119,6 +120,10 @@ def _to_track(video: Video) -> Track:
         (thumbnails[size].url for size in THUMBNAILS if size in thumbnails),
         None,
     )
+    small = next(
+        (thumbnails[size].url for size in SMALL_THUMBNAILS if size in thumbnails),
+        None,
+    )
 
     return Track(
         platform=Platforms.YOUTUBE,
@@ -127,6 +132,7 @@ def _to_track(video: Video) -> Track:
         artists=artists,
         duration_ms=duration_ms(video.content_details.duration),
         artwork_url=artwork,
+        thumbnail_url=small,
         url=f"https://music.youtube.com/watch?v={video.id}",
     )
 

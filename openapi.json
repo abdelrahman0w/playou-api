@@ -661,6 +661,29 @@
         }
       }
     },
+    "/library/likes/ids": {
+      "get": {
+        "summary": "Liked Track Ids",
+        "operationId": "liked_track_ids_library_likes_ids_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "type": "array",
+                  "title": "Response Liked Track Ids Library Likes Ids Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/library/likes": {
       "get": {
         "summary": "List Likes",
@@ -2282,6 +2305,17 @@
               }
             ],
             "title": "Artwork Url"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Url"
           },
           "sources": {
             "items": {
@@ -3965,6 +3999,17 @@
               }
             ],
             "title": "Artwork Url"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Url"
           },
           "url": {
             "anyOf": [

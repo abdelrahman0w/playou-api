@@ -23,6 +23,7 @@ from src.services.limits import PlatformPause
 from src.services.spotify.models import SpotifyDevices
 from src.services.spotify.models import SpotifyError
 from src.services.spotify.models import SpotifyErrorDetail
+from src.services.spotify.models import SpotifyImage
 from src.services.spotify.models import SpotifyPlaylist
 from src.services.spotify.models import SpotifyPlaylistItems
 from src.services.spotify.models import SpotifyPlaylistTracks
@@ -63,6 +64,7 @@ CAPABILITIES = Capabilities(
 )
 
 INVALID_GRANT = "invalid_grant"
+THUMBNAIL_WIDTH = 160
 PREMIUM_REQUIRED = "PREMIUM_REQUIRED"
 PLAYBACK_SCOPES = [
     "streaming",
@@ -151,6 +153,14 @@ def _to_tokens(
     )
 
 
+def _thumbnail(images: list[SpotifyImage]) -> str | None:
+    sized = [image for image in images if (image.width or 0) >= THUMBNAIL_WIDTH]
+    if sized:
+        return min(sized, key=lambda image: image.width or 0).url
+
+    return images[0].url if images else None
+
+
 def _to_track(
     track: SpotifyTrack,
 ) -> Track:
@@ -166,6 +176,7 @@ def _to_track(
         isrc=track.external_ids.isrc,
         explicit=track.explicit,
         artwork_url=album.images[0].url if album and album.images else None,
+        thumbnail_url=_thumbnail(album.images) if album else None,
         url=track.external_urls.spotify,
     )
 

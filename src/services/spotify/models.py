@@ -37,6 +37,7 @@ class SpotifyNamed(BaseModel):
 
 class SpotifyImage(BaseModel):
     url: str
+    width: int | None = None
 
 
 class SpotifyAlbum(BaseModel):

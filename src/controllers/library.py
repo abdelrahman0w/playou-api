@@ -36,6 +36,15 @@ from src.structs.models.responses import PlaylistDetail
 COPY_ROUNDS = 20
 
 
+async def liked_track_ids(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+) -> list[UUID]:
+    async with session.begin():
+        return await library_repositories.liked_track_ids(session, user_id)
+
+
 async def list_likes(
     session: AsyncSession,
     redis: Redis,

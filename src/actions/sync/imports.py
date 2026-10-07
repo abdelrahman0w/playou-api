@@ -605,6 +605,10 @@ async def _settle_leased(
     renewing = asyncio.create_task(_keep_leased(session_factory, task))
     try:
         return await _settle(session_factory, platforms, task, now=now)
+    except asyncio.CancelledError:
+        async with session_factory() as session, session.begin():
+            await sync_repositories.release_import(session, task.id, now=now)
+        raise
     finally:
         renewing.cancel()
         await asyncio.wait([renewing])

@@ -34,7 +34,16 @@ from src.utils.sql import any_of
 
 
 BATCH = 500
-VALUES = ("title", "artists", "album", "duration_ms", "explicit", "artwork_url")
+VALUES = (
+    "title",
+    "artists",
+    "album",
+    "duration_ms",
+    "explicit",
+    "artwork_url",
+    "thumbnail_url",
+)
+IMAGES = ("artwork_url", "thumbnail_url")
 
 
 def _values(track: Track) -> dict[str, object]:
@@ -45,6 +54,18 @@ def _values(track: Track) -> dict[str, object]:
         "duration_ms": track.duration_ms,
         "explicit": track.explicit,
         "artwork_url": track.artwork_url,
+        "thumbnail_url": track.thumbnail_url,
+    }
+
+
+def _keeping_images(
+    values: dict[str, object],
+    stored: dict[str, object],
+) -> dict[str, object]:
+    return values | {
+        image: stored[image]
+        for image in IMAGES
+        if values[image] is None and stored[image] is not None
     }
 
 
@@ -231,7 +252,7 @@ async def _save_batch(
         for key in keys
         if (row := known.get(key)) is not None
         and (by_key[key].isrc is not None or row.isrc is None)
-        and (values := _values(by_key[key])) != row.values
+        and (values := _keeping_images(_values(by_key[key]), row.values)) != row.values
     ]
     if changed_tracks:
         await session.execute(update(tables.Track), changed_tracks)
@@ -391,6 +412,7 @@ async def get_tracks(
             isrc=track.isrc,
             explicit=track.explicit,
             artwork_url=track.artwork_url,
+            thumbnail_url=track.thumbnail_url,
             sources=by_track.get(track.id, []),
         )
         for track in tracks

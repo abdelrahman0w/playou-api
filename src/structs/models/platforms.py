@@ -62,6 +62,7 @@ class Track(BaseModel):
     isrc: str | None = None
     explicit: bool | None = None
     artwork_url: str | None = None
+    thumbnail_url: str | None = None
     url: str | None = None
 
     @field_validator("isrc", mode="before")

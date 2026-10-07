@@ -119,7 +119,7 @@ class CorsSettings(BaseAppSettings):
     )
 
     origins: list[str] = Field(default_factory=list)
-    max_age_seconds: int = Field(default=600, ge=0)
+    max_age_seconds: int = Field(default=7200, ge=0)
 
 
 class AuthSettings(BaseAppSettings):

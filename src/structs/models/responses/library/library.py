@@ -29,6 +29,7 @@ class CatalogTrack(BaseModel):
     isrc: str | None = None
     explicit: bool | None = None
     artwork_url: str | None = None
+    thumbnail_url: str | None = None
     sources: list[TrackSource] = Field(default_factory=list)
 
 

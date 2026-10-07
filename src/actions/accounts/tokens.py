@@ -3,6 +3,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from datetime import timedelta
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -23,6 +24,19 @@ from src.structs.models import PlatformTokens
 from src.structs.models import StoredAccount
 
 
+REPLACED_KEPT = 8
+
+
+@dataclass(frozen=True)
+class _Newest:
+    access_token: str
+    expires_at: datetime | None
+    replaced: tuple[str, ...]
+
+
+_newest: dict[UUID, _Newest] = {}
+
+
 @dataclass(frozen=True)
 class _Refreshed:
     access_token: str | None = None
@@ -36,12 +50,49 @@ def _is_fresh(
     *,
     now: datetime,
 ) -> bool:
-    if account.expires_at is None:
+    return _fresh_until(account.expires_at, now=now)
+
+
+def _fresh_until(
+    expires: datetime | None,
+    *,
+    now: datetime,
+) -> bool:
+    if expires is None:
         return True
 
     margin = timedelta(seconds=settings.accounts.refresh_margin_seconds)
 
-    return account.expires_at - margin > now
+    return expires - margin > now
+
+
+def _remember(
+    account: StoredAccount,
+    token: str | None,
+    expires: datetime | None,
+) -> None:
+    held = unseal(account.access_token)
+    if token is None or token == held:
+        return
+
+    known = _newest.get(account.id)
+    replaced = (*known.replaced, known.access_token) if known else ()
+    _newest[account.id] = _Newest(
+        access_token=token,
+        expires_at=expires,
+        replaced=tuple(
+            dict.fromkeys(old for old in (*replaced, held) if old != token),
+        )[-REPLACED_KEPT:],
+    )
+
+
+def _newest_token(account: StoredAccount) -> tuple[str, datetime | None]:
+    held = unseal(account.access_token)
+    known = _newest.get(account.id)
+    if known is not None and held in known.replaced:
+        return known.access_token, known.expires_at
+
+    return held, account.expires_at
 
 
 def _next_refresh_expiry(
@@ -71,8 +122,9 @@ async def access_token_until(
     if account.status_at(now) is AccountStatuses.NEEDS_RECONNECT:
         raise PlatformReconnectRequiredError("The account has to be linked again")
 
-    if rejected is None and _is_fresh(account, now=now):
-        return unseal(account.access_token), account.expires_at
+    token, expires = _newest_token(account)
+    if token != rejected and _fresh_until(expires, now=now):
+        return token, expires
 
     refreshed = await _refresh_when_due(
         session_factory,
@@ -197,6 +249,8 @@ async def _refresh_when_due(
             )
 
             raise refreshed.reconnect
+
+    _remember(account, refreshed.access_token, refreshed.expires_at)
 
     return refreshed
 

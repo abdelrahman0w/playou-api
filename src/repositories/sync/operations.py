@@ -370,6 +370,20 @@ async def renew_import(
     )
 
 
+async def release_import(
+    session: AsyncSession,
+    operation_id: int,
+    *,
+    now: datetime,
+) -> None:
+    operation = tables.SyncOperation
+    await session.execute(
+        update(operation)
+        .where(operation.id == operation_id, operation.status == SyncStatuses.PENDING)
+        .values(leased_until=None, next_attempt_at=now),
+    )
+
+
 async def pending_subject_ids(
     session: AsyncSession,
     *,
