@@ -82,10 +82,14 @@ class PlaybackChanges:
                 changed.set()
 
     async def _listen(self) -> None:
+        away = False
         while True:
             try:
                 async with self.redis.pubsub() as pubsub:
                     await pubsub.subscribe(CacheKeys.PLAYBACK_CHANGED)
+                    if away:
+                        away = False
+                        self._wake_all()
                     while True:
                         message = await pubsub.get_message(
                             ignore_subscribe_messages=True,
@@ -96,12 +100,12 @@ class PlaybackChanges:
             except asyncio.CancelledError:
                 raise
             except Exception as error:
-                logger.warning(
-                    "[Playback] Listening For Changes Failed - Trying Again",
-                    error=repr(error),
-                )
-
-                self._wake_all()
+                if not away:
+                    logger.warning(
+                        "[Playback] Listening For Changes Failed - Trying Again",
+                        error=repr(error),
+                    )
+                away = True
                 await asyncio.sleep(RECONNECT_SECONDS)
 
 
