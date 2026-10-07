@@ -12,6 +12,7 @@ from src.structs.enums import Platforms
 from src.structs.models import PlaybackDevice
 from src.structs.models.requests import DeviceRequest
 from src.structs.models.requests import EmbedBlockedRequest
+from src.structs.models.requests import PlaybackPositionRequest
 from src.structs.models.requests import PlayRequest
 from src.structs.models.requests import SavePlaybackSessionRequest
 from src.structs.models.responses import PlaybackSession
@@ -144,6 +145,17 @@ async def save_session(
 ) -> PlaybackSessionSaved:
     async with session.begin():
         return await playback_actions.save_session(session, user_id, request, now=now)
+
+
+async def save_position(
+    session: AsyncSession,
+    request: PlaybackPositionRequest,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> PlaybackSessionSaved:
+    async with session.begin():
+        return await playback_actions.save_position(session, user_id, request, now=now)
 
 
 async def claim_session(

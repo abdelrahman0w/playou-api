@@ -13,6 +13,7 @@ from .library import StartCopyRequest
 from .library import UpdatePlaylistRequest
 from .playback import DeviceRequest
 from .playback import EmbedBlockedRequest
+from .playback import PlaybackPositionRequest
 from .playback import PlayRequest
 from .playback import RejectedTokenRequest
 from .playback import SavePlaybackSessionRequest
@@ -28,6 +29,7 @@ __all__ = [
     "LibraryListRequest",
     "LikeListRequest",
     "PlayRequest",
+    "PlaybackPositionRequest",
     "PlaylistImportingRequest",
     "PlaylistItemsRequest",
     "PlaylistListRequest",

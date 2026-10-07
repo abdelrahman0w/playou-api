@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.structs import tables
 from src.structs.models import StoredPlaybackSession
+from src.structs.models.requests import PlaybackPositionRequest
 from src.structs.models.requests import SavePlaybackSessionRequest
 from src.structs.models.responses import PlaybackSessionSaved
 
@@ -68,6 +69,36 @@ async def save_session(
         )
 
     row = (await session.execute(statement)).one_or_none()
+
+    return (
+        PlaybackSessionSaved(version=row.version, position_at=row.position_at)
+        if row
+        else None
+    )
+
+
+async def save_position(
+    session: AsyncSession,
+    user_id: UUID,
+    request: PlaybackPositionRequest,
+    *,
+    now: datetime,
+) -> PlaybackSessionSaved | None:
+    table = tables.PlaybackSession
+    row = (
+        await session.execute(
+            update(table)
+            .where(table.user_id == user_id, table.version == request.version)
+            .values(
+                version=table.version + 1,
+                playing=request.playing,
+                position_ms=request.position_ms,
+                position_at=now,
+                updated_at=now,
+            )
+            .returning(table.version, table.position_at),
+        )
+    ).one_or_none()
 
     return (
         PlaybackSessionSaved(version=row.version, position_at=row.position_at)

@@ -46,3 +46,9 @@ class SavePlaybackSessionRequest(DeviceRequest):
     up_next: list[UUID] = Field(default_factory=list, max_length=100)
     playing: bool = False
     position_ms: int = Field(default=0, ge=0)
+
+
+class PlaybackPositionRequest(BaseModel):
+    version: int = Field(ge=1)
+    playing: bool
+    position_ms: int = Field(ge=0)

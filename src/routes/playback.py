@@ -22,6 +22,7 @@ from src.structs.enums import Platforms
 from src.structs.models import PlaybackDevice
 from src.structs.models.requests import DeviceRequest
 from src.structs.models.requests import EmbedBlockedRequest
+from src.structs.models.requests import PlaybackPositionRequest
 from src.structs.models.requests import PlayRequest
 from src.structs.models.requests import RejectedTokenRequest
 from src.structs.models.requests import SavePlaybackSessionRequest
@@ -76,6 +77,26 @@ async def save_session(
     saved = await playback_controller.save_session(
         session, body, user_id=user_id, now=now
     )
+    await playback_actions.announce(redis, user_id)
+
+    return saved
+
+
+@router.patch(
+    "/session",
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def save_position(
+    body: PlaybackPositionRequest,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    redis: RedisDep,
+    now: NowDep,
+) -> PlaybackSessionSaved:
+    saved = await playback_controller.save_position(
+        session, body, user_id=user_id, now=now
+    )
+
     await playback_actions.announce(redis, user_id)
 
     return saved

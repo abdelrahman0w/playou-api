@@ -12,6 +12,7 @@ from .sessions import SessionRead
 from .sessions import claim_session
 from .sessions import forget_session
 from .sessions import get_session
+from .sessions import save_position
 from .sessions import save_session
 
 
@@ -30,5 +31,6 @@ __all__ = [
     "playable",
     "playback_request",
     "playback_token",
+    "save_position",
     "save_session",
 ]

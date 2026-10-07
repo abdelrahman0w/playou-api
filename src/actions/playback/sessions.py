@@ -11,6 +11,7 @@ from src.repositories import catalog as catalog_repositories
 from src.repositories import playback as playback_repositories
 from src.structs.models import StoredPlaybackSession
 from src.structs.models.requests import DeviceRequest
+from src.structs.models.requests import PlaybackPositionRequest
 from src.structs.models.requests import SavePlaybackSessionRequest
 from src.structs.models.responses import PlaybackSession
 from src.structs.models.responses import PlaybackSessionSaved
@@ -98,6 +99,22 @@ async def save_session(
     now: datetime,
 ) -> PlaybackSessionSaved:
     saved = await playback_repositories.save_session(session, user_id, request, now=now)
+    if saved is None:
+        raise PlaybackSessionChangedError("Another device changed what is playing")
+
+    return saved
+
+
+async def save_position(
+    session: AsyncSession,
+    user_id: UUID,
+    request: PlaybackPositionRequest,
+    *,
+    now: datetime,
+) -> PlaybackSessionSaved:
+    saved = await playback_repositories.save_position(
+        session, user_id, request, now=now
+    )
     if saved is None:
         raise PlaybackSessionChangedError("Another device changed what is playing")
 

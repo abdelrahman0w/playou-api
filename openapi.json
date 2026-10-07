@@ -1775,6 +1775,42 @@
           }
         }
       },
+      "patch": {
+        "summary": "Save Position",
+        "operationId": "save_position_playback_session_patch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaybackPositionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackSessionSaved"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "summary": "Forget Session",
         "operationId": "forget_session_playback_session_delete",
@@ -3164,6 +3200,32 @@
           "type"
         ],
         "title": "PlaybackDevice"
+      },
+      "PlaybackPositionRequest": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          },
+          "playing": {
+            "type": "boolean",
+            "title": "Playing"
+          },
+          "position_ms": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Position Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "playing",
+          "position_ms"
+        ],
+        "title": "PlaybackPositionRequest",
+        "description": "Where the device that holds the session got to, without its queue again"
       },
       "PlaybackSession": {
         "properties": {
