@@ -56,12 +56,12 @@ class RateLimitMiddleware:
 
         redis = scope["app"].dependency_overrides.get(get_redis, get_redis)()
         token = get_session_token(request)
-        user_id = await auth_actions.cached_user_id(redis, token) if token else None
+        user = await auth_actions.cached_session(redis, token) if token else None
         if token:
-            scope.setdefault("state", {})[CACHED_USER_ID] = user_id
+            scope.setdefault("state", {})[CACHED_USER_ID] = user
         result = await rate_limit_actions.hit(
             redis,
-            f"user:{user_id}" if user_id is not None else client_key(ip),
+            f"user:{user.user_id}" if user is not None else client_key(ip),
             limit=limits.requests,
             window_seconds=limits.window_seconds,
             timeout_seconds=limits.timeout_seconds,

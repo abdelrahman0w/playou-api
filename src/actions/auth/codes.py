@@ -12,6 +12,7 @@ from src.actions import rate_limit as rate_limit_actions
 from src.actions.auth.emails import code_email
 from src.exceptions import EmailUnavailableError
 from src.exceptions import InvalidCodeError
+from src.exceptions import NameRequiredError
 from src.exceptions import TooManyRequestsError
 from src.providers import logger
 from src.repositories import auth as auth_repositories
@@ -145,6 +146,7 @@ async def verify_email_code(
     locale: str,
     ip: str | None,
     now: datetime,
+    name: str | None = None,
 ) -> tuple[AuthUser, bool]:
     auth = settings.auth
     if ip is not None:
@@ -166,12 +168,19 @@ async def verify_email_code(
             raise InvalidCodeError("The code has expired, ask for a new one")
 
         if hmac.compare_digest(live.code_hash, code_hash(email, code)):
+            if (
+                name is None
+                and await auth_repositories.get_user_by_email(session, email) is None
+            ):
+                raise NameRequiredError("Tell us your name to finish signing up")
+
             live.consumed_at = now
             user, created = await auth_repositories.sign_in_user(
                 session,
                 email,
                 locale=locale,
                 now=now,
+                name=name,
             )
         else:
             live.attempts += 1

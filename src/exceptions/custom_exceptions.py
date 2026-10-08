@@ -48,6 +48,14 @@ class TooManyRequestsError(AppError):
         self.retry_after_seconds = retry_after_seconds
 
 
+class NameRequiredError(AppError):
+    error_type = ErrorTypes.NAME_REQUIRED
+
+
+class NameChangeLimitedError(TooManyRequestsError):
+    error_type = ErrorTypes.NAME_CHANGE_LIMITED
+
+
 class InvalidOAuthStateError(AppError):
     error_type = ErrorTypes.INVALID_OAUTH_STATE
 

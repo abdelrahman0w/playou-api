@@ -22,11 +22,16 @@ async def prune_auth(
             session,
             before=now - timedelta(days=settings.playback.session_days),
         )
+        names = await auth_repositories.delete_name_changes(
+            session,
+            before=now - timedelta(days=settings.auth.name_change_days),
+        )
 
     counts = {
         "sessions": sessions,
         "codes": codes,
         "playback_sessions": playback,
+        "name_changes": names,
     }
 
     logger.info(

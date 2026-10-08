@@ -7,10 +7,13 @@ from pydantic import BaseModel
 class AuthUser(BaseModel):
     id: UUID
     email: str
+    name: str | None = None
     locale: str
     created_at: datetime
     last_sign_in_at: datetime | None = None
     can_delete_data: bool = True
+    name_changes_left: int = 0
+    name_change_at: datetime | None = None
 
 
 class BearerSession(BaseModel):

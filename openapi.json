@@ -162,6 +162,42 @@
             "description": "Successful Response"
           }
         }
+      },
+      "patch": {
+        "summary": "Update Me",
+        "operationId": "update_me_auth_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUser"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/accounts": {
@@ -2138,6 +2174,17 @@
             "type": "string",
             "title": "Email"
           },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
           "locale": {
             "type": "string",
             "title": "Locale"
@@ -2163,6 +2210,23 @@
             "type": "boolean",
             "title": "Can Delete Data",
             "default": true
+          },
+          "name_changes_left": {
+            "type": "integer",
+            "title": "Name Changes Left",
+            "default": 0
+          },
+          "name_change_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Change At"
           }
         },
         "type": "object",
@@ -2719,6 +2783,17 @@
           "transport": {
             "$ref": "#/components/schemas/SessionTransports",
             "default": "cookie"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           }
         },
         "type": "object",
@@ -2930,6 +3005,19 @@
           "platform"
         ],
         "title": "MissingTracks"
+      },
+      "NameRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "NameRequest"
       },
       "Page_LikedTrack_": {
         "properties": {
@@ -3224,8 +3312,7 @@
           "playing",
           "position_ms"
         ],
-        "title": "PlaybackPositionRequest",
-        "description": "Where the device that holds the session got to, without its queue again"
+        "title": "PlaybackPositionRequest"
       },
       "PlaybackSession": {
         "properties": {

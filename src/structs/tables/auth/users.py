@@ -25,6 +25,7 @@ class User(Base):
         server_default=text("uuidv7()"),
     )
     email: Mapped[str] = mapped_column(String(320), unique=True)
+    name: Mapped[str | None] = mapped_column(String(95))
     locale: Mapped[str] = mapped_column(String(8), default="en")
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_sign_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -56,3 +57,15 @@ class AuthEmailCode(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class NameChange(Base):
+    __tablename__ = "name_changes"
+    __table_args__ = (Index(None, "user_id", "changed_at"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+    )
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

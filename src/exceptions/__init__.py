@@ -4,6 +4,8 @@ from .custom_exceptions import ForbiddenError
 from .custom_exceptions import InvalidCodeError
 from .custom_exceptions import InvalidEmailError
 from .custom_exceptions import InvalidOAuthStateError
+from .custom_exceptions import NameChangeLimitedError
+from .custom_exceptions import NameRequiredError
 from .custom_exceptions import NoActiveDeviceError
 from .custom_exceptions import NotFoundError
 from .custom_exceptions import PlatformError
@@ -31,6 +33,8 @@ __all__ = [
     "InvalidCodeError",
     "InvalidEmailError",
     "InvalidOAuthStateError",
+    "NameChangeLimitedError",
+    "NameRequiredError",
     "NoActiveDeviceError",
     "NotFoundError",
     "PlatformError",

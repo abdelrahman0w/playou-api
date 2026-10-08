@@ -10,13 +10,14 @@ from src.dependencies import DBSessionDep
 from src.dependencies import NowDep
 from src.dependencies import RedisDep
 from src.dependencies import ResendDep
-from src.dependencies import UserIDDep
+from src.dependencies import SignedInUserIDDep
 from src.dependencies import get_session_token
 from src.dependencies import require_trusted_origin
 from src.settings import settings
 from src.structs.enums import SessionTransports
 from src.structs.models.requests import EmailCodeRequest
 from src.structs.models.requests import EmailVerifyRequest
+from src.structs.models.requests import NameRequest
 from src.structs.models.responses import AuthUser
 from src.structs.models.responses import BearerSession
 from src.structs.models.responses import EmailCodeSent
@@ -130,8 +131,26 @@ async def sign_out(
 
 
 @router.get("/me")
-async def get_me(user_id: UserIDDep, session: DBSessionDep) -> AuthUser:
-    return await auth_controller.get_me(session, user_id)
+async def get_me(
+    user_id: SignedInUserIDDep,
+    session: DBSessionDep,
+    now: NowDep,
+) -> AuthUser:
+    return await auth_controller.get_me(session, user_id, now=now)
+
+
+@router.patch(
+    "/me",
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def update_me(
+    body: NameRequest,
+    user_id: SignedInUserIDDep,
+    session: DBSessionDep,
+    redis: RedisDep,
+    now: NowDep,
+) -> AuthUser:
+    return await auth_controller.update_me(session, redis, user_id, body, now=now)
 
 
 @router.delete(
@@ -140,7 +159,7 @@ async def get_me(user_id: UserIDDep, session: DBSessionDep) -> AuthUser:
     dependencies=[Depends(require_trusted_origin)],
 )
 async def delete_me(
-    user_id: UserIDDep,
+    user_id: SignedInUserIDDep,
     session: DBSessionDep,
     redis: RedisDep,
 ) -> Response:

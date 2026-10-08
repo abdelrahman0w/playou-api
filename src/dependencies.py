@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from src.actions import auth as auth_actions
 from src.actions import playback as playback_actions
 from src.exceptions import ForbiddenError
+from src.exceptions import NameRequiredError
 from src.exceptions import UnauthorizedError
 from src.providers import DatabaseSessions
 from src.providers import RedisConnection
@@ -91,19 +92,19 @@ PlaybackChangesDep = Annotated[
 ]
 
 
-async def get_user_id(
+async def get_session_user(
     request: Request,
     session: DBSessionDep,
     redis: RedisDep,
     now: NowDep,
-) -> UUID | None:
+) -> auth_actions.SessionUser | None:
     token = get_session_token(request)
     if not token:
         return None
 
     state = request.scope.get("state", {})
     checked = CACHED_USER_ID in state
-    cached: UUID | None = state.get(CACHED_USER_ID)
+    cached: auth_actions.SessionUser | None = state.get(CACHED_USER_ID)
     if cached is not None:
         return cached
 
@@ -116,13 +117,27 @@ async def get_user_id(
     )
 
 
-async def require_user_id(
-    user_id: Annotated[UUID | None, Depends(get_user_id)],
-) -> UUID:
-    if user_id is None:
+SessionUserDep = Annotated[auth_actions.SessionUser | None, Depends(get_session_user)]
+
+
+async def get_user_id(user: SessionUserDep) -> UUID | None:
+    return user.user_id if user is not None else None
+
+
+async def require_signed_in(user: SessionUserDep) -> UUID:
+    if user is None:
         raise UnauthorizedError("Sign in to continue")
 
-    return user_id
+    return user.user_id
+
+
+async def require_user_id(user: SessionUserDep) -> UUID:
+    if user is None:
+        raise UnauthorizedError("Sign in to continue")
+    if not user.named:
+        raise NameRequiredError("Tell us your name to continue")
+
+    return user.user_id
 
 
 def require_trusted_origin(request: Request) -> None:
@@ -133,3 +148,4 @@ def require_trusted_origin(request: Request) -> None:
 
 OptionalUserIDDep = Annotated[UUID | None, Depends(get_user_id)]
 UserIDDep = Annotated[UUID, Depends(require_user_id)]
+SignedInUserIDDep = Annotated[UUID, Depends(require_signed_in)]

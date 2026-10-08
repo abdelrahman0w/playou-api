@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+from dataclasses import dataclass
 from datetime import datetime
 from datetime import timedelta
 from uuid import UUID
@@ -19,32 +20,52 @@ def token_hash(
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-async def cached_user_id(
+@dataclass(frozen=True)
+class SessionUser:
+    user_id: UUID
+    named: bool
+
+
+async def cached_session(
     redis: Redis,
     token: str,
-) -> UUID | None:
+) -> SessionUser | None:
     try:
-        user_id = await redis.get(
-            CacheKeys.AUTH_SESSION.format(token=token_hash(token))
-        )
+        cached = await redis.get(CacheKeys.AUTH_SESSION.format(token=token_hash(token)))
     except RedisError:
         return None
+    if not cached:
+        return None
 
-    return UUID(str(user_id)) if user_id else None
+    user_id, _, named = str(cached).partition(":")
+
+    return SessionUser(user_id=UUID(user_id), named=named == "1")
 
 
 async def _cache(
     redis: Redis,
     hashed: str,
-    user_id: UUID,
+    user: SessionUser,
     *,
     seconds: int,
 ) -> None:
     try:
         await redis.set(
             CacheKeys.AUTH_SESSION.format(token=hashed),
-            str(user_id),
+            f"{user.user_id}:{int(user.named)}",
             ex=seconds,
+        )
+    except RedisError:
+        return
+
+
+async def forget_cached_sessions(redis: Redis, hashes: list[str]) -> None:
+    if not hashes:
+        return
+
+    try:
+        await redis.delete(
+            *(CacheKeys.AUTH_SESSION.format(token=hashed) for hashed in hashes),
         )
     except RedisError:
         return
@@ -74,7 +95,10 @@ async def start_session(
     await _cache(
         redis,
         hashed,
-        user_id,
+        SessionUser(
+            user_id=user_id,
+            named=await auth_repositories.user_has_name(session, user_id),
+        ),
         seconds=settings.auth.session_cache_seconds,
     )
 
@@ -88,11 +112,11 @@ async def resolve_session(
     *,
     now: datetime,
     check_cache: bool = True,
-) -> UUID | None:
+) -> SessionUser | None:
     auth = settings.auth
 
-    if check_cache and (user_id := await cached_user_id(redis, token)) is not None:
-        return user_id
+    if check_cache and (cached := await cached_session(redis, token)) is not None:
+        return cached
 
     hashed = token_hash(token)
     async with session.begin():
@@ -112,17 +136,21 @@ async def resolve_session(
                 now=now,
             )
 
-        user_id, expires_at = live.user_id, live.expires_at
+        user = SessionUser(
+            user_id=live.user_id,
+            named=await auth_repositories.user_has_name(session, live.user_id),
+        )
+        expires_at = live.expires_at
 
     left = int((expires_at - now).total_seconds())
     await _cache(
         redis,
         hashed,
-        live.user_id,
+        user,
         seconds=max(1, min(auth.session_cache_seconds, left)),
     )
 
-    return user_id
+    return user
 
 
 async def end_session(

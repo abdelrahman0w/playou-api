@@ -9,6 +9,7 @@ from src.exceptions.custom_exceptions import ForbiddenError
 from src.exceptions.custom_exceptions import InvalidCodeError
 from src.exceptions.custom_exceptions import InvalidEmailError
 from src.exceptions.custom_exceptions import InvalidOAuthStateError
+from src.exceptions.custom_exceptions import NameRequiredError
 from src.exceptions.custom_exceptions import NoActiveDeviceError
 from src.exceptions.custom_exceptions import NotFoundError
 from src.exceptions.custom_exceptions import PlatformError
@@ -46,6 +47,7 @@ STATUS_CODES: dict[type[AppError], int] = {
     PlatformPremiumRequiredError: status.HTTP_403_FORBIDDEN,
     NoActiveDeviceError: status.HTTP_409_CONFLICT,
     PlaybackSessionChangedError: status.HTTP_409_CONFLICT,
+    NameRequiredError: status.HTTP_409_CONFLICT,
     PlatformTimeoutError: status.HTTP_504_GATEWAY_TIMEOUT,
     PlatformRateLimitedError: status.HTTP_503_SERVICE_UNAVAILABLE,
     PlatformUnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -12,6 +12,7 @@ from src.services import ResendService
 from src.settings import settings
 from src.structs.models.requests import EmailCodeRequest
 from src.structs.models.requests import EmailVerifyRequest
+from src.structs.models.requests import NameRequest
 from src.structs.models.responses import AuthUser
 from src.structs.models.responses import EmailCodeSent
 
@@ -51,6 +52,7 @@ async def verify_email_code(
         email=request.email,
         code=request.code,
         locale=request.locale,
+        name=request.name,
         ip=ip,
         now=now,
     )
@@ -64,12 +66,20 @@ async def verify_email_code(
             ip=ip,
             user_agent=user_agent,
         )
+        described = await _described(session, user, now=now)
 
-    return _with_permissions(user), token
+    return described, token
 
 
-def _with_permissions(user: AuthUser) -> AuthUser:
-    return user.model_copy(
+async def _described(
+    session: AsyncSession,
+    user: AuthUser,
+    *,
+    now: datetime,
+) -> AuthUser:
+    limited = await auth_actions.with_name_limits(session, user, now=now)
+
+    return limited.model_copy(
         update={"can_delete_data": settings.data.deletion_enabled},
     )
 
@@ -77,14 +87,43 @@ def _with_permissions(user: AuthUser) -> AuthUser:
 async def get_me(
     session: AsyncSession,
     user_id: UUID,
+    *,
+    now: datetime,
 ) -> AuthUser:
-    user = await auth_repositories.get_user(session, user_id)
-    if user is None:
-        raise UnauthorizedError(
-            "Sign in to continue",
+    async with session.begin():
+        user = await auth_repositories.get_user(session, user_id)
+        if user is None:
+            raise UnauthorizedError(
+                "Sign in to continue",
+            )
+
+        return await _described(session, user, now=now)
+
+
+async def update_me(
+    session: AsyncSession,
+    redis: Redis,
+    user_id: UUID,
+    request: NameRequest,
+    *,
+    now: datetime,
+) -> AuthUser:
+    async with session.begin():
+        user, first = await auth_actions.change_name(
+            session,
+            user_id,
+            request.name,
+            now=now,
+        )
+        hashes = (
+            await auth_repositories.session_hashes(session, user_id) if first else []
         )
 
-    return _with_permissions(user)
+    await auth_actions.forget_cached_sessions(redis, hashes)
+
+    return user.model_copy(
+        update={"can_delete_data": settings.data.deletion_enabled},
+    )
 
 
 async def sign_out(

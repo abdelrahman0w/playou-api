@@ -139,6 +139,8 @@ class AuthSettings(BaseAppSettings):
     codes_per_email_hour: int = Field(default=5, ge=1)
     codes_per_ip_hour: int = Field(default=20, ge=1)
     verifications_per_ip_hour: int = Field(default=30, ge=1)
+    name_changes: int = Field(default=2, ge=1)
+    name_change_days: int = Field(default=30, ge=1)
 
 
 class ResendSettings(BaseAppSettings):
