@@ -4,9 +4,12 @@ from uuid import UUID
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import Query
+from fastapi import Response
+from fastapi import status
 
 from src.controllers import catalog as catalog_controller
 from src.dependencies import DBSessionDep
+from src.dependencies import LrclibDep
 from src.dependencies import NowDep
 from src.dependencies import PlatformsDep
 from src.dependencies import RedisDep
@@ -19,6 +22,7 @@ from src.structs.models.requests import ChooseSimilarRequest
 from src.structs.models.requests import SearchRequest
 from src.structs.models.responses import Candidate
 from src.structs.models.responses import CatalogTrack
+from src.structs.models.responses import Lyrics
 from src.structs.models.responses import SearchResults
 
 
@@ -55,6 +59,49 @@ async def get_track(
     session: DBSessionDep,
 ) -> CatalogTrack:
     return await catalog_controller.get_track(session, track_id)
+
+
+@router.get(
+    "/tracks/{track_id}/lyrics",
+    dependencies=[Depends(require_user_id)],
+)
+async def track_lyrics(
+    track_id: UUID,
+    session_factory: SessionFactoryDep,
+    lrclib: LrclibDep,
+    now: NowDep,
+) -> Lyrics:
+    return await catalog_controller.track_lyrics(
+        session_factory,
+        lrclib,
+        track_id,
+        now=now,
+    )
+
+
+@router.post(
+    "/tracks/{track_id}/lyrics/report",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def report_lyrics(
+    track_id: UUID,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    redis: RedisDep,
+    lrclib: LrclibDep,
+    now: NowDep,
+) -> Response:
+    await catalog_controller.report_lyrics(
+        session,
+        redis,
+        lrclib,
+        track_id,
+        user_id=user_id,
+        now=now,
+    )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(

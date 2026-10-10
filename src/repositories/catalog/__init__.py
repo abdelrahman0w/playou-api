@@ -1,6 +1,10 @@
 from .duplicates import find_duplicates
 from .duplicates import merge_track
 from .duplicates import uppercase_isrcs
+from .lyrics import get_lyrics
+from .lyrics import hide_lyrics
+from .lyrics import move_lyrics
+from .lyrics import save_lyrics
 from .tracks import block_embedding
 from .tracks import get_tracks
 from .tracks import platform_track_ids
@@ -14,9 +18,13 @@ from .tracks import tracks_changed
 __all__ = [
     "block_embedding",
     "find_duplicates",
+    "get_lyrics",
     "get_tracks",
+    "hide_lyrics",
     "merge_track",
+    "move_lyrics",
     "platform_track_ids",
+    "save_lyrics",
     "save_platform_track_ids",
     "save_platform_tracks",
     "search_catalog",

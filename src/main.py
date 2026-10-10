@@ -23,6 +23,7 @@ from src.routes import health_router
 from src.routes import library_router
 from src.routes import playback_router
 from src.routes import shares_router
+from src.services import LrclibConnection
 from src.services import ResendConnection
 from src.services import SpotifyConnection
 from src.services import YouTubeConnection
@@ -47,6 +48,7 @@ SINGLETONS = (
     ResendConnection,
     SpotifyConnection,
     YouTubeConnection,
+    LrclibConnection,
     PlaybackListener,
 )
 

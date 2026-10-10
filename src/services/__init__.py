@@ -1,5 +1,7 @@
 from .base import MusicPlatform
 from .base import OAuthPlatform
+from .lrclib import LrclibConnection
+from .lrclib import LrclibService
 from .registry import available_platforms
 from .resend import ResendConnection
 from .resend import ResendService
@@ -10,6 +12,8 @@ from .youtube import YouTubeService
 
 
 __all__ = [
+    "LrclibConnection",
+    "LrclibService",
     "MusicPlatform",
     "OAuthPlatform",
     "ResendConnection",

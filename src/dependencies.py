@@ -17,6 +17,8 @@ from src.exceptions import NameRequiredError
 from src.exceptions import UnauthorizedError
 from src.providers import DatabaseSessions
 from src.providers import RedisConnection
+from src.services import LrclibConnection
+from src.services import LrclibService
 from src.services import OAuthPlatform
 from src.services import ResendConnection
 from src.services import ResendService
@@ -64,6 +66,10 @@ def get_session_token(request: Request) -> str | None:
     return None
 
 
+def get_lrclib() -> LrclibService | None:
+    return LrclibConnection.get()
+
+
 def get_resend() -> ResendService | None:
     return ResendConnection.get()
 
@@ -84,6 +90,7 @@ SessionFactoryDep = Annotated[
 RedisDep = Annotated[Redis, Depends(get_redis)]
 NowDep = Annotated[datetime, Depends(get_now)]
 ResendDep = Annotated[ResendService | None, Depends(get_resend)]
+LrclibDep = Annotated[LrclibService | None, Depends(get_lrclib)]
 ClientIPDep = Annotated[str | None, Depends(get_client_ip)]
 PlatformsDep = Annotated[dict[Platforms, OAuthPlatform], Depends(get_platforms)]
 PlaybackChangesDep = Annotated[

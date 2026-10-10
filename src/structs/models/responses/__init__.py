@@ -3,6 +3,8 @@ from .auth import AuthUser
 from .auth import BearerSession
 from .auth import EmailCodeSent
 from .catalog import Candidate
+from .catalog import Lyrics
+from .catalog import LyricsLine
 from .catalog import PlatformSearchResult
 from .catalog import SearchResults
 from .health import LivenessResponse
@@ -48,6 +50,8 @@ __all__ = [
     "LikedTrack",
     "LinkedAccount",
     "LivenessResponse",
+    "Lyrics",
+    "LyricsLine",
     "MissingTracks",
     "PlatformData",
     "PlatformSearchResult",

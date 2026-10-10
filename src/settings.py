@@ -324,6 +324,20 @@ class PlaybackSettings(BaseAppSettings):
     longest_wait_seconds: int = Field(default=20, ge=0)
 
 
+class LyricsSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="LYRICS_",
+    )
+
+    enabled: bool = True
+    lrclib_url: str = "https://lrclib.net/api"
+    timeout_seconds: float = Field(default=5.0, gt=0)
+    found_days: int = Field(default=90, ge=1)
+    missing_days: int = Field(default=14, ge=1)
+    hidden_days: int = Field(default=30, ge=1)
+    reports_per_user_hour: int = Field(default=5, ge=1)
+
+
 class SharesSettings(BaseAppSettings):
     model_config = SettingsConfigDict(
         env_prefix="SHARES_",
@@ -394,6 +408,7 @@ class Settings(BaseAppSettings):
     data: DataSettings = Field(default_factory=DataSettings)
     playback: PlaybackSettings = Field(default_factory=PlaybackSettings)
     shares: SharesSettings = Field(default_factory=SharesSettings)
+    lyrics: LyricsSettings = Field(default_factory=LyricsSettings)
     together: TogetherSettings = Field(default_factory=TogetherSettings)
 
 

@@ -15,6 +15,7 @@ from .library import SyncNudges
 from .library import SyncOutcomes
 from .library import SyncStatuses
 from .library import SyncSubjects
+from .lyrics import LyricsStatuses
 from .platforms import AccountStatuses
 from .platforms import Closeness
 from .platforms import Platforms
@@ -35,6 +36,7 @@ __all__ = [
     "ErrorTypes",
     "ImportStatuses",
     "LikeSorts",
+    "LyricsStatuses",
     "Platforms",
     "PlaylistImports",
     "PlaylistKinds",

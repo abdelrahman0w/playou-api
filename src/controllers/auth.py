@@ -80,7 +80,10 @@ async def _described(
     limited = await auth_actions.with_name_limits(session, user, now=now)
 
     return limited.model_copy(
-        update={"can_delete_data": settings.data.deletion_enabled},
+        update={
+            "can_delete_data": settings.data.deletion_enabled,
+            "lyrics_enabled": settings.lyrics.enabled,
+        },
     )
 
 
@@ -122,7 +125,10 @@ async def update_me(
     await auth_actions.forget_cached_sessions(redis, hashes)
 
     return user.model_copy(
-        update={"can_delete_data": settings.data.deletion_enabled},
+        update={
+            "can_delete_data": settings.data.deletion_enabled,
+            "lyrics_enabled": settings.lyrics.enabled,
+        },
     )
 
 

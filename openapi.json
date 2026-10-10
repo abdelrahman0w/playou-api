@@ -573,6 +573,79 @@
         }
       }
     },
+    "/catalog/tracks/{track_id}/lyrics": {
+      "get": {
+        "summary": "Track Lyrics",
+        "operationId": "track_lyrics_catalog_tracks__track_id__lyrics_get",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lyrics"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/tracks/{track_id}/lyrics/report": {
+      "post": {
+        "summary": "Report Lyrics",
+        "operationId": "report_lyrics_catalog_tracks__track_id__lyrics_report_post",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/catalog/tracks/{track_id}/find/{platform}": {
       "post": {
         "summary": "Find On",
@@ -2571,6 +2644,11 @@
             "title": "Can Delete Data",
             "default": true
           },
+          "lyrics_enabled": {
+            "type": "boolean",
+            "title": "Lyrics Enabled",
+            "default": false
+          },
           "name_changes_left": {
             "type": "integer",
             "title": "Name Changes Left",
@@ -3346,6 +3424,76 @@
         },
         "type": "object",
         "title": "LivenessResponse"
+      },
+      "Lyrics": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/LyricsStatuses"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/LyricsLine"
+            },
+            "type": "array",
+            "title": "Lines"
+          },
+          "plain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plain"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Lyrics"
+      },
+      "LyricsLine": {
+        "properties": {
+          "at_ms": {
+            "type": "integer",
+            "title": "At Ms"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at_ms",
+          "text"
+        ],
+        "title": "LyricsLine"
+      },
+      "LyricsStatuses": {
+        "type": "string",
+        "enum": [
+          "FOUND",
+          "INSTRUMENTAL",
+          "MISSING",
+          "HIDDEN",
+          "UNAVAILABLE"
+        ],
+        "title": "LyricsStatuses"
       },
       "MissingTracks": {
         "properties": {

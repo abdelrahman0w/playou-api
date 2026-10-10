@@ -12,6 +12,7 @@ class AuthUser(BaseModel):
     created_at: datetime
     last_sign_in_at: datetime | None = None
     can_delete_data: bool = True
+    lyrics_enabled: bool = False
     name_changes_left: int = 0
     name_change_at: datetime | None = None
 
