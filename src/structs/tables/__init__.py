@@ -12,6 +12,7 @@ from .auth import AuthEmailCode  # noqa: E402
 from .auth import AuthSession  # noqa: E402
 from .auth import NameChange  # noqa: E402
 from .auth import User  # noqa: E402
+from .catalog import LyricsReport  # noqa: E402
 from .catalog import Track  # noqa: E402
 from .catalog import TrackLyrics  # noqa: E402
 from .catalog import TrackSource  # noqa: E402
@@ -35,6 +36,7 @@ __all__ = [
     "CopyItem",
     "Like",
     "LinkedAccount",
+    "LyricsReport",
     "NameChange",
     "PlaybackSession",
     "Playlist",

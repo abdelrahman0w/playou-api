@@ -61,12 +61,10 @@ async def get_track(
     return await catalog_controller.get_track(session, track_id)
 
 
-@router.get(
-    "/tracks/{track_id}/lyrics",
-    dependencies=[Depends(require_user_id)],
-)
+@router.get("/tracks/{track_id}/lyrics")
 async def track_lyrics(
     track_id: UUID,
+    user_id: UserIDDep,
     session_factory: SessionFactoryDep,
     lrclib: LrclibDep,
     now: NowDep,
@@ -75,6 +73,7 @@ async def track_lyrics(
         session_factory,
         lrclib,
         track_id,
+        user_id=user_id,
         now=now,
     )
 

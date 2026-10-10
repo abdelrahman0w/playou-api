@@ -336,6 +336,7 @@ class LyricsSettings(BaseAppSettings):
     missing_days: int = Field(default=14, ge=1)
     hidden_days: int = Field(default=30, ge=1)
     reports_per_user_hour: int = Field(default=5, ge=1)
+    hide_after_reports: int = Field(default=0, ge=0)
 
 
 class SharesSettings(BaseAppSettings):

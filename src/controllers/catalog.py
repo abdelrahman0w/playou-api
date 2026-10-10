@@ -35,12 +35,14 @@ async def track_lyrics(
     lrclib: LrclibService | None,
     track_id: UUID,
     *,
+    user_id: UUID,
     now: datetime,
 ) -> Lyrics:
     return await catalog_actions.track_lyrics(
         session_factory,
         lrclib,
         track_id,
+        user_id=user_id,
         now=now,
     )
 

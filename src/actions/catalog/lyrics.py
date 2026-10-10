@@ -47,7 +47,7 @@ def _fresh(saved: tables.TrackLyrics, now: datetime) -> bool:
     return saved.checked_at + timedelta(days=days) > now
 
 
-def _answer(saved: tables.TrackLyrics) -> Lyrics:
+def _answer(saved: tables.TrackLyrics, *, reported: bool) -> Lyrics:
     if saved.status != LyricsStatuses.FOUND:
         return Lyrics(status=saved.status)
 
@@ -56,6 +56,43 @@ def _answer(saved: tables.TrackLyrics) -> Lyrics:
         lines=timed_lines(saved.synced) if saved.synced else [],
         plain=saved.plain,
         source=saved.source,
+        reported=reported,
+    )
+
+
+async def _reported(
+    session: AsyncSession,
+    saved: tables.TrackLyrics,
+    user_id: UUID,
+) -> bool:
+    if saved.status != LyricsStatuses.FOUND or saved.source_id is None:
+        return False
+
+    return await catalog_repositories.has_reported(
+        session,
+        user_id,
+        saved.track_id,
+        saved.source_id,
+    )
+
+
+async def _hidden(
+    session: AsyncSession,
+    track_id: UUID,
+    record: LrclibRecord,
+    previous: tables.TrackLyrics | None,
+) -> bool:
+    if (
+        previous is not None
+        and previous.status == LyricsStatuses.HIDDEN
+        and previous.source_id == record.id
+    ):
+        return True
+
+    most = settings.lyrics.hide_after_reports
+
+    return bool(most) and (
+        await catalog_repositories.count_reports(session, track_id, record.id) >= most
     )
 
 
@@ -115,9 +152,10 @@ async def _fetch(
     session_factory: async_sessionmaker[AsyncSession],
     lrclib: LrclibService,
     track: CatalogTrack,
+    previous: tables.TrackLyrics | None,
     *,
     now: datetime,
-) -> Lyrics:
+) -> tables.TrackLyrics | None:
     try:
         record = await _look_up(lrclib, track)
     except PlatformUnavailableError as exc:
@@ -127,21 +165,26 @@ async def _fetch(
             error=str(exc.__cause__ or exc),
         )
 
-        return Lyrics(status=LyricsStatuses.UNAVAILABLE)
+        return None
 
     async with session_factory() as session, session.begin():
+        status = _status(record) if record else LyricsStatuses.MISSING
+        if (
+            record is not None
+            and status == LyricsStatuses.FOUND
+            and await _hidden(session, track.id, record, previous)
+        ):
+            status = LyricsStatuses.HIDDEN
         await catalog_repositories.save_lyrics(
             session,
             track.id,
-            status=_status(record) if record else LyricsStatuses.MISSING,
+            status=status,
             synced=record.synced if record else None,
             plain=record.plain if record else None,
             source_id=record.id if record else None,
             now=now,
         )
-        saved = await catalog_repositories.get_lyrics(session, track.id)
-
-    return _answer(saved) if saved else Lyrics(status=LyricsStatuses.MISSING)
+        return await catalog_repositories.get_lyrics(session, track.id)
 
 
 async def track_lyrics(
@@ -149,6 +192,7 @@ async def track_lyrics(
     lrclib: LrclibService | None,
     track_id: UUID,
     *,
+    user_id: UUID,
     now: datetime,
 ) -> Lyrics:
     service = _ensure_enabled(lrclib)
@@ -157,15 +201,23 @@ async def track_lyrics(
             track_id,
         )
         saved = await catalog_repositories.get_lyrics(session, track_id)
+        reported = saved is not None and await _reported(session, saved, user_id)
     if track is None:
         raise NotFoundError("The track does not exist")
     if saved is not None and _fresh(saved, now):
-        return _answer(saved)
+        return _answer(saved, reported=reported)
 
-    return await single_flight(
+    previous = saved
+    saved = await single_flight(
         f"lyrics:{track_id}",
-        lambda: _fetch(session_factory, service, track, now=now),
+        lambda: _fetch(session_factory, service, track, previous, now=now),
     )
+    if saved is None:
+        return Lyrics(status=LyricsStatuses.UNAVAILABLE)
+    async with session_factory() as session:
+        reported = await _reported(session, saved, user_id)
+
+    return _answer(saved, reported=reported)
 
 
 async def report_lyrics(
@@ -189,5 +241,38 @@ async def report_lyrics(
             "You have reported a lot of lyrics, try again later",
             retry_after_seconds=result.reset,
         )
-    if not await catalog_repositories.hide_lyrics(session, track_id, now=now):
+    saved = await catalog_repositories.get_lyrics(session, track_id)
+    if saved is None or saved.status != LyricsStatuses.FOUND or saved.source_id is None:
         raise NotFoundError("This song has no lyrics to report")
+
+    await catalog_repositories.record_report(
+        session,
+        user_id,
+        track_id,
+        saved.source_id,
+    )
+    most = settings.lyrics.hide_after_reports
+    if most and (
+        await catalog_repositories.count_reports(session, track_id, saved.source_id)
+        >= most
+    ):
+        await catalog_repositories.hide_lyrics(session, track_id, now=now)
+
+
+async def hide_lyrics(
+    session_factory: async_sessionmaker[AsyncSession],
+    track_id: UUID,
+    *,
+    now: datetime,
+) -> bool:
+    async with session_factory() as session, session.begin():
+        return await catalog_repositories.hide_lyrics(session, track_id, now=now)
+
+
+async def lyrics_reports(
+    session_factory: async_sessionmaker[AsyncSession],
+    *,
+    limit: int,
+) -> list[dict[str, object]]:
+    async with session_factory() as session:
+        return await catalog_repositories.most_reported(session, limit=limit)

@@ -3458,6 +3458,11 @@
               }
             ],
             "title": "Source"
+          },
+          "reported": {
+            "type": "boolean",
+            "title": "Reported",
+            "default": false
           }
         },
         "type": "object",

@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from src.repositories.catalog.lyrics import move_lyrics
+from src.repositories.catalog.lyrics import move_reports
 from src.structs import tables
 from src.structs.models import DuplicateTrack
 from src.utils.matching import SAME_DURATION_MS
@@ -166,6 +167,7 @@ async def merge_track(
     )
 
     await move_lyrics(session, keep, drop)
+    await move_reports(session, keep, drop)
     await session.execute(
         update(tables.Share).where(tables.Share.track_id == drop).values(track_id=keep),
     )

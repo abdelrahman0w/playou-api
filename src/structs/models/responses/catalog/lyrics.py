@@ -14,3 +14,4 @@ class Lyrics(BaseModel):
     lines: list[LyricsLine] = Field(default_factory=list)
     plain: str | None = None
     source: str | None = None
+    reported: bool = False

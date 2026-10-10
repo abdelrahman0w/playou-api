@@ -1,4 +1,7 @@
 import argparse
+from datetime import UTC
+from datetime import datetime
+from uuid import UUID
 
 from src.actions import catalog as catalog_actions
 from src.actions import library as library_actions
@@ -33,6 +36,36 @@ async def merge_tracks(args: argparse.Namespace) -> object:
     )
 
 
+def _reports_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=50,
+        help="how many of the most reported lyrics to list",
+    )
+
+
+def _hide_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("track_id", type=UUID, help="the song whose lyrics to hide")
+
+
+async def lyrics_reports(args: argparse.Namespace) -> object:
+    return await catalog_actions.lyrics_reports(
+        DatabaseSessions.get(),
+        limit=args.limit,
+    )
+
+
+async def hide_lyrics(args: argparse.Namespace) -> object:
+    hidden = await catalog_actions.hide_lyrics(
+        DatabaseSessions.get(),
+        args.track_id,
+        now=datetime.now(UTC),
+    )
+
+    return {"hidden": hidden}
+
+
 async def delete_user_data(args: argparse.Namespace) -> object:
     session_factory = DatabaseSessions.get()
     async with session_factory() as session, session.begin():
@@ -55,6 +88,16 @@ JOBS: dict[str, Job] = {
         help="delete a user's library and linked apps, or with --account everything, "
         "regardless of DATA_DELETION_ENABLED",
         arguments=_arguments,
+    ),
+    "hide_lyrics": Job(
+        run=hide_lyrics,
+        help="hide a song's lyrics for everyone, until lrclib has other lyrics for it",
+        arguments=_hide_arguments,
+    ),
+    "lyrics_reports": Job(
+        run=lyrics_reports,
+        help="list the lyrics people reported wrong, the most reported first",
+        arguments=_reports_arguments,
     ),
     "merge_tracks": Job(
         run=merge_tracks,
