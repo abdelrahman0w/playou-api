@@ -21,6 +21,7 @@ from .library import PlaylistItem
 from .library import PlaylistLink
 from .library import Progress
 from .library import PushPreferences
+from .library import TogetherTracks
 from .library import TrackSource
 from .playback import PlaybackSession
 from .playback import PlaybackSessionSaved
@@ -68,5 +69,6 @@ __all__ = [
     "ShareOpener",
     "SharedTrack",
     "Sharer",
+    "TogetherTracks",
     "TrackSource",
 ]

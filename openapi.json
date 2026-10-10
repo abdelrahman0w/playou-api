@@ -737,6 +737,24 @@
         }
       }
     },
+    "/library/together": {
+      "get": {
+        "summary": "Together Tracks",
+        "operationId": "together_tracks_library_together_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TogetherTracks"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/library/likes/ids": {
       "get": {
         "summary": "Liked Track Ids",
@@ -4753,6 +4771,31 @@
           "scope"
         ],
         "title": "StartCopyRequest"
+      },
+      "TogetherEffects": {
+        "type": "string",
+        "enum": [
+          "CONFETTI",
+          "HEARTS",
+          "STARS"
+        ],
+        "title": "TogetherEffects"
+      },
+      "TogetherTracks": {
+        "properties": {
+          "tracks": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TogetherEffects"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Tracks"
+          }
+        },
+        "type": "object",
+        "title": "TogetherTracks"
       },
       "Track": {
         "properties": {

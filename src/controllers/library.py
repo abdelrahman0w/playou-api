@@ -31,9 +31,19 @@ from src.structs.models.responses import MissingTracks
 from src.structs.models.responses import PlatformData
 from src.structs.models.responses import Playlist
 from src.structs.models.responses import PlaylistDetail
+from src.structs.models.responses import TogetherTracks
 
 
 COPY_ROUNDS = 20
+
+
+async def together_tracks(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+) -> TogetherTracks:
+    async with session.begin():
+        return await library_actions.together_tracks(session, user_id)
 
 
 async def liked_track_ids(

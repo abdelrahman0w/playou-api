@@ -35,6 +35,7 @@ from src.structs.models.responses import MissingTracks
 from src.structs.models.responses import PlatformData
 from src.structs.models.responses import Playlist
 from src.structs.models.responses import PlaylistDetail
+from src.structs.models.responses import TogetherTracks
 
 
 router = APIRouter(prefix="/library")
@@ -110,6 +111,14 @@ class Importer(Pusher):
 
 
 ImporterDep = Annotated[Importer, Depends()]
+
+
+@router.get("/together")
+async def together_tracks(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> TogetherTracks:
+    return await library_controller.together_tracks(session, user_id=user_id)
 
 
 @router.get("/likes/ids")

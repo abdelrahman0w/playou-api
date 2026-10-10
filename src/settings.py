@@ -2,11 +2,16 @@ import tempfile
 from enum import StrEnum
 from pathlib import Path
 
+from pydantic import BaseModel
 from pydantic import Field
 from pydantic import SecretStr
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from pydantic_settings import SettingsConfigDict
 from sqlalchemy import URL
+
+from src.structs.enums.together import TogetherEffects
+from src.structs.enums.together import TogetherReasons
 
 
 VERSION_FILE = Path(__file__).parent.parent / "VERSION"
@@ -330,6 +335,42 @@ class SharesSettings(BaseAppSettings):
     image_max_age_seconds: int = Field(default=24 * 60 * 60, ge=0)
 
 
+class TogetherGroup(BaseModel):
+    emails: list[str] = Field(min_length=2)
+    effect: TogetherEffects = TogetherEffects.HEARTS
+
+    @field_validator("emails")
+    @classmethod
+    def fold_emails(cls, emails: list[str]) -> list[str]:
+        return [email.strip().casefold() for email in emails]
+
+    @field_validator("effect", mode="before")
+    @classmethod
+    def upper_effect(cls, effect: object) -> object:
+        return effect.upper() if isinstance(effect, str) else effect
+
+
+class TogetherSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="TOGETHER_",
+    )
+
+    groups: list[TogetherGroup] = Field(default_factory=list)
+    reasons: list[TogetherReasons] = Field(
+        default_factory=lambda: list(TogetherReasons)
+    )
+
+    @field_validator("reasons", mode="before")
+    @classmethod
+    def upper_reasons(cls, reasons: object) -> object:
+        if not isinstance(reasons, list):
+            return reasons
+
+        return [
+            reason.upper() if isinstance(reason, str) else reason for reason in reasons
+        ]
+
+
 class Settings(BaseAppSettings):
     app: AppSettings = Field(default_factory=AppSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
@@ -353,6 +394,7 @@ class Settings(BaseAppSettings):
     data: DataSettings = Field(default_factory=DataSettings)
     playback: PlaybackSettings = Field(default_factory=PlaybackSettings)
     shares: SharesSettings = Field(default_factory=SharesSettings)
+    together: TogetherSettings = Field(default_factory=TogetherSettings)
 
 
 settings = Settings()

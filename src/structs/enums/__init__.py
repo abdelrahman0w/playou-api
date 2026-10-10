@@ -20,6 +20,8 @@ from .platforms import Closeness
 from .platforms import Platforms
 from .platforms import SearchStatuses
 from .shares import ShareSubjects
+from .together import TogetherEffects
+from .together import TogetherReasons
 
 
 __all__ = [
@@ -45,4 +47,6 @@ __all__ = [
     "SyncOutcomes",
     "SyncStatuses",
     "SyncSubjects",
+    "TogetherEffects",
+    "TogetherReasons",
 ]

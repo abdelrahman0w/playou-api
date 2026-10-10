@@ -11,6 +11,7 @@ from .playlists import create_playlist
 from .playlists import remove_playlist
 from .playlists import remove_playlist_item
 from .playlists import update_playlist
+from .together import together_tracks
 
 
 __all__ = [
@@ -25,6 +26,7 @@ __all__ = [
     "remove_platform_data",
     "remove_playlist",
     "remove_playlist_item",
+    "together_tracks",
     "unlike_track",
     "update_playlist",
 ]

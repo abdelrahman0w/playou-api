@@ -11,6 +11,7 @@ from src.structs.enums import Platforms
 from src.structs.enums import PlaylistImports
 from src.structs.enums import PlaylistKinds
 from src.structs.enums import RemovedBy
+from src.structs.enums import TogetherEffects
 
 
 class TrackSource(BaseModel):
@@ -133,3 +134,7 @@ class CopyEstimate(BaseModel):
 class MissingTracks(BaseModel):
     platform: Platforms
     tracks: list[CatalogTrack] = Field(default_factory=list)
+
+
+class TogetherTracks(BaseModel):
+    tracks: dict[UUID, TogetherEffects] = Field(default_factory=dict)

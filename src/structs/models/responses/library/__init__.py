@@ -12,6 +12,7 @@ from .library import PlaylistItem
 from .library import PlaylistLink
 from .library import Progress
 from .library import PushPreferences
+from .library import TogetherTracks
 from .library import TrackSource
 
 
@@ -30,5 +31,6 @@ __all__ = [
     "PlaylistLink",
     "Progress",
     "PushPreferences",
+    "TogetherTracks",
     "TrackSource",
 ]

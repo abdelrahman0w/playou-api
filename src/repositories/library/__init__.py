@@ -29,6 +29,8 @@ from .playlists import set_importing
 from .playlists import skip_playlist
 from .playlists import update_from_platform
 from .playlists import update_playlist
+from .together import together_track_ids
+from .together import user_ids_by_email
 
 
 __all__ = [
@@ -61,6 +63,8 @@ __all__ = [
     "set_importing",
     "set_like",
     "skip_playlist",
+    "together_track_ids",
     "update_from_platform",
     "update_playlist",
+    "user_ids_by_email",
 ]
