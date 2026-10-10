@@ -152,16 +152,6 @@ class SpotifyDevices(BaseModel):
     devices: list[SpotifyDevice] = Field(default_factory=list)
 
 
-class SpotifyLinkedFrom(BaseModel):
-    id: str | None = None
-
-
-class SpotifyPlayingItem(BaseModel):
-    id: str | None = None
-    linked_from: SpotifyLinkedFrom | None = None
-
-
 class SpotifyPlayer(BaseModel):
     device: SpotifyDevice | None = None
     is_playing: bool = False
-    item: SpotifyPlayingItem | None = None

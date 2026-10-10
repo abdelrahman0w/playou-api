@@ -673,18 +673,14 @@ class SpotifyService:
         access_token: str,
         request: PlaybackRequest,
     ) -> None:
-        device_id = request.device_id
-        name: str | None = None
-        if device_id is None:
-            device_id, name = await self._playable_device(access_token)
+        if request.device_id is not None:
+            await self._start(access_token, request, request.device_id, retry=True)
 
-        await self._start(
-            access_token,
-            request,
-            device_id,
-            retry=request.device_id is not None,
-        )
-        if not await self._started(access_token, request, device_id):
+            return
+
+        device_id, name = await self._playable_device(access_token)
+        await self._start(access_token, request, device_id, retry=False)
+        if not await self._started(access_token, device_id):
             raise NoActiveDeviceError(
                 f"Spotify didn't start on {name}, open it there first"
                 if name
@@ -741,13 +737,7 @@ class SpotifyService:
 
         _check(response)
 
-    async def _started(
-        self,
-        access_token: str,
-        request: PlaybackRequest,
-        device_id: str,
-    ) -> bool:
-        wanted = set(request.track_ids) if request.playlist_id is None else set()
+    async def _started(self, access_token: str, device_id: str) -> bool:
         for wait in PLAY_CHECKS:
             await asyncio.sleep(wait)
             try:
@@ -758,22 +748,14 @@ class SpotifyService:
                 )
             except PlatformError:
                 return True
-
             if response.status_code == httpx.codes.NO_CONTENT:
                 continue
 
             player = _parse(response, SpotifyPlayer)
-            item = player.item
-            playing = (
-                {item.id, item.linked_from.id if item.linked_from else None}
-                if item
-                else set()
-            )
             if (
                 player.is_playing
                 and player.device is not None
                 and player.device.id == device_id
-                and (not wanted or bool(wanted & playing))
             ):
                 return True
 
