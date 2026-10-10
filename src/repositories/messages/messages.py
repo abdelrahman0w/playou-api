@@ -78,6 +78,7 @@ def _message(
         text=None if unsent else row.text,
         track=track,
         unsent=unsent,
+        via_link=row.via_link,
         created_at=row.created_at,
     )
 
@@ -263,6 +264,7 @@ async def add_message(
     text: str | None,
     track_id: UUID | None,
     now: datetime,
+    via_link: bool = False,
 ) -> ChatMessage:
     row = tables.Message(
         conversation_id=conversation_id,
@@ -270,6 +272,7 @@ async def add_message(
         text=text,
         track_id=track_id,
         created_at=now,
+        via_link=via_link,
     )
     session.add(row)
     await session.flush()

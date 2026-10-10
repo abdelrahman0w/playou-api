@@ -13,6 +13,7 @@ class ChatMessage(BaseModel):
     text: str | None = None
     track: CatalogTrack | None = None
     unsent: bool = False
+    via_link: bool = False
     created_at: datetime
 
 

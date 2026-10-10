@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import BigInteger
+from sqlalchemy import Boolean
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
 from sqlalchemy import Index
@@ -9,6 +10,7 @@ from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import Uuid
+from sqlalchemy import false
 from sqlalchemy import text
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
@@ -70,6 +72,7 @@ class Message(Base):
         ForeignKey("tracks.id", ondelete="SET NULL"),
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    via_link: Mapped[bool] = mapped_column(Boolean, server_default=false())
 
 
 class MessageReport(Base):

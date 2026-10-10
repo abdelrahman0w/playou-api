@@ -3449,6 +3449,11 @@
             "title": "Unsent",
             "default": false
           },
+          "via_link": {
+            "type": "boolean",
+            "title": "Via Link",
+            "default": false
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",

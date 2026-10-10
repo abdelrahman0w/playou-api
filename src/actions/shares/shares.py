@@ -97,6 +97,7 @@ async def _into_chat(
         text=None,
         track_id=track_id,
         now=now,
+        via_link=True,
     )
     if caught_up:
         await messages_repositories.mark_read(session, chat, opener, now=now)
