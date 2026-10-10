@@ -91,8 +91,10 @@ async def open_share(
         await shares_repositories.count_anonymous_open(session, share.id)
 
         return None
-    if user_id != share.user_id:
-        await shares_repositories.record_open(session, share.id, user_id, now=now)
+    if user_id == share.user_id:
+        return ShareOpened(track_id=track_id)
+
+    await shares_repositories.record_open(session, share.id, user_id, now=now)
 
     return ShareOpened(
         track_id=track_id,

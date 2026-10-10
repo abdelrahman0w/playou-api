@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Awaitable
 from collections.abc import Coroutine
 from datetime import timedelta
@@ -24,6 +25,7 @@ from src.services.spotify.models import SpotifyDevices
 from src.services.spotify.models import SpotifyError
 from src.services.spotify.models import SpotifyErrorDetail
 from src.services.spotify.models import SpotifyImage
+from src.services.spotify.models import SpotifyPlayer
 from src.services.spotify.models import SpotifyPlaylist
 from src.services.spotify.models import SpotifyPlaylistItems
 from src.services.spotify.models import SpotifyPlaylistTracks
@@ -66,6 +68,8 @@ CAPABILITIES = Capabilities(
 INVALID_GRANT = "invalid_grant"
 THUMBNAIL_WIDTH = 160
 PREMIUM_REQUIRED = "PREMIUM_REQUIRED"
+PLAY_CHECKS = (0.25, 0.5, 0.5, 0.75, 1.0)
+DEVICE_RETRY_SECONDS = 1.0
 PLAYBACK_SCOPES = [
     "streaming",
     "user-read-playback-state",
@@ -669,6 +673,45 @@ class SpotifyService:
         access_token: str,
         request: PlaybackRequest,
     ) -> None:
+        device_id = request.device_id
+        name: str | None = None
+        if device_id is None:
+            device_id, name = await self._playable_device(access_token)
+
+        await self._start(
+            access_token,
+            request,
+            device_id,
+            retry=request.device_id is not None,
+        )
+        if not await self._started(access_token, request, device_id):
+            raise NoActiveDeviceError(
+                f"Spotify didn't start on {name}, open it there first"
+                if name
+                else "Spotify didn't start playing, open it first",
+            )
+
+    async def _playable_device(self, access_token: str) -> tuple[str, str]:
+        devices = [
+            device
+            for device in await self.devices(access_token)
+            if not device.is_restricted
+        ]
+        device = next((device for device in devices if device.is_active), None)
+        device = device or next(iter(devices), None)
+        if device is None:
+            raise NoActiveDeviceError("Spotify has no device to play on, open it first")
+
+        return device.id, device.name
+
+    async def _start(
+        self,
+        access_token: str,
+        request: PlaybackRequest,
+        device_id: str,
+        *,
+        retry: bool,
+    ) -> None:
         body: dict[str, object] = {"position_ms": request.position_ms}
         if request.playlist_id is not None:
             body["context_uri"] = f"spotify:playlist:{request.playlist_id}"
@@ -677,14 +720,19 @@ class SpotifyService:
         if request.offset_track_id is not None:
             body["offset"] = {"uri": _track_uri(request.offset_track_id)}
 
-        response = await self._send(
-            self._api.put(
-                "/me/player/play",
-                params={"device_id": request.device_id} if request.device_id else None,
-                json=body,
-                headers=_bearer(access_token),
-            ),
-        )
+        for attempt in range(2 if retry else 1):
+            if attempt:
+                await asyncio.sleep(DEVICE_RETRY_SECONDS)
+            response = await self._send(
+                self._api.put(
+                    "/me/player/play",
+                    params={"device_id": device_id},
+                    json=body,
+                    headers=_bearer(access_token),
+                ),
+            )
+            if response.status_code != httpx.codes.NOT_FOUND:
+                break
         if response.status_code == httpx.codes.FORBIDDEN:
             if _reason(response) == PREMIUM_REQUIRED:
                 raise PlatformPremiumRequiredError("Spotify only plays for Premium")
@@ -692,6 +740,44 @@ class SpotifyService:
             raise NoActiveDeviceError("Spotify has no device to play on, open it first")
 
         _check(response)
+
+    async def _started(
+        self,
+        access_token: str,
+        request: PlaybackRequest,
+        device_id: str,
+    ) -> bool:
+        wanted = set(request.track_ids) if request.playlist_id is None else set()
+        for wait in PLAY_CHECKS:
+            await asyncio.sleep(wait)
+            try:
+                response = _check(
+                    await self._send(
+                        self._api.get("/me/player", headers=_bearer(access_token)),
+                    ),
+                )
+            except PlatformError:
+                return True
+
+            if response.status_code == httpx.codes.NO_CONTENT:
+                continue
+
+            player = _parse(response, SpotifyPlayer)
+            item = player.item
+            playing = (
+                {item.id, item.linked_from.id if item.linked_from else None}
+                if item
+                else set()
+            )
+            if (
+                player.is_playing
+                and player.device is not None
+                and player.device.id == device_id
+                and (not wanted or bool(wanted & playing))
+            ):
+                return True
+
+        return False
 
     async def close(self) -> None:
         await self._accounts.aclose()

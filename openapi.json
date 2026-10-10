@@ -4598,13 +4598,19 @@
             "title": "Track Id"
           },
           "shared_by": {
-            "$ref": "#/components/schemas/Sharer"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sharer"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
         "required": [
-          "track_id",
-          "shared_by"
+          "track_id"
         ],
         "title": "ShareOpened"
       },

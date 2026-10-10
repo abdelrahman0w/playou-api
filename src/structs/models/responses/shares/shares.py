@@ -24,7 +24,7 @@ class SharedTrack(BaseModel):
 
 class ShareOpened(BaseModel):
     track_id: UUID
-    shared_by: Sharer
+    shared_by: Sharer | None = None
 
 
 class ShareOpener(BaseModel):
