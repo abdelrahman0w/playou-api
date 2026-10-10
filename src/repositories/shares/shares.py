@@ -78,9 +78,9 @@ async def record_open(
     user_id: UUID,
     *,
     now: datetime,
-) -> None:
+) -> bool:
     opened = tables.ShareOpen
-    await session.execute(
+    opens = await session.scalar(
         insert(opened)
         .values(
             share_id=share_id,
@@ -95,8 +95,11 @@ async def record_open(
                 "last_opened_at": now,
                 "updated_at": func.now(),
             },
-        ),
+        )
+        .returning(opened.opens),
     )
+
+    return opens == 1
 
 
 async def revoke_share(

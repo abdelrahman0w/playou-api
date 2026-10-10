@@ -9,6 +9,7 @@ from .messages import message_reports
 from .messages import pair_of
 from .messages import report_message
 from .messages import set_blocked
+from .messages import unread_in
 from .messages import unsend
 from .messages import updates
 from .push import delete_subscription
@@ -34,6 +35,7 @@ __all__ = [
     "save_subscription",
     "set_blocked",
     "subscriptions_of",
+    "unread_in",
     "unsend",
     "updates",
     "user_name",

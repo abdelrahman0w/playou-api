@@ -80,6 +80,28 @@ async def read_share(session: AsyncSession, code: str) -> SharedTrack:
     )
 
 
+async def _into_chat(
+    session: AsyncSession,
+    chat: UUID,
+    track_id: UUID,
+    *,
+    sharer: UUID,
+    opener: UUID,
+    now: datetime,
+) -> None:
+    caught_up = not await messages_repositories.unread_in(session, chat, opener)
+    await messages_repositories.add_message(
+        session,
+        chat,
+        sharer,
+        text=None,
+        track_id=track_id,
+        now=now,
+    )
+    if caught_up:
+        await messages_repositories.mark_read(session, chat, opener, now=now)
+
+
 async def open_share(
     session: AsyncSession,
     code: str,
@@ -95,8 +117,21 @@ async def open_share(
     if user_id == share.user_id:
         return ShareOpened(track_id=track_id)
 
-    await shares_repositories.record_open(session, share.id, user_id, now=now)
-    await messages_repositories.ensure_conversation(session, share.user_id, user_id)
+    first = await shares_repositories.record_open(session, share.id, user_id, now=now)
+    chat = await messages_repositories.ensure_conversation(
+        session,
+        share.user_id,
+        user_id,
+    )
+    if first:
+        await _into_chat(
+            session,
+            chat,
+            track_id,
+            sharer=share.user_id,
+            opener=user_id,
+            now=now,
+        )
 
     return ShareOpened(
         track_id=track_id,

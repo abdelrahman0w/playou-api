@@ -285,6 +285,33 @@ async def add_message(
     return sent
 
 
+async def unread_in(session: AsyncSession, conversation_id: UUID, user_id: UUID) -> int:
+    message = tables.Message
+    member = tables.ConversationMember
+
+    return (
+        await session.scalar(
+            select(func.count())
+            .select_from(message)
+            .join(
+                member,
+                and_(
+                    member.conversation_id == message.conversation_id,
+                    member.user_id == user_id,
+                ),
+            )
+            .where(
+                message.conversation_id == conversation_id,
+                message.sender_id != user_id,
+                message.deleted_at.is_(None),
+                member.last_read_at.is_(None)
+                | (message.created_at > member.last_read_at),
+            ),
+        )
+        or 0
+    )
+
+
 async def members(session: AsyncSession, conversation_id: UUID) -> list[UUID]:
     member = tables.ConversationMember
 
