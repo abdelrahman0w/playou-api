@@ -73,6 +73,10 @@ class Message(Base):
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     via_link: Mapped[bool] = mapped_column(Boolean, server_default=false())
+    share_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("shares.id", ondelete="SET NULL"),
+    )
 
 
 class MessageReport(Base):

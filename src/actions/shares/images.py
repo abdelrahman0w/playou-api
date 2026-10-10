@@ -13,13 +13,20 @@ from redis.exceptions import RedisError
 from src.providers import logger
 from src.settings import settings
 from src.structs.enums import CacheKeys
-from src.structs.models.responses import CatalogTrack
 from src.utils.share_image import draw_share_image
 from src.utils.single_flight import single_flight
 
 
-DESIGN = 2
-COVER_HOSTS = frozenset({"i.scdn.co", "i.ytimg.com"})
+DESIGN = 3
+COVER_HOSTS = frozenset(
+    {
+        "i.scdn.co",
+        "i.ytimg.com",
+        "mosaic.scdn.co",
+        "image-cdn-ak.spotifycdn.com",
+        "image-cdn-fa.spotifycdn.com",
+    },
+)
 COVER_BYTES = 5 * 1024 * 1024
 COVER_PIXELS = 25_000_000
 COVER_SECONDS = 5.0
@@ -66,10 +73,16 @@ async def _cover(url: str | None) -> Image.Image | None:
     return await asyncio.to_thread(_decode, bytes(data))
 
 
-async def _draw(redis: Redis, key: str, track: CatalogTrack, artists: str) -> bytes:
-    cover = await _cover(track.artwork_url or track.thumbnail_url)
+async def _draw(
+    redis: Redis,
+    key: str,
+    title: str,
+    subtitle: str,
+    cover_url: str | None,
+) -> bytes:
+    cover = await _cover(cover_url)
     async with _DRAWING:
-        image = await asyncio.to_thread(draw_share_image, track.title, artists, cover)
+        image = await asyncio.to_thread(draw_share_image, title, subtitle, cover)
     try:
         await redis.set(
             key,
@@ -82,18 +95,15 @@ async def _draw(redis: Redis, key: str, track: CatalogTrack, artists: str) -> by
     return image
 
 
-async def share_image(redis: Redis, track: CatalogTrack) -> bytes:
-    artists = ", ".join(track.artists)
+async def share_image(
+    redis: Redis,
+    *,
+    title: str,
+    subtitle: str,
+    cover_url: str | None,
+) -> bytes:
     digest = hashlib.sha256(
-        "\n".join(
-            [
-                str(DESIGN),
-                track.title,
-                artists,
-                track.artwork_url or "",
-                track.thumbnail_url or "",
-            ],
-        ).encode(),
+        "\n".join([str(DESIGN), title, subtitle, cover_url or ""]).encode(),
     ).hexdigest()
     key = CacheKeys.SHARE_IMAGE.format(digest=digest)
 
@@ -104,4 +114,7 @@ async def share_image(redis: Redis, track: CatalogTrack) -> bytes:
     if cached:
         return base64.b64decode(cached)
 
-    return await single_flight(key, lambda: _draw(redis, key, track, artists))
+    return await single_flight(
+        key,
+        lambda: _draw(redis, key, title, subtitle, cover_url),
+    )

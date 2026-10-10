@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import BigInteger
+from sqlalchemy import CheckConstraint
 from sqlalchemy import DateTime
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
@@ -30,6 +31,13 @@ class Share(Base):
         UniqueConstraint("code"),
         Index(None, "user_id", "created_at"),
         Index(None, "track_id"),
+        Index(None, "playlist_id"),
+        CheckConstraint(
+            "(subject = 'TRACK' and track_id is not null and playlist_id is null)"
+            " or (subject = 'PLAYLIST'"
+            " and playlist_id is not null and track_id is null)",
+            name="one_subject",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -48,6 +56,10 @@ class Share(Base):
     track_id: Mapped[UUID | None] = mapped_column(
         Uuid,
         ForeignKey("tracks.id", ondelete="CASCADE"),
+    )
+    playlist_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("playlists.id", ondelete="CASCADE"),
     )
     anonymous_opens: Mapped[int] = mapped_column(
         Integer,

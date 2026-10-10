@@ -12,6 +12,7 @@ from src.utils.messages import clean_message
 class SendMessageRequest(BaseModel):
     text: str | None = Field(default=None, max_length=4000)
     track_id: UUID | None = None
+    playlist_id: UUID | None = None
 
     @field_validator("text")
     @classmethod
@@ -23,8 +24,10 @@ class SendMessageRequest(BaseModel):
 
     @model_validator(mode="after")
     def something_to_send(self) -> Self:
-        if self.text is None and self.track_id is None:
-            raise ValueError("Send some text, a song, or both")
+        if self.track_id is not None and self.playlist_id is not None:
+            raise ValueError("Send a song or a playlist, not both")
+        if self.text is None and self.track_id is None and self.playlist_id is None:
+            raise ValueError("Send some text, a song, a playlist, or text with one")
 
         return self
 

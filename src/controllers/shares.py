@@ -5,13 +5,15 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.actions import shares as shares_actions
+from src.exceptions import NotFoundError
 from src.repositories import shares as shares_repositories
 from src.structs.models import Page
 from src.structs.models.requests import ShareListRequest
 from src.structs.models.requests import ShareRequest
+from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import ReceivedShare
 from src.structs.models.responses import SentShare
-from src.structs.models.responses import SharedTrack
+from src.structs.models.responses import Shared
 from src.structs.models.responses import ShareLink
 from src.structs.models.responses import ShareOpened
 
@@ -24,24 +26,51 @@ async def share(
     user_id: UUID,
 ) -> ShareLink:
     async with session.begin():
-        return await shares_actions.share_track(
+        return await shares_actions.share(
             session,
             redis,
-            request.track_id,
+            track_id=request.track_id,
+            playlist_id=request.playlist_id,
             user_id=user_id,
         )
 
 
-async def read_share(session: AsyncSession, code: str) -> SharedTrack:
+async def read_share(session: AsyncSession, code: str) -> Shared:
     async with session.begin():
         return await shares_actions.read_share(session, code)
+
+
+async def share_items(
+    session: AsyncSession,
+    code: str,
+    request: ShareListRequest,
+) -> Page[CatalogTrack]:
+    async with session.begin():
+        return await shares_actions.share_items(session, code, page=request.page)
 
 
 async def share_image(session: AsyncSession, redis: Redis, code: str) -> bytes:
     async with session.begin():
         shared = await shares_actions.read_share(session, code)
 
-    return await shares_actions.share_image(redis, shared.track)
+    if shared.playlist is not None:
+        return await shares_actions.share_image(
+            redis,
+            title=shared.playlist.name,
+            subtitle=f"♫ {shared.playlist.item_count}",
+            cover_url=shared.playlist.cover_url,
+        )
+
+    track = shared.track
+    if track is None:
+        raise NotFoundError("This link is no longer available")
+
+    return await shares_actions.share_image(
+        redis,
+        title=track.title,
+        subtitle=", ".join(track.artists),
+        cover_url=track.artwork_url or track.thumbnail_url,
+    )
 
 
 async def open_share(

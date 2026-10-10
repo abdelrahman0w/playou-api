@@ -5,6 +5,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.actions import rate_limit as rate_limit_actions
+from src.actions import shares as shares_actions
 from src.exceptions import ForbiddenError
 from src.exceptions import NotFoundError
 from src.exceptions import TooManyRequestsError
@@ -90,6 +91,14 @@ async def send_message(
         request.track_id,
     ):
         raise NotFoundError("The track does not exist")
+    share_id = None
+    if request.playlist_id is not None:
+        share_id, _ = await shares_actions.share_playlist(
+            session,
+            redis,
+            request.playlist_id,
+            user_id=user_id,
+        )
 
     sent = await messages_repositories.add_message(
         session,
@@ -97,6 +106,7 @@ async def send_message(
         user_id,
         text=request.text,
         track_id=request.track_id,
+        share_id=share_id,
         now=now,
     )
 

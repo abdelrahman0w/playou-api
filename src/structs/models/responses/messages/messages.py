@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from pydantic import Field
 
 from src.structs.models.responses.library import CatalogTrack
+from src.structs.models.responses.shares import SharedPlaylist
 
 
 class ChatMessage(BaseModel):
@@ -12,6 +13,7 @@ class ChatMessage(BaseModel):
     mine: bool
     text: str | None = None
     track: CatalogTrack | None = None
+    playlist: SharedPlaylist | None = None
     unsent: bool = False
     via_link: bool = False
     created_at: datetime

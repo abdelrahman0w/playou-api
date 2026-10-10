@@ -2909,7 +2909,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SharedTrack"
+                  "$ref": "#/components/schemas/Shared"
                 }
               }
             }
@@ -2946,6 +2946,71 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shares/{code}/items": {
+      "get": {
+        "summary": "Share Items",
+        "operationId": "share_items_shares__code__items_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 16,
+              "pattern": "^[0-9A-Za-z]+$",
+              "title": "Code"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_CatalogTrack_"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -3438,6 +3503,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/CatalogTrack"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "playlist": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SharedPlaylist"
               },
               {
                 "type": "null"
@@ -4242,6 +4317,63 @@
           "name"
         ],
         "title": "NameRequest"
+      },
+      "Page_CatalogTrack_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogTrack"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "page_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Size"
+          },
+          "total_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Count"
+          },
+          "total_pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Pages"
+          }
+        },
+        "type": "object",
+        "title": "Page[CatalogTrack]"
       },
       "Page_ConversationSummary_": {
         "properties": {
@@ -5414,7 +5546,24 @@
             "title": "Code"
           },
           "track": {
-            "$ref": "#/components/schemas/CatalogTrack"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogTrack"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "playlist": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SharedPlaylist"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "shared_by": {
             "$ref": "#/components/schemas/Sharer"
@@ -5428,7 +5577,6 @@
         "type": "object",
         "required": [
           "code",
-          "track",
           "shared_by",
           "opened_at"
         ],
@@ -5607,6 +5755,18 @@
               }
             ],
             "title": "Track Id"
+          },
+          "playlist_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playlist Id"
           }
         },
         "type": "object",
@@ -5623,7 +5783,24 @@
             "title": "Url"
           },
           "track": {
-            "$ref": "#/components/schemas/CatalogTrack"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogTrack"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "playlist": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SharedPlaylist"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_at": {
             "type": "string",
@@ -5647,7 +5824,6 @@
         "required": [
           "code",
           "url",
-          "track",
           "created_at"
         ],
         "title": "SentShare"
@@ -5681,9 +5857,21 @@
       "ShareOpened": {
         "properties": {
           "track_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Track Id"
+          },
+          "playlist": {
+            "type": "boolean",
+            "title": "Playlist",
+            "default": false
           },
           "shared_by": {
             "anyOf": [
@@ -5697,9 +5885,6 @@
           }
         },
         "type": "object",
-        "required": [
-          "track_id"
-        ],
         "title": "ShareOpened"
       },
       "ShareOpener": {
@@ -5729,39 +5914,128 @@
       "ShareRequest": {
         "properties": {
           "track_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Track Id"
+          },
+          "playlist_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playlist Id"
           }
         },
         "type": "object",
-        "required": [
-          "track_id"
-        ],
         "title": "ShareRequest"
       },
-      "SharedTrack": {
+      "Shared": {
         "properties": {
           "code": {
             "type": "string",
             "title": "Code"
           },
-          "track": {
-            "$ref": "#/components/schemas/CatalogTrack"
-          },
           "created_at": {
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "track": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogTrack"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "playlist": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SharedPlaylist"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogTrack"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "more": {
+            "type": "boolean",
+            "title": "More",
+            "default": false
           }
         },
         "type": "object",
         "required": [
           "code",
-          "track",
           "created_at"
         ],
-        "title": "SharedTrack"
+        "title": "Shared"
+      },
+      "SharedPlaylist": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "item_count": {
+            "type": "integer",
+            "title": "Item Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "SharedPlaylist"
       },
       "Sharer": {
         "properties": {

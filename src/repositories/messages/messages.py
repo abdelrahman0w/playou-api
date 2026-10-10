@@ -17,11 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from src.repositories.catalog import get_tracks
+from src.repositories.shares import shared_playlists
 from src.structs import tables
 from src.structs.models import Page
 from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import ChatMessage
 from src.structs.models.responses import ConversationSummary
+from src.structs.models.responses import SharedPlaylist
 from src.utils.sql import any_of
 
 
@@ -68,15 +70,18 @@ def _message(
     row: tables.Message,
     user_id: UUID,
     tracks: dict[UUID, CatalogTrack],
+    playlists: dict[UUID, SharedPlaylist],
 ) -> ChatMessage:
     unsent = row.deleted_at is not None
     track = tracks.get(row.track_id) if row.track_id and not unsent else None
+    playlist = playlists.get(row.share_id) if row.share_id and not unsent else None
 
     return ChatMessage(
         id=row.id,
         mine=row.sender_id == user_id,
         text=None if unsent else row.text,
         track=track,
+        playlist=playlist,
         unsent=unsent,
         via_link=row.via_link,
         created_at=row.created_at,
@@ -88,12 +93,24 @@ async def _messages(
     rows: list[tables.Message],
     user_id: UUID,
 ) -> list[ChatMessage]:
-    tracks = await get_tracks(
-        session,
-        {row.track_id for row in rows if row.track_id and row.deleted_at is None},
+    live = [row for row in rows if row.deleted_at is None]
+    tracks = await get_tracks(session, {row.track_id for row in live if row.track_id})
+    share_ids = {row.share_id for row in live if row.share_id}
+    shares = (
+        list(
+            await session.scalars(
+                select(tables.Share).where(
+                    any_of(tables.Share.id, share_ids),
+                    tables.Share.revoked_at.is_(None),
+                ),
+            ),
+        )
+        if share_ids
+        else []
     )
+    playlists = await shared_playlists(session, shares)
 
-    return [_message(row, user_id, tracks) for row in rows]
+    return [_message(row, user_id, tracks, playlists) for row in rows]
 
 
 def _summaries_query(user_id: UUID) -> Select[Unpack[tuple[Any, ...]]]:
@@ -265,6 +282,7 @@ async def add_message(
     track_id: UUID | None,
     now: datetime,
     via_link: bool = False,
+    share_id: UUID | None = None,
 ) -> ChatMessage:
     row = tables.Message(
         conversation_id=conversation_id,
@@ -273,6 +291,7 @@ async def add_message(
         track_id=track_id,
         created_at=now,
         via_link=via_link,
+        share_id=share_id,
     )
     session.add(row)
     await session.flush()

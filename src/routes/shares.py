@@ -18,9 +18,10 @@ from src.settings import settings
 from src.structs.models import Page
 from src.structs.models.requests import ShareListRequest
 from src.structs.models.requests import ShareRequest
+from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import ReceivedShare
 from src.structs.models.responses import SentShare
-from src.structs.models.responses import SharedTrack
+from src.structs.models.responses import Shared
 from src.structs.models.responses import ShareLink
 from src.structs.models.responses import ShareOpened
 
@@ -67,13 +68,28 @@ async def read_share(
     code: Code,
     session: DBSessionDep,
     response: Response,
-) -> SharedTrack:
+) -> Shared:
     shared = await shares_controller.read_share(session, code)
     response.headers["Cache-Control"] = (
         f"public, max-age={settings.shares.public_cache_seconds}"
     )
 
     return shared
+
+
+@router.get("/{code}/items")
+async def share_items(
+    code: Code,
+    session: DBSessionDep,
+    request: Annotated[ShareListRequest, Query()],
+    response: Response,
+) -> Page[CatalogTrack]:
+    items = await shares_controller.share_items(session, code, request)
+    response.headers["Cache-Control"] = (
+        f"public, max-age={settings.shares.public_cache_seconds}"
+    )
+
+    return items
 
 
 @router.get(

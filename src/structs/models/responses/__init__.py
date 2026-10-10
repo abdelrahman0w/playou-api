@@ -35,7 +35,8 @@ from .playback import PlaybackSessionSaved
 from .playback import PlaybackToken
 from .shares import ReceivedShare
 from .shares import SentShare
-from .shares import SharedTrack
+from .shares import Shared
+from .shares import SharedPlaylist
 from .shares import ShareLink
 from .shares import ShareOpened
 from .shares import ShareOpener
@@ -81,7 +82,8 @@ __all__ = [
     "ShareLink",
     "ShareOpened",
     "ShareOpener",
-    "SharedTrack",
+    "Shared",
+    "SharedPlaylist",
     "Sharer",
     "TogetherTracks",
     "TrackSource",
