@@ -37,6 +37,13 @@ async def read_share(session: AsyncSession, code: str) -> SharedTrack:
         return await shares_actions.read_share(session, code)
 
 
+async def share_image(session: AsyncSession, redis: Redis, code: str) -> bytes:
+    async with session.begin():
+        shared = await shares_actions.read_share(session, code)
+
+    return await shares_actions.share_image(redis, shared.track)
+
+
 async def open_share(
     session: AsyncSession,
     code: str,

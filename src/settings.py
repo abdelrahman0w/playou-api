@@ -326,6 +326,8 @@ class SharesSettings(BaseAppSettings):
 
     per_user_hour: int = Field(default=60, ge=1)
     public_cache_seconds: int = Field(default=300, ge=0)
+    image_cache_days: int = Field(default=7, ge=1)
+    image_max_age_seconds: int = Field(default=24 * 60 * 60, ge=0)
 
 
 class Settings(BaseAppSettings):

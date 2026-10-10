@@ -10,6 +10,7 @@ class CacheKeys(StrEnum):
     CATALOG_SEARCH_SHARED = "catalog:search:{platform}"
     CATALOG_CANDIDATES = "catalog:candidates:{user_id}:{track_id}:{platform}"
     COPY_LOCK = "copy:lock:{copy_id}"
+    SHARE_IMAGE = "shares:image:{digest}"
     IMPORTS_CHECKED = "imports:checked:{user_id}"
     SYNC_NUDGES = "sync:nudges"
     SYNC_WORKER_ALIVE = "sync:worker:alive"

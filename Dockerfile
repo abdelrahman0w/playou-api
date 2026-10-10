@@ -45,6 +45,12 @@ FROM python:${PYTHON_VERSION} AS runtime
 ENV NON_ROOT_USER=runtime \
     PYTHONUNBUFFERED=1
 
+# install fribidi (for arabic text in images)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libfribidi0 && \
+    rm -rf /var/lib/apt/lists/*
+
 # create a non-root user
 RUN groupadd -r ${NON_ROOT_USER} && \
     useradd --no-log-init -r -g ${NON_ROOT_USER} ${NON_ROOT_USER}

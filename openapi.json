@@ -2362,6 +2362,44 @@
         }
       }
     },
+    "/shares/{code}/image.jpg": {
+      "get": {
+        "summary": "Share Image",
+        "operationId": "share_image_shares__code__image_jpg_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 16,
+              "pattern": "^[0-9A-Za-z]+$",
+              "title": "Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/jpeg": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/shares/{code}/opens": {
       "post": {
         "summary": "Open Share",

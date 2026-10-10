@@ -76,6 +76,27 @@ async def read_share(
     return shared
 
 
+@router.get(
+    "/{code}/image.jpg",
+    response_class=Response,
+    responses={status.HTTP_200_OK: {"content": {"image/jpeg": {}}}},
+)
+async def share_image(
+    code: Code,
+    session: DBSessionDep,
+    redis: RedisDep,
+) -> Response:
+    image = await shares_controller.share_image(session, redis, code)
+
+    return Response(
+        content=image,
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": f"public, max-age={settings.shares.image_max_age_seconds}",
+        },
+    )
+
+
 @router.post(
     "/{code}/opens",
     response_model=ShareOpened,
