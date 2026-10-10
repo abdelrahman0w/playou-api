@@ -25,7 +25,7 @@ class User(Base):
         server_default=text("uuidv7()"),
     )
     email: Mapped[str] = mapped_column(String(320), unique=True)
-    name: Mapped[str | None] = mapped_column(String(95))
+    name: Mapped[str] = mapped_column(String(95))
     locale: Mapped[str] = mapped_column(String(8), default="en")
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_sign_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

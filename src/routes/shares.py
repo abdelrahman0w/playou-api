@@ -10,7 +10,7 @@ from fastapi import status
 from src.controllers import shares as shares_controller
 from src.dependencies import DBSessionDep
 from src.dependencies import NowDep
-from src.dependencies import OptionalNamedUserIDDep
+from src.dependencies import OptionalUserIDDep
 from src.dependencies import RedisDep
 from src.dependencies import UserIDDep
 from src.dependencies import require_trusted_origin
@@ -105,7 +105,7 @@ async def share_image(
 )
 async def open_share(
     code: Code,
-    user_id: OptionalNamedUserIDDep,
+    user_id: OptionalUserIDDep,
     session: DBSessionDep,
     now: NowDep,
 ) -> ShareOpened | Response:

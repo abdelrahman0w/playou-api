@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from src.actions import auth as auth_actions
 from src.actions import playback as playback_actions
 from src.exceptions import ForbiddenError
-from src.exceptions import NameRequiredError
 from src.exceptions import UnauthorizedError
 from src.providers import DatabaseSessions
 from src.providers import RedisConnection
@@ -131,18 +130,9 @@ async def get_user_id(user: SessionUserDep) -> UUID | None:
     return user.user_id if user is not None else None
 
 
-async def require_signed_in(user: SessionUserDep) -> UUID:
-    if user is None:
-        raise UnauthorizedError("Sign in to continue")
-
-    return user.user_id
-
-
 async def require_user_id(user: SessionUserDep) -> UUID:
     if user is None:
         raise UnauthorizedError("Sign in to continue")
-    if not user.named:
-        raise NameRequiredError("Tell us your name to continue")
 
     return user.user_id
 
@@ -153,14 +143,5 @@ def require_trusted_origin(request: Request) -> None:
         raise ForbiddenError("This origin may not do that")
 
 
-async def optional_named_user_id(user: SessionUserDep) -> UUID | None:
-    if user is not None and not user.named:
-        raise NameRequiredError("Tell us your name to continue")
-
-    return user.user_id if user is not None else None
-
-
 OptionalUserIDDep = Annotated[UUID | None, Depends(get_user_id)]
-OptionalNamedUserIDDep = Annotated[UUID | None, Depends(optional_named_user_id)]
 UserIDDep = Annotated[UUID, Depends(require_user_id)]
-SignedInUserIDDep = Annotated[UUID, Depends(require_signed_in)]

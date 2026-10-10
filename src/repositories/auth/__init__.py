@@ -16,7 +16,7 @@ from .users import record_name_change
 from .users import session_hashes
 from .users import set_name
 from .users import sign_in_user
-from .users import user_has_name
+from .users import touch_user
 
 
 __all__ = [
@@ -38,5 +38,5 @@ __all__ = [
     "session_hashes",
     "set_name",
     "sign_in_user",
-    "user_has_name",
+    "touch_user",
 ]

@@ -105,24 +105,18 @@ async def get_me(
 
 async def update_me(
     session: AsyncSession,
-    redis: Redis,
     user_id: UUID,
     request: NameRequest,
     *,
     now: datetime,
 ) -> AuthUser:
     async with session.begin():
-        user, first = await auth_actions.change_name(
+        user = await auth_actions.change_name(
             session,
             user_id,
             request.name,
             now=now,
         )
-        hashes = (
-            await auth_repositories.session_hashes(session, user_id) if first else []
-        )
-
-    await auth_actions.forget_cached_sessions(redis, hashes)
 
     return user.model_copy(
         update={

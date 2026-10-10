@@ -7,7 +7,7 @@ from pydantic import BaseModel
 class AuthUser(BaseModel):
     id: UUID
     email: str
-    name: str | None = None
+    name: str
     locale: str
     created_at: datetime
     last_sign_in_at: datetime | None = None

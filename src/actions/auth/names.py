@@ -43,27 +43,25 @@ async def change_name(
     name: str,
     *,
     now: datetime,
-) -> tuple[AuthUser, bool]:
+) -> AuthUser:
     user = await auth_repositories.lock_user(session, user_id)
     if user is None:
         raise UnauthorizedError("Sign in to continue")
     if user.name == name:
-        return await with_name_limits(session, user, now=now), False
+        return await with_name_limits(session, user, now=now)
 
-    if user.name is not None:
-        limited = await with_name_limits(session, user, now=now)
-        if limited.name_change_at is not None:
-            raise NameChangeLimitedError(
-                "Your name was changed too many times lately, "
-                f"it can change again on {limited.name_change_at.date().isoformat()}",
-                retry_after_seconds=max(
-                    1,
-                    math.ceil((limited.name_change_at - now).total_seconds()),
-                ),
-            )
+    limited = await with_name_limits(session, user, now=now)
+    if limited.name_change_at is not None:
+        raise NameChangeLimitedError(
+            "Your name was changed too many times lately, "
+            f"it can change again on {limited.name_change_at.date().isoformat()}",
+            retry_after_seconds=max(
+                1,
+                math.ceil((limited.name_change_at - now).total_seconds()),
+            ),
+        )
 
-        await auth_repositories.record_name_change(session, user_id, now=now)
+    await auth_repositories.record_name_change(session, user_id, now=now)
+    renamed = await auth_repositories.set_name(session, user_id, name)
 
-    named = await auth_repositories.set_name(session, user_id, name)
-
-    return await with_name_limits(session, named, now=now), user.name is None
+    return await with_name_limits(session, renamed, now=now)

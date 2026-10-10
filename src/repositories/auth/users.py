@@ -31,7 +31,7 @@ async def sign_in_user(
     *,
     locale: str,
     now: datetime,
-    name: str | None = None,
+    name: str,
 ) -> tuple[AuthUser, bool]:
     user = tables.User
     statement = insert(user).values(
@@ -53,6 +53,23 @@ async def sign_in_user(
     return _to_user(row), row.created_at == row.updated_at
 
 
+async def touch_user(
+    session: AsyncSession,
+    email: str,
+    *,
+    now: datetime,
+) -> AuthUser | None:
+    user = tables.User
+    row = await session.scalar(
+        update(user)
+        .where(user.email == email)
+        .values(last_sign_in_at=now)
+        .returning(user),
+    )
+
+    return _to_user(row) if row is not None else None
+
+
 async def get_user(session: AsyncSession, user_id: UUID) -> AuthUser | None:
     row = await session.get(tables.User, user_id)
 
@@ -70,17 +87,6 @@ async def session_hashes(
             ),
         ),
     )
-
-
-async def user_has_name(
-    session: AsyncSession,
-    user_id: UUID,
-) -> bool:
-    name = await session.scalar(
-        select(tables.User.name).where(tables.User.id == user_id),
-    )
-
-    return name is not None
 
 
 async def delete_user(session: AsyncSession, user_id: UUID) -> list[str]:

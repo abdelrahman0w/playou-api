@@ -168,20 +168,20 @@ async def verify_email_code(
             raise InvalidCodeError("The code has expired, ask for a new one")
 
         if hmac.compare_digest(live.code_hash, code_hash(email, code)):
-            if (
-                name is None
-                and await auth_repositories.get_user_by_email(session, email) is None
-            ):
-                raise NameRequiredError("Tell us your name to finish signing up")
-
+            if name is None:
+                signed_in = await auth_repositories.touch_user(session, email, now=now)
+                if signed_in is None:
+                    raise NameRequiredError("Tell us your name to finish signing up")
+                user, created = signed_in, False
+            else:
+                user, created = await auth_repositories.sign_in_user(
+                    session,
+                    email,
+                    locale=locale,
+                    now=now,
+                    name=name,
+                )
             live.consumed_at = now
-            user, created = await auth_repositories.sign_in_user(
-                session,
-                email,
-                locale=locale,
-                now=now,
-                name=name,
-            )
         else:
             live.attempts += 1
             left = auth.code_attempts - live.attempts

@@ -2608,14 +2608,7 @@
             "title": "Email"
           },
           "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Name"
           },
           "locale": {
@@ -2671,6 +2664,7 @@
         "required": [
           "id",
           "email",
+          "name",
           "locale",
           "created_at"
         ],

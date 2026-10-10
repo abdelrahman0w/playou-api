@@ -10,7 +10,7 @@ from src.dependencies import DBSessionDep
 from src.dependencies import NowDep
 from src.dependencies import RedisDep
 from src.dependencies import ResendDep
-from src.dependencies import SignedInUserIDDep
+from src.dependencies import UserIDDep
 from src.dependencies import get_session_token
 from src.dependencies import require_trusted_origin
 from src.settings import settings
@@ -132,7 +132,7 @@ async def sign_out(
 
 @router.get("/me")
 async def get_me(
-    user_id: SignedInUserIDDep,
+    user_id: UserIDDep,
     session: DBSessionDep,
     now: NowDep,
 ) -> AuthUser:
@@ -145,12 +145,11 @@ async def get_me(
 )
 async def update_me(
     body: NameRequest,
-    user_id: SignedInUserIDDep,
+    user_id: UserIDDep,
     session: DBSessionDep,
-    redis: RedisDep,
     now: NowDep,
 ) -> AuthUser:
-    return await auth_controller.update_me(session, redis, user_id, body, now=now)
+    return await auth_controller.update_me(session, user_id, body, now=now)
 
 
 @router.delete(
@@ -159,7 +158,7 @@ async def update_me(
     dependencies=[Depends(require_trusted_origin)],
 )
 async def delete_me(
-    user_id: SignedInUserIDDep,
+    user_id: UserIDDep,
     session: DBSessionDep,
     redis: RedisDep,
 ) -> Response:
