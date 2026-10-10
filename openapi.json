@@ -533,6 +533,46 @@
         }
       }
     },
+    "/catalog/tracks/{track_id}": {
+      "get": {
+        "summary": "Get Track",
+        "operationId": "get_track_catalog_tracks__track_id__get",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogTrack"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/catalog/tracks/{track_id}/find/{platform}": {
       "post": {
         "summary": "Find On",
@@ -2102,6 +2142,270 @@
           }
         }
       }
+    },
+    "/shares": {
+      "post": {
+        "summary": "Share",
+        "operationId": "share_shares_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLink"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shares/sent": {
+      "get": {
+        "summary": "List Sent",
+        "operationId": "list_sent_shares_sent_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_SentShare_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shares/received": {
+      "get": {
+        "summary": "List Received",
+        "operationId": "list_received_shares_received_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ReceivedShare_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shares/{code}": {
+      "get": {
+        "summary": "Read Share",
+        "operationId": "read_share_shares__code__get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 16,
+              "pattern": "^[0-9A-Za-z]+$",
+              "title": "Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedTrack"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Revoke Share",
+        "operationId": "revoke_share_shares__code__delete",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 16,
+              "pattern": "^[0-9A-Za-z]+$",
+              "title": "Code"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shares/{code}/opens": {
+      "post": {
+        "summary": "Open Share",
+        "operationId": "open_share_shares__code__opens_post",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 16,
+              "pattern": "^[0-9A-Za-z]+$",
+              "title": "Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareOpened"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Opened signed out"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3133,6 +3437,120 @@
         "type": "object",
         "title": "Page[Playlist]"
       },
+      "Page_ReceivedShare_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReceivedShare"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "page_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Size"
+          },
+          "total_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Count"
+          },
+          "total_pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Pages"
+          }
+        },
+        "type": "object",
+        "title": "Page[ReceivedShare]"
+      },
+      "Page_SentShare_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SentShare"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "page_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Size"
+          },
+          "total_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Count"
+          },
+          "total_pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Pages"
+          }
+        },
+        "type": "object",
+        "title": "Page[SentShare]"
+      },
       "PlatformData": {
         "properties": {
           "platform": {
@@ -3931,6 +4349,33 @@
         ],
         "title": "ReadinessResponse"
       },
+      "ReceivedShare": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "track": {
+            "$ref": "#/components/schemas/CatalogTrack"
+          },
+          "shared_by": {
+            "$ref": "#/components/schemas/Sharer"
+          },
+          "opened_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Opened At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "track",
+          "shared_by",
+          "opened_at"
+        ],
+        "title": "ReceivedShare"
+      },
       "RejectedTokenRequest": {
         "properties": {
           "rejected": {
@@ -4079,6 +4524,46 @@
         ],
         "title": "SearchStatuses"
       },
+      "SentShare": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "track": {
+            "$ref": "#/components/schemas/CatalogTrack"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "anonymous_opens": {
+            "type": "integer",
+            "title": "Anonymous Opens",
+            "default": 0
+          },
+          "opened_by": {
+            "items": {
+              "$ref": "#/components/schemas/ShareOpener"
+            },
+            "type": "array",
+            "title": "Opened By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "url",
+          "track",
+          "created_at"
+        ],
+        "title": "SentShare"
+      },
       "SessionTransports": {
         "type": "string",
         "enum": [
@@ -4086,6 +4571,116 @@
           "bearer"
         ],
         "title": "SessionTransports"
+      },
+      "ShareLink": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "url"
+        ],
+        "title": "ShareLink"
+      },
+      "ShareOpened": {
+        "properties": {
+          "track_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Track Id"
+          },
+          "shared_by": {
+            "$ref": "#/components/schemas/Sharer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "track_id",
+          "shared_by"
+        ],
+        "title": "ShareOpened"
+      },
+      "ShareOpener": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "opens": {
+            "type": "integer",
+            "title": "Opens"
+          },
+          "last_opened_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Opened At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "opens",
+          "last_opened_at"
+        ],
+        "title": "ShareOpener"
+      },
+      "ShareRequest": {
+        "properties": {
+          "track_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Track Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "track_id"
+        ],
+        "title": "ShareRequest"
+      },
+      "SharedTrack": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "track": {
+            "$ref": "#/components/schemas/CatalogTrack"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "track",
+          "created_at"
+        ],
+        "title": "SharedTrack"
+      },
+      "Sharer": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "Sharer"
       },
       "StartCopyRequest": {
         "properties": {

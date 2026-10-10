@@ -19,6 +19,7 @@ from .platforms import AccountStatuses
 from .platforms import Closeness
 from .platforms import Platforms
 from .platforms import SearchStatuses
+from .shares import ShareSubjects
 
 
 __all__ = [
@@ -39,6 +40,7 @@ __all__ = [
     "RemovedBy",
     "SearchStatuses",
     "SessionTransports",
+    "ShareSubjects",
     "SyncNudges",
     "SyncOutcomes",
     "SyncStatuses",

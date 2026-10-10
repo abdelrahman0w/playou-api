@@ -25,6 +25,13 @@ from .library import TrackSource
 from .playback import PlaybackSession
 from .playback import PlaybackSessionSaved
 from .playback import PlaybackToken
+from .shares import ReceivedShare
+from .shares import SentShare
+from .shares import SharedTrack
+from .shares import ShareLink
+from .shares import ShareOpened
+from .shares import ShareOpener
+from .shares import Sharer
 
 
 __all__ = [
@@ -53,6 +60,13 @@ __all__ = [
     "Progress",
     "PushPreferences",
     "ReadinessResponse",
+    "ReceivedShare",
     "SearchResults",
+    "SentShare",
+    "ShareLink",
+    "ShareOpened",
+    "ShareOpener",
+    "SharedTrack",
+    "Sharer",
     "TrackSource",
 ]

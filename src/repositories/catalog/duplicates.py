@@ -164,6 +164,10 @@ async def merge_track(
         .values(track_id=keep),
     )
 
+    await session.execute(
+        update(tables.Share).where(tables.Share.track_id == drop).values(track_id=keep),
+    )
+
     item = tables.CopyItem
     kept = aliased(item)
     await session.execute(

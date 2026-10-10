@@ -146,6 +146,14 @@ def require_trusted_origin(request: Request) -> None:
         raise ForbiddenError("This origin may not do that")
 
 
+async def optional_named_user_id(user: SessionUserDep) -> UUID | None:
+    if user is not None and not user.named:
+        raise NameRequiredError("Tell us your name to continue")
+
+    return user.user_id if user is not None else None
+
+
 OptionalUserIDDep = Annotated[UUID | None, Depends(get_user_id)]
+OptionalNamedUserIDDep = Annotated[UUID | None, Depends(optional_named_user_id)]
 UserIDDep = Annotated[UUID, Depends(require_user_id)]
 SignedInUserIDDep = Annotated[UUID, Depends(require_signed_in)]

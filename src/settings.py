@@ -319,6 +319,15 @@ class PlaybackSettings(BaseAppSettings):
     longest_wait_seconds: int = Field(default=20, ge=0)
 
 
+class SharesSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="SHARES_",
+    )
+
+    per_user_hour: int = Field(default=60, ge=1)
+    public_cache_seconds: int = Field(default=300, ge=0)
+
+
 class Settings(BaseAppSettings):
     app: AppSettings = Field(default_factory=AppSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
@@ -341,6 +350,7 @@ class Settings(BaseAppSettings):
     youtube: YouTubeSettings = Field(default_factory=YouTubeSettings)
     data: DataSettings = Field(default_factory=DataSettings)
     playback: PlaybackSettings = Field(default_factory=PlaybackSettings)
+    shares: SharesSettings = Field(default_factory=SharesSettings)
 
 
 settings = Settings()

@@ -13,6 +13,7 @@ from src.dependencies import RedisDep
 from src.dependencies import SessionFactoryDep
 from src.dependencies import UserIDDep
 from src.dependencies import require_trusted_origin
+from src.dependencies import require_user_id
 from src.structs.enums import Platforms
 from src.structs.models.requests import ChooseSimilarRequest
 from src.structs.models.requests import SearchRequest
@@ -43,6 +44,17 @@ async def search(
         user_id=user_id,
         now=now,
     )
+
+
+@router.get(
+    "/tracks/{track_id}",
+    dependencies=[Depends(require_user_id)],
+)
+async def get_track(
+    track_id: UUID,
+    session: DBSessionDep,
+) -> CatalogTrack:
+    return await catalog_controller.get_track(session, track_id)
 
 
 @router.post(

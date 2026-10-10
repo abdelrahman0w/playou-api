@@ -18,6 +18,8 @@ from .playback import PlaybackPositionRequest
 from .playback import PlayRequest
 from .playback import RejectedTokenRequest
 from .playback import SavePlaybackSessionRequest
+from .shares import ShareListRequest
+from .shares import ShareRequest
 
 
 __all__ = [
@@ -39,6 +41,8 @@ __all__ = [
     "RejectedTokenRequest",
     "SavePlaybackSessionRequest",
     "SearchRequest",
+    "ShareListRequest",
+    "ShareRequest",
     "StartCopyRequest",
     "UpdatePlaylistRequest",
 ]
