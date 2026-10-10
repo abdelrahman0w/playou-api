@@ -169,6 +169,11 @@ async def merge_track(
     await move_lyrics(session, keep, drop)
     await move_reports(session, keep, drop)
     await session.execute(
+        update(tables.Message)
+        .where(tables.Message.track_id == drop)
+        .values(track_id=keep),
+    )
+    await session.execute(
         update(tables.Share).where(tables.Share.track_id == drop).values(track_id=keep),
     )
 

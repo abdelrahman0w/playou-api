@@ -8,6 +8,7 @@ from src.actions import rate_limit as rate_limit_actions
 from src.exceptions import NotFoundError
 from src.exceptions import TooManyRequestsError
 from src.repositories import catalog as catalog_repositories
+from src.repositories import messages as messages_repositories
 from src.repositories import shares as shares_repositories
 from src.settings import settings
 from src.structs import tables
@@ -95,6 +96,7 @@ async def open_share(
         return ShareOpened(track_id=track_id)
 
     await shares_repositories.record_open(session, share.id, user_id, now=now)
+    await messages_repositories.ensure_conversation(session, share.user_id, user_id)
 
     return ShareOpened(
         track_id=track_id,

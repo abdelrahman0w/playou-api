@@ -12,6 +12,11 @@ from .library import PlaylistListRequest
 from .library import PushPreferencesRequest
 from .library import StartCopyRequest
 from .library import UpdatePlaylistRequest
+from .messages import ConversationListRequest
+from .messages import MessageListRequest
+from .messages import PushRemovalRequest
+from .messages import PushSubscriptionRequest
+from .messages import SendMessageRequest
 from .playback import DeviceRequest
 from .playback import EmbedBlockedRequest
 from .playback import PlaybackPositionRequest
@@ -24,6 +29,7 @@ from .shares import ShareRequest
 
 __all__ = [
     "ChooseSimilarRequest",
+    "ConversationListRequest",
     "CreatePlaylistRequest",
     "DeviceRequest",
     "EmailCodeRequest",
@@ -31,6 +37,7 @@ __all__ = [
     "EmbedBlockedRequest",
     "LibraryListRequest",
     "LikeListRequest",
+    "MessageListRequest",
     "NameRequest",
     "PlayRequest",
     "PlaybackPositionRequest",
@@ -38,9 +45,12 @@ __all__ = [
     "PlaylistItemsRequest",
     "PlaylistListRequest",
     "PushPreferencesRequest",
+    "PushRemovalRequest",
+    "PushSubscriptionRequest",
     "RejectedTokenRequest",
     "SavePlaybackSessionRequest",
     "SearchRequest",
+    "SendMessageRequest",
     "ShareListRequest",
     "ShareRequest",
     "StartCopyRequest",

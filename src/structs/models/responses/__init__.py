@@ -25,6 +25,11 @@ from .library import Progress
 from .library import PushPreferences
 from .library import TogetherTracks
 from .library import TrackSource
+from .messages import ChatMessage
+from .messages import Conversation
+from .messages import ConversationSummary
+from .messages import MessageUpdates
+from .messages import PushSettings
 from .playback import PlaybackSession
 from .playback import PlaybackSessionSaved
 from .playback import PlaybackToken
@@ -43,6 +48,9 @@ __all__ = [
     "BearerSession",
     "Candidate",
     "CatalogTrack",
+    "ChatMessage",
+    "Conversation",
+    "ConversationSummary",
     "CopyEstimate",
     "CopyProgress",
     "EmailCodeSent",
@@ -52,6 +60,7 @@ __all__ = [
     "LivenessResponse",
     "Lyrics",
     "LyricsLine",
+    "MessageUpdates",
     "MissingTracks",
     "PlatformData",
     "PlatformSearchResult",
@@ -64,6 +73,7 @@ __all__ = [
     "PlaylistLink",
     "Progress",
     "PushPreferences",
+    "PushSettings",
     "ReadinessResponse",
     "ReceivedShare",
     "SearchResults",

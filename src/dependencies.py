@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from src.actions import auth as auth_actions
+from src.actions import messages as messages_actions
 from src.actions import playback as playback_actions
 from src.exceptions import ForbiddenError
 from src.exceptions import UnauthorizedError
@@ -77,6 +78,10 @@ def get_platforms() -> dict[Platforms, OAuthPlatform]:
     return available_platforms()
 
 
+def get_message_changes() -> messages_actions.MessageChanges:
+    return messages_actions.MessageListener.get()
+
+
 def get_playback_changes() -> playback_actions.PlaybackChanges:
     return playback_actions.PlaybackListener.get()
 
@@ -92,6 +97,10 @@ ResendDep = Annotated[ResendService | None, Depends(get_resend)]
 LrclibDep = Annotated[LrclibService | None, Depends(get_lrclib)]
 ClientIPDep = Annotated[str | None, Depends(get_client_ip)]
 PlatformsDep = Annotated[dict[Platforms, OAuthPlatform], Depends(get_platforms)]
+MessageChangesDep = Annotated[
+    messages_actions.MessageChanges,
+    Depends(get_message_changes),
+]
 PlaybackChangesDep = Annotated[
     playback_actions.PlaybackChanges,
     Depends(get_playback_changes),

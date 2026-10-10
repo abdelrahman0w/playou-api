@@ -107,7 +107,7 @@ async def run_job(
         )
 
         try:
-            await job.run(args)
+            result = await job.run(args)
         except Exception:
             logger.exception(
                 "[Jobs] Job Failed",
@@ -121,6 +121,7 @@ async def run_job(
             "[Jobs] Job Finished",
             job_name=name,
             duration_ms=_elapsed_ms(started),
+            result=result,
         )
 
 

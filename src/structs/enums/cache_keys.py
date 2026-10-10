@@ -16,4 +16,6 @@ class CacheKeys(StrEnum):
     SYNC_WORKER_ALIVE = "sync:worker:alive"
     PLATFORM_PAUSED = "platform:{platform}:paused"
     PLAYBACK_CHANGED = "playback:changed"
+    MESSAGES_CHANGED = "messages:changed"
+    MESSAGES_VIEWING = "messages:viewing:{user_id}:{conversation_id}"
     PLATFORM_QUOTA = "platform:{platform}:quota:{day}"

@@ -20,6 +20,11 @@ from .library import Like  # noqa: E402
 from .library import Playlist  # noqa: E402
 from .library import PlaylistItem  # noqa: E402
 from .library import PlaylistLink  # noqa: E402
+from .messages import Conversation  # noqa: E402
+from .messages import ConversationMember  # noqa: E402
+from .messages import Message  # noqa: E402
+from .messages import MessageReport  # noqa: E402
+from .messages import PushSubscription  # noqa: E402
 from .playback import PlaybackSession  # noqa: E402
 from .shares import Share  # noqa: E402
 from .shares import ShareOpen  # noqa: E402
@@ -32,16 +37,21 @@ __all__ = [
     "AuthEmailCode",
     "AuthSession",
     "Base",
+    "Conversation",
+    "ConversationMember",
     "Copy",
     "CopyItem",
     "Like",
     "LinkedAccount",
     "LyricsReport",
+    "Message",
+    "MessageReport",
     "NameChange",
     "PlaybackSession",
     "Playlist",
     "PlaylistItem",
     "PlaylistLink",
+    "PushSubscription",
     "Share",
     "ShareOpen",
     "SyncOperation",

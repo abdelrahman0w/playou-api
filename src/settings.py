@@ -339,6 +339,28 @@ class LyricsSettings(BaseAppSettings):
     hide_after_reports: int = Field(default=0, ge=0)
 
 
+class MessagesSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="MESSAGES_",
+    )
+
+    per_minute: int = Field(default=120, ge=1)
+    per_day: int = Field(default=170000, ge=1)
+    longest_wait_seconds: int = Field(default=20, ge=0)
+    push_public_key: str | None = None
+    push_private_key: SecretStr | None = None
+    push_contact: str = "mailto:notifications@abdosworld.com"
+    push_timeout_seconds: float = Field(default=10.0, gt=0)
+
+    @property
+    def push_enabled(self) -> bool:
+        return bool(
+            self.push_public_key
+            and self.push_private_key
+            and self.push_private_key.get_secret_value(),
+        )
+
+
 class SharesSettings(BaseAppSettings):
     model_config = SettingsConfigDict(
         env_prefix="SHARES_",
@@ -410,6 +432,7 @@ class Settings(BaseAppSettings):
     playback: PlaybackSettings = Field(default_factory=PlaybackSettings)
     shares: SharesSettings = Field(default_factory=SharesSettings)
     lyrics: LyricsSettings = Field(default_factory=LyricsSettings)
+    messages: MessagesSettings = Field(default_factory=MessagesSettings)
     together: TogetherSettings = Field(default_factory=TogetherSettings)
 
 

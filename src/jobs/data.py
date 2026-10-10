@@ -1,7 +1,12 @@
 import argparse
+import sys
+from base64 import urlsafe_b64encode
 from datetime import UTC
 from datetime import datetime
 from uuid import UUID
+
+from cryptography.hazmat.primitives import serialization
+from py_vapid import Vapid02
 
 from src.actions import catalog as catalog_actions
 from src.actions import library as library_actions
@@ -10,6 +15,7 @@ from src.providers import DatabaseSessions
 from src.providers import RedisConnection
 from src.providers import logger
 from src.repositories import auth as auth_repositories
+from src.repositories import messages as messages_repositories
 
 
 def _arguments(parser: argparse.ArgumentParser) -> None:
@@ -47,6 +53,32 @@ def _reports_arguments(parser: argparse.ArgumentParser) -> None:
 
 def _hide_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("track_id", type=UUID, help="the song whose lyrics to hide")
+
+
+async def push_keys(_: argparse.Namespace) -> object:
+    vapid = Vapid02()
+    vapid.generate_keys()
+    public = vapid.public_key.public_bytes(
+        serialization.Encoding.X962,
+        serialization.PublicFormat.UncompressedPoint,
+    )
+    private = vapid.private_key.private_bytes(
+        serialization.Encoding.DER,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    )
+
+    sys.stdout.write(
+        f"MESSAGES_PUSH_PUBLIC_KEY={urlsafe_b64encode(public).rstrip(b'=').decode()}\n"
+        f"MESSAGES_PUSH_PRIVATE_KEY={urlsafe_b64encode(private).rstrip(b'=').decode()}\n",
+    )
+
+    return {"written": "to the terminal, not the logs"}
+
+
+async def message_reports(args: argparse.Namespace) -> object:
+    async with DatabaseSessions.get()() as session:
+        return await messages_repositories.message_reports(session, limit=args.limit)
 
 
 async def lyrics_reports(args: argparse.Namespace) -> object:
@@ -97,6 +129,15 @@ JOBS: dict[str, Job] = {
     "lyrics_reports": Job(
         run=lyrics_reports,
         help="list the lyrics people reported wrong, the most reported first",
+        arguments=_reports_arguments,
+    ),
+    "push_keys": Job(
+        run=push_keys,
+        help="make a new pair of push notification keys for MESSAGES_PUSH_*, once",
+    ),
+    "message_reports": Job(
+        run=message_reports,
+        help="list the messages people reported, the most reported first",
         arguments=_reports_arguments,
     ),
     "merge_tracks": Job(
