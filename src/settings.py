@@ -297,7 +297,6 @@ class YouTubeSettings(BaseAppSettings):
     daily_push_units: int = Field(default=1_000, ge=0)
     daily_find_units: int = Field(default=1_000, ge=0)
     copy_likes: bool = False
-    background_play: bool = False
     refresh_token_days: int | None = Field(default=None, ge=1)
     rate_limit_seconds: int = Field(default=30, ge=1)
     copy_searches: int = Field(default=2, ge=1)
