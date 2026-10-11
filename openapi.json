@@ -4979,7 +4979,8 @@
           "RECENT",
           "OLDEST",
           "TITLE",
-          "ARTIST"
+          "ARTIST",
+          "RANDOM"
         ],
         "title": "LikeSorts"
       },

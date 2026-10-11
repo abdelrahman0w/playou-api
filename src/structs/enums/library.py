@@ -29,6 +29,7 @@ class LikeSorts(StrEnum):
     OLDEST = "OLDEST"
     TITLE = "TITLE"
     ARTIST = "ARTIST"
+    RANDOM = "RANDOM"
 
 
 class PlaylistSorts(StrEnum):

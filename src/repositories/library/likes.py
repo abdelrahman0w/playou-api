@@ -158,6 +158,7 @@ async def list_likes(
         LikeSorts.OLDEST: (like.liked_at, like.id),
         LikeSorts.TITLE: (sorted_by.sort_title, like.id),
         LikeSorts.ARTIST: (sorted_by.sort_artist, sorted_by.sort_title, like.id),
+        LikeSorts.RANDOM: (func.random(),),
     }[sort]
     rows = list(
         await session.scalars(
