@@ -17,6 +17,7 @@ from .users import session_hashes
 from .users import set_name
 from .users import sign_in_user
 from .users import touch_user
+from .users import update_user
 
 
 __all__ = [
@@ -39,4 +40,5 @@ __all__ = [
     "set_name",
     "sign_in_user",
     "touch_user",
+    "update_user",
 ]

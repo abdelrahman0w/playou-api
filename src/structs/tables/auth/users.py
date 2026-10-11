@@ -2,22 +2,45 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import BigInteger
+from sqlalchemy import Boolean
 from sqlalchemy import DateTime
+from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
 from sqlalchemy import Index
 from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import Uuid
+from sqlalchemy import false
+from sqlalchemy import func
 from sqlalchemy import text
+from sqlalchemy import true
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
+from src.structs.enums import NameFields
 from src.structs.tables.base import Base
+
+
+def _values(enum: type[NameFields]) -> list[str]:
+    return [member.value for member in enum]
 
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        Index("uq_users_username", func.lower(text("username")), unique=True),
+        Index(
+            "ix_users_username_search",
+            text("lower(username) gin_trgm_ops"),
+            postgresql_using="gin",
+        ),
+        Index(
+            "ix_users_name_search",
+            text("lower(name) gin_trgm_ops"),
+            postgresql_using="gin",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         Uuid,
@@ -26,6 +49,9 @@ class User(Base):
     )
     email: Mapped[str] = mapped_column(String(320), unique=True)
     name: Mapped[str] = mapped_column(String(95))
+    username: Mapped[str] = mapped_column(String(30))
+    searchable: Mapped[bool] = mapped_column(Boolean, server_default=true())
+    private: Mapped[bool] = mapped_column(Boolean, server_default=false())
     locale: Mapped[str] = mapped_column(String(8), default="en")
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_sign_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -69,3 +95,7 @@ class NameChange(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
     )
     changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    field: Mapped[NameFields] = mapped_column(
+        Enum(NameFields, native_enum=False, length=16, values_callable=_values),
+        server_default=NameFields.NAME.value,
+    )

@@ -25,6 +25,7 @@ from src.exceptions.custom_exceptions import QuotaExhaustedError
 from src.exceptions.custom_exceptions import TooManyRequestsError
 from src.exceptions.custom_exceptions import UnauthorizedError
 from src.exceptions.custom_exceptions import UnsupportedError
+from src.exceptions.custom_exceptions import UsernameTakenError
 from src.providers import logger
 from src.structs.enums import ErrorTypes
 from src.structs.models import ErrorDetail
@@ -48,6 +49,7 @@ STATUS_CODES: dict[type[AppError], int] = {
     NoActiveDeviceError: status.HTTP_409_CONFLICT,
     PlaybackSessionChangedError: status.HTTP_409_CONFLICT,
     NameRequiredError: status.HTTP_409_CONFLICT,
+    UsernameTakenError: status.HTTP_409_CONFLICT,
     PlatformTimeoutError: status.HTTP_504_GATEWAY_TIMEOUT,
     PlatformRateLimitedError: status.HTTP_503_SERVICE_UNAVAILABLE,
     PlatformUnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,

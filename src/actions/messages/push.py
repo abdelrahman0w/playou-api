@@ -1,4 +1,5 @@
 import json
+from collections.abc import Callable
 from uuid import UUID
 
 from pywebpush import WebPushException
@@ -108,32 +109,76 @@ async def notify(
         if user_id != sender_id and not await _viewing(redis, user_id, conversation_id)
     ]
     async with session_factory() as session:
-        subscriptions = await messages_repositories.subscriptions_of(
-            session,
-            recipients,
-        )
         name = await messages_repositories.user_name(session, sender_id)
-    if not subscriptions:
+
+    def payload(locale: str) -> dict[str, str]:
+        return {
+            "title": name or "PlaYou",
+            "body": _body(message),
+            "url": f"{_prefix(locale)}/messages/{conversation_id}",
+            "tag": str(conversation_id),
+        }
+
+    await push_to(session_factory, recipients, payload)
+
+
+def _prefix(locale: str) -> str:
+    return "" if locale == BASE_LOCALE else f"/{locale}"
+
+
+async def push_to(
+    session_factory: async_sessionmaker[AsyncSession],
+    user_ids: list[UUID],
+    payload: Callable[[str], dict[str, str]],
+) -> None:
+    if not settings.messages.push_enabled or not user_ids:
         return
 
-    def payload(locale: str) -> str:
-        prefix = "" if locale == BASE_LOCALE else f"/{locale}"
-
-        return json.dumps(
-            {
-                "title": name or "PlaYou",
-                "body": _body(message),
-                "url": f"{prefix}/messages/{conversation_id}",
-                "tag": str(conversation_id),
-            },
-            ensure_ascii=False,
-        )
+    async with session_factory() as session:
+        subscriptions = await messages_repositories.subscriptions_of(session, user_ids)
 
     gone = [
         subscription.endpoint
         for subscription, locale in subscriptions
-        if not await _push(subscription, payload(locale))
+        if not await _push(
+            subscription, json.dumps(payload(locale), ensure_ascii=False)
+        )
     ]
     if gone:
         async with session_factory() as session, session.begin():
             await messages_repositories.forget_endpoints(session, gone)
+
+
+FOLLOW_TEXTS = {
+    "followed": {"en": "followed you", "ar": "بدأ متابعتك"},
+    "requested": {"en": "wants to follow you", "ar": "يريد متابعتك"},
+    "accepted": {"en": "accepted your follow request", "ar": "قبل طلب متابعتك"},
+}
+
+
+async def notify_follow(
+    session_factory: async_sessionmaker[AsyncSession],
+    *,
+    kind: str,
+    actor_id: UUID,
+    recipient_id: UUID,
+) -> None:
+    async with session_factory() as session:
+        actor = await session.get(tables.User, actor_id)
+    if actor is None:
+        return
+
+    username = actor.username
+    name = actor.name
+
+    def payload(locale: str) -> dict[str, str]:
+        texts = FOLLOW_TEXTS[kind]
+
+        return {
+            "title": name,
+            "body": texts.get(locale, texts[BASE_LOCALE]),
+            "url": f"{_prefix(locale)}/u/{username}",
+            "tag": f"follow:{username}",
+        }
+
+    await push_to(session_factory, [recipient_id], payload)

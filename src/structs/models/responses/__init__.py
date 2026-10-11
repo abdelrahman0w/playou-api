@@ -28,8 +28,15 @@ from .library import TrackSource
 from .messages import ChatMessage
 from .messages import Conversation
 from .messages import ConversationSummary
+from .messages import MessagePerson
 from .messages import MessageUpdates
 from .messages import PushSettings
+from .messages import StartedChat
+from .people import Person
+from .people import Profile
+from .people import ProfilePlaylist
+from .people import ProfilePlaylistSongs
+from .people import UsernameCheck
 from .playback import PlaybackSession
 from .playback import PlaybackSessionSaved
 from .playback import PlaybackToken
@@ -61,8 +68,10 @@ __all__ = [
     "LivenessResponse",
     "Lyrics",
     "LyricsLine",
+    "MessagePerson",
     "MessageUpdates",
     "MissingTracks",
+    "Person",
     "PlatformData",
     "PlatformSearchResult",
     "PlaybackSession",
@@ -72,6 +81,9 @@ __all__ = [
     "PlaylistDetail",
     "PlaylistItem",
     "PlaylistLink",
+    "Profile",
+    "ProfilePlaylist",
+    "ProfilePlaylistSongs",
     "Progress",
     "PushPreferences",
     "PushSettings",
@@ -85,6 +97,8 @@ __all__ = [
     "Shared",
     "SharedPlaylist",
     "Sharer",
+    "StartedChat",
     "TogetherTracks",
     "TrackSource",
+    "UsernameCheck",
 ]

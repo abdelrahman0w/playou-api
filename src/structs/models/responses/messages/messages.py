@@ -22,6 +22,7 @@ class ChatMessage(BaseModel):
 class ConversationSummary(BaseModel):
     id: UUID
     name: str | None = None
+    username: str | None = None
     last_message: ChatMessage | None = None
     unread: int = 0
     blocked: bool = False
@@ -42,3 +43,14 @@ class MessageUpdates(BaseModel):
 class PushSettings(BaseModel):
     enabled: bool
     public_key: str | None = None
+
+
+class MessagePerson(BaseModel):
+    username: str
+    name: str
+    chat_id: UUID | None = None
+
+
+class StartedChat(BaseModel):
+    conversation_id: UUID
+    message: ChatMessage

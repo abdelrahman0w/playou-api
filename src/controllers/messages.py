@@ -20,8 +20,10 @@ from src.structs.models.requests import SendMessageRequest
 from src.structs.models.responses import ChatMessage
 from src.structs.models.responses import Conversation
 from src.structs.models.responses import ConversationSummary
+from src.structs.models.responses import MessagePerson
 from src.structs.models.responses import MessageUpdates
 from src.structs.models.responses import PushSettings
+from src.structs.models.responses import StartedChat
 
 
 async def list_conversations(
@@ -78,6 +80,46 @@ async def send_message(
     await messages_actions.announce(redis, members)
 
     return sent, members
+
+
+async def message_people(
+    session: AsyncSession,
+    redis: Redis,
+    query: str,
+    *,
+    user_id: UUID,
+) -> list[MessagePerson]:
+    async with session.begin():
+        return await messages_actions.message_people(
+            session,
+            redis,
+            query,
+            user_id=user_id,
+        )
+
+
+async def send_to(
+    session: AsyncSession,
+    redis: Redis,
+    username: str,
+    request: SendMessageRequest,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> tuple[StartedChat, list[UUID]]:
+    async with session.begin():
+        conversation_id, sent, members = await messages_actions.send_to(
+            session,
+            redis,
+            username,
+            request,
+            user_id=user_id,
+            now=now,
+        )
+
+    await messages_actions.announce(redis, members)
+
+    return StartedChat(conversation_id=conversation_id, message=sent), members
 
 
 async def notify(
@@ -186,7 +228,6 @@ async def set_blocked(
     *,
     user_id: UUID,
     blocked: bool,
-    now: datetime,
 ) -> None:
     async with session.begin():
         members = await messages_actions.set_blocked(
@@ -194,7 +235,6 @@ async def set_blocked(
             conversation_id,
             user_id=user_id,
             blocked=blocked,
-            now=now,
         )
     await messages_actions.announce(redis, members)
 

@@ -89,6 +89,7 @@ def _to_playlist(
         item_count=counts.get(row.id, 0),
         links=links.get(row.id, []),
         imported_from=row.imported_from,
+        on_profile=row.on_profile,
         created_at=row.created_at,
         updated_at=row.updated_at,
         removed_at=row.removed_at,

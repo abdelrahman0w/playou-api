@@ -1,5 +1,5 @@
 import math
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
@@ -74,7 +74,7 @@ _charged: ContextVar[tuple[UUID, str] | None] = ContextVar("charged", default=No
 
 
 @contextmanager
-def charged_to(account_id: UUID, pool: str = PUSHES) -> Iterator[None]:
+def charged_to(account_id: UUID, pool: str = PUSHES) -> Generator[None]:
     token = _charged.set((account_id, pool))
     try:
         yield

@@ -11,6 +11,7 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.structs import tables
+from src.structs.enums import NameFields
 from src.structs.models.responses import AuthUser
 
 
@@ -19,6 +20,9 @@ def _to_user(row: tables.User) -> AuthUser:
         id=row.id,
         email=row.email,
         name=row.name,
+        username=row.username,
+        searchable=row.searchable,
+        private=row.private,
         locale=row.locale,
         created_at=row.created_at,
         last_sign_in_at=row.last_sign_in_at,
@@ -32,11 +36,13 @@ async def sign_in_user(
     locale: str,
     now: datetime,
     name: str,
+    username: str,
 ) -> tuple[AuthUser, bool]:
     user = tables.User
     statement = insert(user).values(
         email=email,
         name=name,
+        username=username,
         locale=locale,
         email_verified_at=now,
         last_sign_in_at=now,
@@ -131,13 +137,18 @@ async def name_changes_since(
     user_id: UUID,
     *,
     since: datetime,
+    field: NameFields = NameFields.NAME,
 ) -> list[datetime]:
     change = tables.NameChange
 
     return list(
         await session.scalars(
             select(change.changed_at)
-            .where(change.user_id == user_id, change.changed_at > since)
+            .where(
+                change.user_id == user_id,
+                change.field == field,
+                change.changed_at > since,
+            )
             .order_by(change.changed_at),
         ),
     )
@@ -148,9 +159,25 @@ async def record_name_change(
     user_id: UUID,
     *,
     now: datetime,
+    field: NameFields = NameFields.NAME,
 ) -> None:
-    session.add(tables.NameChange(user_id=user_id, changed_at=now))
+    session.add(tables.NameChange(user_id=user_id, changed_at=now, field=field))
     await session.flush()
+
+
+async def update_user(
+    session: AsyncSession, user_id: UUID, **values: object
+) -> AuthUser:
+    row = (
+        await session.execute(
+            update(tables.User)
+            .where(tables.User.id == user_id)
+            .values(**values)
+            .returning(tables.User),
+        )
+    ).scalar_one()
+
+    return _to_user(row)
 
 
 async def delete_name_changes(session: AsyncSession, *, before: datetime) -> int:

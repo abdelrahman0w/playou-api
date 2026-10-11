@@ -52,6 +52,10 @@ class NameRequiredError(AppError):
     error_type = ErrorTypes.NAME_REQUIRED
 
 
+class UsernameTakenError(AppError):
+    error_type = ErrorTypes.USERNAME_TAKEN
+
+
 class NameChangeLimitedError(TooManyRequestsError):
     error_type = ErrorTypes.NAME_CHANGE_LIMITED
 

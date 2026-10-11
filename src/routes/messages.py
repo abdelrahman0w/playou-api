@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter
 from fastapi import BackgroundTasks
 from fastapi import Depends
+from fastapi import Path
 from fastapi import Query
 from fastapi import Request
 from fastapi import Response
@@ -21,14 +22,17 @@ from src.settings import settings
 from src.structs.models import Page
 from src.structs.models.requests import ConversationListRequest
 from src.structs.models.requests import MessageListRequest
+from src.structs.models.requests import MessagePeopleRequest
 from src.structs.models.requests import PushRemovalRequest
 from src.structs.models.requests import PushSubscriptionRequest
 from src.structs.models.requests import SendMessageRequest
 from src.structs.models.responses import ChatMessage
 from src.structs.models.responses import Conversation
 from src.structs.models.responses import ConversationSummary
+from src.structs.models.responses import MessagePerson
 from src.structs.models.responses import MessageUpdates
 from src.structs.models.responses import PushSettings
+from src.structs.models.responses import StartedChat
 
 
 router = APIRouter(prefix="/messages")
@@ -80,6 +84,57 @@ async def list_conversations(
         request,
         user_id=user_id,
     )
+
+
+@router.get("/people")
+async def message_people(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    redis: RedisDep,
+    request: Annotated[MessagePeopleRequest, Query()],
+) -> list[MessagePerson]:
+    return await messages_controller.message_people(
+        session,
+        redis,
+        request.q,
+        user_id=user_id,
+    )
+
+
+@router.post(
+    "/with/{username}",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=writes,
+)
+async def send_to(
+    username: Annotated[str, Path(min_length=1, max_length=40)],
+    body: SendMessageRequest,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    session_factory: SessionFactoryDep,
+    redis: RedisDep,
+    background: BackgroundTasks,
+    now: NowDep,
+) -> StartedChat:
+    started, members = await messages_controller.send_to(
+        session,
+        redis,
+        username,
+        body,
+        user_id=user_id,
+        now=now,
+    )
+    background.add_task(
+        messages_controller.notify,
+        session_factory,
+        redis,
+        started.conversation_id,
+        started.message,
+        sender_id=user_id,
+        members=members,
+    )
+
+    return started
 
 
 @router.get("/conversations/{conversation_id}")
@@ -186,7 +241,6 @@ async def _block(
     user_id: UUID,
     session: DBSessionDep,
     redis: RedisDep,
-    now: NowDep,
     *,
     blocked: bool,
 ) -> Response:
@@ -196,7 +250,6 @@ async def _block(
         conversation_id,
         user_id=user_id,
         blocked=blocked,
-        now=now,
     )
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -212,9 +265,8 @@ async def block(
     user_id: UserIDDep,
     session: DBSessionDep,
     redis: RedisDep,
-    now: NowDep,
 ) -> Response:
-    return await _block(conversation_id, user_id, session, redis, now, blocked=True)
+    return await _block(conversation_id, user_id, session, redis, blocked=True)
 
 
 @router.delete(
@@ -227,9 +279,8 @@ async def unblock(
     user_id: UserIDDep,
     session: DBSessionDep,
     redis: RedisDep,
-    now: NowDep,
 ) -> Response:
-    return await _block(conversation_id, user_id, session, redis, now, blocked=False)
+    return await _block(conversation_id, user_id, session, redis, blocked=False)
 
 
 @router.post(

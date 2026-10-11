@@ -46,7 +46,6 @@ class ConversationMember(Base):
         primary_key=True,
     )
     last_read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Message(Base):

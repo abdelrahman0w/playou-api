@@ -23,6 +23,7 @@ from src.routes import catalog_router
 from src.routes import health_router
 from src.routes import library_router
 from src.routes import messages_router
+from src.routes import people_router
 from src.routes import playback_router
 from src.routes import shares_router
 from src.services import LrclibConnection
@@ -130,5 +131,6 @@ app.include_router(accounts_router)
 app.include_router(catalog_router)
 app.include_router(library_router)
 app.include_router(messages_router)
+app.include_router(people_router)
 app.include_router(playback_router)
 app.include_router(shares_router)

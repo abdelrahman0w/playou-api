@@ -10,12 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.actions import rate_limit as rate_limit_actions
 from src.actions.auth.emails import code_email
+from src.actions.auth.names import username_collisions
 from src.exceptions import EmailUnavailableError
 from src.exceptions import InvalidCodeError
 from src.exceptions import NameRequiredError
 from src.exceptions import TooManyRequestsError
+from src.exceptions import UsernameTakenError
 from src.providers import logger
 from src.repositories import auth as auth_repositories
+from src.repositories import people as people_repositories
 from src.services import ResendService
 from src.settings import Environment
 from src.settings import settings
@@ -147,6 +150,7 @@ async def verify_email_code(
     ip: str | None,
     now: datetime,
     name: str | None = None,
+    username: str | None = None,
 ) -> tuple[AuthUser, bool]:
     auth = settings.auth
     if ip is not None:
@@ -168,19 +172,26 @@ async def verify_email_code(
             raise InvalidCodeError("The code has expired, ask for a new one")
 
         if hmac.compare_digest(live.code_hash, code_hash(email, code)):
-            if name is None:
-                signed_in = await auth_repositories.touch_user(session, email, now=now)
-                if signed_in is None:
-                    raise NameRequiredError("Tell us your name to finish signing up")
+            signed_in = await auth_repositories.touch_user(session, email, now=now)
+            if signed_in is not None:
                 user, created = signed_in, False
             else:
-                user, created = await auth_repositories.sign_in_user(
-                    session,
-                    email,
-                    locale=locale,
-                    now=now,
-                    name=name,
-                )
+                if name is None or username is None:
+                    raise NameRequiredError(
+                        "Tell us your name and pick a username to finish signing up",
+                    )
+                if await people_repositories.username_taken(session, username):
+                    raise UsernameTakenError("That username is taken")
+
+                with username_collisions():
+                    user, created = await auth_repositories.sign_in_user(
+                        session,
+                        email,
+                        locale=locale,
+                        now=now,
+                        name=name,
+                        username=username,
+                    )
             live.consumed_at = now
         else:
             live.attempts += 1

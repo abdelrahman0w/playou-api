@@ -25,6 +25,9 @@ from .messages import ConversationMember  # noqa: E402
 from .messages import Message  # noqa: E402
 from .messages import MessageReport  # noqa: E402
 from .messages import PushSubscription  # noqa: E402
+from .people import Follow  # noqa: E402
+from .people import UserBlock  # noqa: E402
+from .people import UserReport  # noqa: E402
 from .playback import PlaybackSession  # noqa: E402
 from .shares import Share  # noqa: E402
 from .shares import ShareOpen  # noqa: E402
@@ -41,6 +44,7 @@ __all__ = [
     "ConversationMember",
     "Copy",
     "CopyItem",
+    "Follow",
     "Like",
     "LinkedAccount",
     "LyricsReport",
@@ -59,4 +63,6 @@ __all__ = [
     "TrackLyrics",
     "TrackSource",
     "User",
+    "UserBlock",
+    "UserReport",
 ]

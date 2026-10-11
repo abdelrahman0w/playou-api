@@ -16,6 +16,7 @@ from src.providers import RedisConnection
 from src.providers import logger
 from src.repositories import auth as auth_repositories
 from src.repositories import messages as messages_repositories
+from src.repositories import people as people_repositories
 
 
 def _arguments(parser: argparse.ArgumentParser) -> None:
@@ -76,6 +77,11 @@ async def push_keys(_: argparse.Namespace) -> object:
     return {"written": "to the terminal, not the logs"}
 
 
+async def user_reports(args: argparse.Namespace) -> object:
+    async with DatabaseSessions.get()() as session:
+        return await people_repositories.user_reports(session, limit=args.limit)
+
+
 async def message_reports(args: argparse.Namespace) -> object:
     async with DatabaseSessions.get()() as session:
         return await messages_repositories.message_reports(session, limit=args.limit)
@@ -134,6 +140,11 @@ JOBS: dict[str, Job] = {
     "push_keys": Job(
         run=push_keys,
         help="make a new pair of push notification keys for MESSAGES_PUSH_*, once",
+    ),
+    "user_reports": Job(
+        run=user_reports,
+        help="list the people others reported, the most reported first",
+        arguments=_reports_arguments,
     ),
     "message_reports": Job(
         run=message_reports,

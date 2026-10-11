@@ -8,7 +8,9 @@ from uuid import UUID
 from sqlalchemy import Row
 from sqlalchemy import Select
 from sqlalchemy import and_
+from sqlalchemy import exists
 from sqlalchemy import func
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import distinct_on
@@ -23,6 +25,7 @@ from src.structs.models import Page
 from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import ChatMessage
 from src.structs.models.responses import ConversationSummary
+from src.structs.models.responses import MessagePerson
 from src.structs.models.responses import SharedPlaylist
 from src.utils.sql import any_of
 
@@ -64,6 +67,100 @@ async def ensure_conversation(
     )
 
     return conversation_id
+
+
+async def conversation_between(
+    session: AsyncSession,
+    first: UUID,
+    second: UUID,
+) -> UUID | None:
+    conversation = tables.Conversation
+
+    return await session.scalar(
+        select(conversation.id).where(conversation.pair == pair_of(first, second)),
+    )
+
+
+async def message_people(
+    session: AsyncSession,
+    viewer_id: UUID,
+    query: str,
+    *,
+    limit: int,
+) -> list[MessagePerson]:
+    user = tables.User
+    conversation = tables.Conversation
+    mine = aliased(tables.ConversationMember)
+    theirs = aliased(tables.ConversationMember)
+    follow = tables.Follow
+    back = aliased(tables.Follow)
+    block = tables.UserBlock
+    chats = (
+        select(
+            conversation.id,
+            conversation.last_message_at,
+            theirs.user_id,
+        )
+        .join(
+            mine,
+            and_(mine.conversation_id == conversation.id, mine.user_id == viewer_id),
+        )
+        .join(
+            theirs,
+            and_(
+                theirs.conversation_id == conversation.id,
+                theirs.user_id != viewer_id,
+            ),
+        )
+        .subquery()
+    )
+    mutual = and_(
+        exists().where(
+            follow.follower_id == viewer_id,
+            follow.followee_id == user.id,
+            follow.accepted_at.is_not(None),
+        ),
+        exists().where(
+            back.follower_id == user.id,
+            back.followee_id == viewer_id,
+            back.accepted_at.is_not(None),
+        ),
+    )
+    blocked = exists().where(
+        or_(
+            (block.blocker_id == viewer_id) & (block.blocked_id == user.id),
+            (block.blocker_id == user.id) & (block.blocked_id == viewer_id),
+        ),
+    )
+    statement = (
+        select(user.username, user.name, chats.c.id)
+        .outerjoin(chats, chats.c.user_id == user.id)
+        .where(
+            user.id != viewer_id,
+            or_(chats.c.id.is_not(None), mutual),
+            ~blocked,
+        )
+    )
+    text = query.strip().removeprefix("@").lower()
+    if text:
+        statement = statement.where(
+            or_(
+                func.lower(user.username).contains(text, autoescape=True),
+                func.lower(user.name).contains(text, autoescape=True),
+            ),
+        )
+    rows = await session.execute(
+        statement.order_by(
+            chats.c.last_message_at.desc().nulls_last(),
+            func.lower(user.name),
+            user.id,
+        ).limit(limit),
+    )
+
+    return [
+        MessagePerson(username=username, name=name, chat_id=chat_id)
+        for username, name, chat_id in rows
+    ]
 
 
 def _message(
@@ -124,9 +221,20 @@ def _summaries_query(user_id: UUID) -> Select[Unpack[tuple[Any, ...]]]:
             conversation.id,
             conversation.last_message_at,
             user.name,
+            user.username,
             mine.last_read_at,
-            mine.blocked_at,
-            other.blocked_at.label("their_block"),
+            exists()
+            .where(
+                tables.UserBlock.blocker_id == user_id,
+                tables.UserBlock.blocked_id == other.user_id,
+            )
+            .label("blocked_at"),
+            exists()
+            .where(
+                tables.UserBlock.blocker_id == other.user_id,
+                tables.UserBlock.blocked_id == user_id,
+            )
+            .label("their_block"),
         )
         .join(
             mine, and_(mine.conversation_id == conversation.id, mine.user_id == user_id)
@@ -192,11 +300,12 @@ async def _summaries(
         ConversationSummary(
             id=row.id,
             name=row.name,
+            username=row.username,
             last_message=last.get(row.id),
             unread=unread.get(row.id, 0),
-            blocked=row.blocked_at is not None,
-            can_send=row.blocked_at is None
-            and row.their_block is None
+            blocked=bool(row.blocked_at),
+            can_send=not row.blocked_at
+            and not row.their_block
             and row.name is not None,
             last_message_at=row.last_message_at,
         )
@@ -391,18 +500,27 @@ async def unsend(
     return True
 
 
-async def set_blocked(
+async def other_member(
     session: AsyncSession,
     conversation_id: UUID,
     user_id: UUID,
-    *,
-    blocked_at: datetime | None,
-) -> None:
+) -> UUID | None:
     member = tables.ConversationMember
+
+    return await session.scalar(
+        select(member.user_id).where(
+            member.conversation_id == conversation_id,
+            member.user_id != user_id,
+        ),
+    )
+
+
+async def touch_conversation(session: AsyncSession, first: UUID, second: UUID) -> None:
+    conversation = tables.Conversation
     await session.execute(
-        update(member)
-        .where(member.conversation_id == conversation_id, member.user_id == user_id)
-        .values(blocked_at=blocked_at),
+        update(conversation)
+        .where(conversation.pair == pair_of(first, second))
+        .values(updated_at=func.now()),
     )
 
 
@@ -468,7 +586,10 @@ async def updates(session: AsyncSession, user_id: UUID) -> tuple[str, int]:
         .where(
             message.sender_id != user_id,
             message.deleted_at.is_(None),
-            mine.blocked_at.is_(None),
+            ~exists().where(
+                tables.UserBlock.blocker_id == user_id,
+                tables.UserBlock.blocked_id == message.sender_id,
+            ),
             mine.last_read_at.is_(None) | (message.created_at > mine.last_read_at),
         ),
     )

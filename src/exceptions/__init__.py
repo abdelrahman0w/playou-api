@@ -23,6 +23,7 @@ from .custom_exceptions import QuotaExhaustedError
 from .custom_exceptions import TooManyRequestsError
 from .custom_exceptions import UnauthorizedError
 from .custom_exceptions import UnsupportedError
+from .custom_exceptions import UsernameTakenError
 from .exception_handlers import register_exception_handlers
 
 
@@ -52,5 +53,6 @@ __all__ = [
     "TooManyRequestsError",
     "UnauthorizedError",
     "UnsupportedError",
+    "UsernameTakenError",
     "register_exception_handlers",
 ]

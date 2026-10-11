@@ -55,3 +55,7 @@ class PushSubscriptionRequest(BaseModel):
 
 class PushRemovalRequest(BaseModel):
     endpoint: str = Field(min_length=1, max_length=2000)
+
+
+class MessagePeopleRequest(BaseModel):
+    q: str = Field(default="", max_length=60)

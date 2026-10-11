@@ -14,9 +14,13 @@ from .library import StartCopyRequest
 from .library import UpdatePlaylistRequest
 from .messages import ConversationListRequest
 from .messages import MessageListRequest
+from .messages import MessagePeopleRequest
 from .messages import PushRemovalRequest
 from .messages import PushSubscriptionRequest
 from .messages import SendMessageRequest
+from .people import OnProfileRequest
+from .people import PeoplePageRequest
+from .people import PeopleSearchRequest
 from .playback import DeviceRequest
 from .playback import EmbedBlockedRequest
 from .playback import PlaybackPositionRequest
@@ -38,7 +42,11 @@ __all__ = [
     "LibraryListRequest",
     "LikeListRequest",
     "MessageListRequest",
+    "MessagePeopleRequest",
     "NameRequest",
+    "OnProfileRequest",
+    "PeoplePageRequest",
+    "PeopleSearchRequest",
     "PlayRequest",
     "PlaybackPositionRequest",
     "PlaylistImportingRequest",

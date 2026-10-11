@@ -8,6 +8,7 @@ from src.actions import auth as auth_actions
 from src.actions import library as library_actions
 from src.exceptions import UnauthorizedError
 from src.repositories import auth as auth_repositories
+from src.repositories import people as people_repositories
 from src.services import ResendService
 from src.settings import settings
 from src.structs.models.requests import EmailCodeRequest
@@ -53,6 +54,7 @@ async def verify_email_code(
         code=request.code,
         locale=request.locale,
         name=request.name,
+        username=request.username,
         ip=ip,
         now=now,
     )
@@ -78,6 +80,10 @@ async def _described(
     now: datetime,
 ) -> AuthUser:
     limited = await auth_actions.with_name_limits(session, user, now=now)
+    followers, following = await people_repositories.counts(session, user.id)
+    limited = limited.model_copy(
+        update={"followers": followers, "following": following}
+    )
 
     return limited.model_copy(
         update={
@@ -111,19 +117,31 @@ async def update_me(
     now: datetime,
 ) -> AuthUser:
     async with session.begin():
-        user = await auth_actions.change_name(
-            session,
-            user_id,
-            request.name,
-            now=now,
-        )
+        if request.name is not None:
+            await auth_actions.change_name(session, user_id, request.name, now=now)
+        if request.username is not None:
+            await auth_actions.change_username(
+                session,
+                user_id,
+                request.username,
+                now=now,
+            )
 
-    return user.model_copy(
-        update={
-            "can_delete_data": settings.data.deletion_enabled,
-            "lyrics_enabled": settings.lyrics.enabled,
-        },
-    )
+        values: dict[str, object] = {}
+        if request.searchable is not None:
+            values["searchable"] = request.searchable
+        if request.private is not None:
+            values["private"] = request.private
+            if not request.private:
+                await people_repositories.accept_all(session, user_id, now=now)
+        if values:
+            await auth_repositories.update_user(session, user_id, **values)
+
+        user = await auth_repositories.get_user(session, user_id)
+        if user is None:
+            raise UnauthorizedError("Sign in to continue")
+
+        return await _described(session, user, now=now)
 
 
 async def sign_out(

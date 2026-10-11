@@ -8,6 +8,11 @@ class AuthUser(BaseModel):
     id: UUID
     email: str
     name: str
+    username: str = ""
+    searchable: bool = True
+    private: bool = False
+    followers: int = 0
+    following: int = 0
     locale: str
     created_at: datetime
     last_sign_in_at: datetime | None = None
@@ -15,6 +20,8 @@ class AuthUser(BaseModel):
     lyrics_enabled: bool = False
     name_changes_left: int = 0
     name_change_at: datetime | None = None
+    username_changes_left: int = 0
+    username_change_at: datetime | None = None
 
 
 class BearerSession(BaseModel):

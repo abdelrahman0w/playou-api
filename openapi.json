@@ -1979,6 +1979,102 @@
         }
       }
     },
+    "/messages/people": {
+      "get": {
+        "summary": "Message People",
+        "operationId": "message_people_messages_people_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 60,
+              "default": "",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MessagePerson"
+                  },
+                  "title": "Response Message People Messages People Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/messages/with/{username}": {
+      "post": {
+        "summary": "Send To",
+        "operationId": "send_to_messages_with__username__post",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedChat"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/messages/conversations/{conversation_id}": {
       "get": {
         "summary": "Read Conversation",
@@ -2330,6 +2426,727 @@
           },
           "required": true
         },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/search": {
+      "get": {
+        "summary": "Search",
+        "operationId": "search_people_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60,
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Person"
+                  },
+                  "title": "Response Search People Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/usernames/{username}": {
+      "get": {
+        "summary": "Check Username",
+        "operationId": "check_username_people_usernames__username__get",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsernameCheck"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/requests": {
+      "get": {
+        "summary": "Requests",
+        "operationId": "requests_people_requests_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Person_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/requests/{username}/accept": {
+      "post": {
+        "summary": "Accept Request",
+        "operationId": "accept_request_people_requests__username__accept_post",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/requests/{username}/decline": {
+      "post": {
+        "summary": "Decline Request",
+        "operationId": "decline_request_people_requests__username__decline_post",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/playlists/{playlist_id}/profile": {
+      "put": {
+        "summary": "Show On Profile",
+        "operationId": "show_on_profile_people_playlists__playlist_id__profile_put",
+        "parameters": [
+          {
+            "name": "playlist_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Playlist Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Hide From Profile",
+        "operationId": "hide_from_profile_people_playlists__playlist_id__profile_delete",
+        "parameters": [
+          {
+            "name": "playlist_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Playlist Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/{username}": {
+      "get": {
+        "summary": "Profile",
+        "operationId": "profile_people__username__get",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/{username}/followers": {
+      "get": {
+        "summary": "Followers",
+        "operationId": "followers_people__username__followers_get",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Person_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/{username}/following": {
+      "get": {
+        "summary": "Following",
+        "operationId": "following_people__username__following_get",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Person_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/{username}/playlists/{playlist_id}": {
+      "get": {
+        "summary": "Profile Playlist",
+        "operationId": "profile_playlist_people__username__playlists__playlist_id__get",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          },
+          {
+            "name": "playlist_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Playlist Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePlaylistSongs"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/{username}/follow": {
+      "put": {
+        "summary": "Follow",
+        "operationId": "follow_people__username__follow_put",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowStates"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Unfollow",
+        "operationId": "unfollow_people__username__follow_delete",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/{username}/follower": {
+      "delete": {
+        "summary": "Remove Follower",
+        "operationId": "remove_follower_people__username__follower_delete",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/{username}/block": {
+      "put": {
+        "summary": "Block",
+        "operationId": "block_people__username__block_put",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Unblock",
+        "operationId": "unblock_people__username__block_delete",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/{username}/report": {
+      "post": {
+        "summary": "Report",
+        "operationId": "report_people__username__report_post",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "title": "Username"
+            }
+          }
+        ],
         "responses": {
           "204": {
             "description": "Successful Response"
@@ -3183,6 +4000,31 @@
             "type": "string",
             "title": "Name"
           },
+          "username": {
+            "type": "string",
+            "title": "Username",
+            "default": ""
+          },
+          "searchable": {
+            "type": "boolean",
+            "title": "Searchable",
+            "default": true
+          },
+          "private": {
+            "type": "boolean",
+            "title": "Private",
+            "default": false
+          },
+          "followers": {
+            "type": "integer",
+            "title": "Followers",
+            "default": 0
+          },
+          "following": {
+            "type": "integer",
+            "title": "Following",
+            "default": 0
+          },
           "locale": {
             "type": "string",
             "title": "Locale"
@@ -3230,6 +4072,23 @@
               }
             ],
             "title": "Name Change At"
+          },
+          "username_changes_left": {
+            "type": "integer",
+            "title": "Username Changes Left",
+            "default": 0
+          },
+          "username_change_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username Change At"
           }
         },
         "type": "object",
@@ -3598,6 +4457,17 @@
             ],
             "title": "Name"
           },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
           "last_message": {
             "anyOf": [
               {
@@ -3671,6 +4541,17 @@
               }
             ],
             "title": "Name"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           },
           "last_message": {
             "anyOf": [
@@ -4000,6 +4881,17 @@
               }
             ],
             "title": "Name"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           }
         },
         "type": "object",
@@ -4023,6 +4915,15 @@
           "platform_id"
         ],
         "title": "EmbedBlockedRequest"
+      },
+      "FollowStates": {
+        "type": "string",
+        "enum": [
+          "NONE",
+          "REQUESTED",
+          "FOLLOWING"
+        ],
+        "title": "FollowStates"
       },
       "HTTPValidationError": {
         "properties": {
@@ -4268,6 +5169,36 @@
         ],
         "title": "LyricsStatuses"
       },
+      "MessagePerson": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "name"
+        ],
+        "title": "MessagePerson"
+      },
       "MessageUpdates": {
         "properties": {
           "tag": {
@@ -4308,14 +5239,51 @@
       "NameRequest": {
         "properties": {
           "name": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "searchable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Searchable"
+          },
+          "private": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Private"
           }
         },
         "type": "object",
-        "required": [
-          "name"
-        ],
         "title": "NameRequest"
       },
       "Page_CatalogTrack_": {
@@ -4489,6 +5457,63 @@
         "type": "object",
         "title": "Page[LikedTrack]"
       },
+      "Page_Person_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Person"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "page_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Size"
+          },
+          "total_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Count"
+          },
+          "total_pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Pages"
+          }
+        },
+        "type": "object",
+        "title": "Page[Person]"
+      },
       "Page_Playlist_": {
         "properties": {
           "items": {
@@ -4659,6 +5684,38 @@
         },
         "type": "object",
         "title": "Page[SentShare]"
+      },
+      "Person": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "private": {
+            "type": "boolean",
+            "title": "Private",
+            "default": false
+          },
+          "you_follow": {
+            "$ref": "#/components/schemas/FollowStates",
+            "default": "NONE"
+          },
+          "follows_you": {
+            "type": "boolean",
+            "title": "Follows You",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "name"
+        ],
+        "title": "Person"
       },
       "PlatformData": {
         "properties": {
@@ -5080,6 +6137,11 @@
                 "type": "null"
               }
             ]
+          },
+          "on_profile": {
+            "type": "boolean",
+            "title": "On Profile",
+            "default": false
           }
         },
         "type": "object",
@@ -5203,6 +6265,11 @@
                 "type": "null"
               }
             ]
+          },
+          "on_profile": {
+            "type": "boolean",
+            "title": "On Profile",
+            "default": false
           },
           "items": {
             "items": {
@@ -5347,6 +6414,157 @@
           "NAME"
         ],
         "title": "PlaylistSorts"
+      },
+      "Profile": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "private": {
+            "type": "boolean",
+            "title": "Private",
+            "default": false
+          },
+          "you_follow": {
+            "$ref": "#/components/schemas/FollowStates",
+            "default": "NONE"
+          },
+          "follows_you": {
+            "type": "boolean",
+            "title": "Follows You",
+            "default": false
+          },
+          "followers": {
+            "type": "integer",
+            "title": "Followers",
+            "default": 0
+          },
+          "following": {
+            "type": "integer",
+            "title": "Following",
+            "default": 0
+          },
+          "you": {
+            "type": "boolean",
+            "title": "You",
+            "default": false
+          },
+          "blocked": {
+            "type": "boolean",
+            "title": "Blocked",
+            "default": false
+          },
+          "visible": {
+            "type": "boolean",
+            "title": "Visible",
+            "default": true
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Id"
+          },
+          "can_message": {
+            "type": "boolean",
+            "title": "Can Message",
+            "default": false
+          },
+          "playlists": {
+            "items": {
+              "$ref": "#/components/schemas/ProfilePlaylist"
+            },
+            "type": "array",
+            "title": "Playlists"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "name"
+        ],
+        "title": "Profile"
+      },
+      "ProfilePlaylist": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "item_count": {
+            "type": "integer",
+            "title": "Item Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ProfilePlaylist"
+      },
+      "ProfilePlaylistSongs": {
+        "properties": {
+          "playlist": {
+            "$ref": "#/components/schemas/ProfilePlaylist"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogTrack"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "more": {
+            "type": "boolean",
+            "title": "More",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "playlist"
+        ],
+        "title": "ProfilePlaylistSongs"
       },
       "Progress": {
         "properties": {
@@ -6078,6 +7296,24 @@
         ],
         "title": "StartCopyRequest"
       },
+      "StartedChat": {
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Conversation Id"
+          },
+          "message": {
+            "$ref": "#/components/schemas/ChatMessage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversation_id",
+          "message"
+        ],
+        "title": "StartedChat"
+      },
       "TogetherEffects": {
         "type": "string",
         "enum": [
@@ -6272,6 +7508,35 @@
         },
         "type": "object",
         "title": "UpdatePlaylistRequest"
+      },
+      "UsernameCheck": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "available"
+        ],
+        "title": "UsernameCheck"
       },
       "ValidationError": {
         "properties": {

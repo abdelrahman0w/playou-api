@@ -1,3 +1,5 @@
+from .auth import FollowStates
+from .auth import NameFields
 from .auth import SessionTransports
 from .cache_keys import CacheKeys
 from .error_types import ErrorTypes
@@ -34,9 +36,11 @@ __all__ = [
     "CopyScopes",
     "CopyStatuses",
     "ErrorTypes",
+    "FollowStates",
     "ImportStatuses",
     "LikeSorts",
     "LyricsStatuses",
+    "NameFields",
     "Platforms",
     "PlaylistImports",
     "PlaylistKinds",
