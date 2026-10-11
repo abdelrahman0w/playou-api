@@ -4056,6 +4056,11 @@
             "title": "Lyrics Enabled",
             "default": false
           },
+          "youtube_background_play": {
+            "type": "boolean",
+            "title": "Youtube Background Play",
+            "default": false
+          },
           "name_changes_left": {
             "type": "integer",
             "title": "Name Changes Left",

@@ -18,6 +18,7 @@ class AuthUser(BaseModel):
     last_sign_in_at: datetime | None = None
     can_delete_data: bool = True
     lyrics_enabled: bool = False
+    youtube_background_play: bool = False
     name_changes_left: int = 0
     name_change_at: datetime | None = None
     username_changes_left: int = 0

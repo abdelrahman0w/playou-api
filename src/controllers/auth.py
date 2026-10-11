@@ -89,6 +89,7 @@ async def _described(
         update={
             "can_delete_data": settings.data.deletion_enabled,
             "lyrics_enabled": settings.lyrics.enabled,
+            "youtube_background_play": settings.youtube.background_play,
         },
     )
 
