@@ -215,10 +215,13 @@ class SpotifyService:
     async def _send(
         self,
         request: Awaitable[httpx.Response],
+        *,
+        pausable: bool = True,
     ) -> httpx.Response:
-        if self._pause is not None:
+        pause = self._pause if pausable else None
+        if pause is not None:
             try:
-                await self._pause.check()
+                await pause.check()
             except PlatformRateLimitedError:
                 if isinstance(request, Coroutine):
                     request.close()
@@ -234,8 +237,8 @@ class SpotifyService:
 
         if response.status_code == httpx.codes.TOO_MANY_REQUESTS:
             seconds = _retry_after(response)
-            if self._pause is not None:
-                raise await self._pause.pause(seconds)
+            if pause is not None:
+                raise await pause.pause(seconds)
 
             raise PlatformRateLimitedError(
                 f"Spotify is limiting the requests, try again in {seconds} seconds",
@@ -276,6 +279,7 @@ class SpotifyService:
                 "/api/token",
                 data={"client_id": self._client_id, **form},
             ),
+            pausable=False,
         )
         if response.status_code == httpx.codes.BAD_REQUEST:
             return _parse(response, SpotifyTokenError)
