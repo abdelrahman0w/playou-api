@@ -1,7 +1,7 @@
-from typing import Literal
 from typing import Self
 from uuid import UUID
 
+from emoji import is_emoji
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic import field_validator
@@ -62,8 +62,13 @@ class MessagePeopleRequest(BaseModel):
     q: str = Field(default="", max_length=60)
 
 
-Reaction = Literal["❤️", "😂", "😮", "😢", "🔥", "👍"]
-
-
 class ReactionRequest(BaseModel):
-    emoji: Reaction
+    emoji: str = Field(min_length=1, max_length=16)
+
+    @field_validator("emoji")
+    @classmethod
+    def one_emoji(cls, value: str) -> str:
+        if not is_emoji(value):
+            raise ValueError("React with one emoji")
+
+        return value

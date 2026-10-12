@@ -6985,14 +6985,8 @@
         "properties": {
           "emoji": {
             "type": "string",
-            "enum": [
-              "\u2764\ufe0f",
-              "\ud83d\ude02",
-              "\ud83d\ude2e",
-              "\ud83d\ude22",
-              "\ud83d\udd25",
-              "\ud83d\udc4d"
-            ],
+            "maxLength": 16,
+            "minLength": 1,
             "title": "Emoji"
           }
         },
