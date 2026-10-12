@@ -389,7 +389,7 @@ There is no separate home route, `/` is Home or the landing, whichever fits.
 | `GET` | `/library/likes?page=&page_size=&include_removed=&platform=&q=` | The liked tracks, newest first, `q` searches them |
 | `PUT` | `/library/likes/{track_id}` | Likes a track |
 | `DELETE` | `/library/likes/{track_id}` | Unlikes it, the like is kept as removed |
-| `GET` | `/library/playlists?page=&page_size=&include_removed=&kind=&platform=&q=` | The playlists, newest first, `OWNED` or `FOLLOWED`, `q` searches their names |
+| `GET` | `/library/playlists?page=&page_size=&include_removed=&kind=&platform=&q=&sort=` | The playlists, pinned first, then newest, by `NAME`, or in the user's own order with `CUSTOM`, `OWNED` or `FOLLOWED`, `q` searches their names |
 | `GET` | `/library/sync` | Each linked account's import, `IDLE`, `SYNCING`, or `FAILED` |
 | `GET` | `/library/data` | What the unlinked platforms left, their imported likes and playlists |
 | `DELETE` | `/library/data/{platform}` | Removes what an unlinked platform left |
@@ -407,6 +407,8 @@ There is no separate home route, `/` is Home or the landing, whichever fits.
 | `GET` | `/library/playlists/{id}?include_removed=` | A playlist, with its tracks in order |
 | `PATCH` | `/library/playlists/{id}` | Renames it, or changes its description, a followed one is `UNSUPPORTED` |
 | `DELETE` | `/library/playlists/{id}` | Removes it, it is kept as removed |
+| `PUT` | `/library/playlists/{id}/pin` | Pins it, pinned playlists come first in every sort, `DELETE` unpins it |
+| `PUT` | `/library/playlists/order` | The user's own order, `{"playlist_ids": [...]}`, the ones left out come first, newest first |
 | `POST` | `/library/playlists/{id}/items` | Appends tracks, `{"track_ids": [...]}`, up to 100, a track there stays put |
 | `DELETE` | `/library/playlists/{id}/items/{track_id}` | Removes a track from it |
 

@@ -20,6 +20,7 @@ from src.structs.models.requests import LikeListRequest
 from src.structs.models.requests import PlaylistImportingRequest
 from src.structs.models.requests import PlaylistItemsRequest
 from src.structs.models.requests import PlaylistListRequest
+from src.structs.models.requests import PlaylistOrderRequest
 from src.structs.models.requests import StartCopyRequest
 from src.structs.models.requests import UpdatePlaylistRequest
 from src.structs.models.responses import AccountSync
@@ -278,6 +279,36 @@ async def choose_importing(
             playlist_id=playlist_id,
             importing=request.importing,
             now=now,
+        )
+
+
+async def pin_playlist(
+    session: AsyncSession,
+    playlist_id: UUID,
+    *,
+    user_id: UUID,
+    pinned_at: datetime | None,
+) -> None:
+    async with session.begin():
+        await library_actions.pin_playlist(
+            session,
+            user_id=user_id,
+            playlist_id=playlist_id,
+            pinned_at=pinned_at,
+        )
+
+
+async def order_playlists(
+    session: AsyncSession,
+    request: PlaylistOrderRequest,
+    *,
+    user_id: UUID,
+) -> None:
+    async with session.begin():
+        await library_repositories.set_library_order(
+            session,
+            user_id,
+            list(dict.fromkeys(request.playlist_ids)),
         )
 
 

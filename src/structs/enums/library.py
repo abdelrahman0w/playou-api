@@ -35,6 +35,7 @@ class LikeSorts(StrEnum):
 class PlaylistSorts(StrEnum):
     RECENT = "RECENT"
     NAME = "NAME"
+    CUSTOM = "CUSTOM"
 
 
 class PlaylistImports(StrEnum):

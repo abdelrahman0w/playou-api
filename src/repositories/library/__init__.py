@@ -26,6 +26,8 @@ from .playlists import remove_playlist
 from .playlists import remove_playlists
 from .playlists import save_link
 from .playlists import set_importing
+from .playlists import set_library_order
+from .playlists import set_pinned
 from .playlists import skip_playlist
 from .playlists import update_from_platform
 from .playlists import update_playlist
@@ -61,7 +63,9 @@ __all__ = [
     "remove_playlists",
     "save_link",
     "set_importing",
+    "set_library_order",
     "set_like",
+    "set_pinned",
     "skip_playlist",
     "together_track_ids",
     "update_from_platform",

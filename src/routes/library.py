@@ -24,6 +24,7 @@ from src.structs.models.requests import LikeListRequest
 from src.structs.models.requests import PlaylistImportingRequest
 from src.structs.models.requests import PlaylistItemsRequest
 from src.structs.models.requests import PlaylistListRequest
+from src.structs.models.requests import PlaylistOrderRequest
 from src.structs.models.requests import StartCopyRequest
 from src.structs.models.requests import UpdatePlaylistRequest
 from src.structs.models.responses import AccountSync
@@ -271,6 +272,21 @@ async def create_playlist(
     return playlist
 
 
+@router.put(
+    "/playlists/order",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=writes,
+)
+async def order_playlists(
+    body: PlaylistOrderRequest,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> Response:
+    await library_controller.order_playlists(session, body, user_id=user_id)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.get("/playlists/{playlist_id}")
 async def get_playlist(
     playlist_id: UUID,
@@ -367,6 +383,47 @@ async def choose_importing(
     return Response(
         status_code=status.HTTP_204_NO_CONTENT,
     )
+
+
+@router.put(
+    "/playlists/{playlist_id}/pin",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=writes,
+)
+async def pin_playlist(
+    playlist_id: UUID,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    now: NowDep,
+) -> Response:
+    await library_controller.pin_playlist(
+        session,
+        playlist_id,
+        user_id=user_id,
+        pinned_at=now,
+    )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/playlists/{playlist_id}/pin",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=writes,
+)
+async def unpin_playlist(
+    playlist_id: UUID,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> Response:
+    await library_controller.pin_playlist(
+        session,
+        playlist_id,
+        user_id=user_id,
+        pinned_at=None,
+    )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(

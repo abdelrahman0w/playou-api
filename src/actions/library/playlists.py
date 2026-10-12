@@ -229,3 +229,19 @@ async def remove_playlist_item(
         subject_id=playlist_id,
         now=now,
     )
+
+
+async def pin_playlist(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    playlist_id: UUID,
+    pinned_at: datetime | None,
+) -> None:
+    if not await library_repositories.set_pinned(
+        session,
+        user_id,
+        playlist_id,
+        pinned_at=pinned_at,
+    ):
+        raise NotFoundError("The playlist does not exist")

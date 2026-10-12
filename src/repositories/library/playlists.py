@@ -1,8 +1,10 @@
 import math
 from datetime import datetime
 from itertools import batched
+from typing import Any
 from uuid import UUID
 
+from sqlalchemy import ColumnElement
 from sqlalchemy import case
 from sqlalchemy import delete
 from sqlalchemy import exists
@@ -90,6 +92,7 @@ def _to_playlist(
         links=links.get(row.id, []),
         imported_from=row.imported_from,
         on_profile=row.on_profile,
+        pinned=row.pinned_at is not None,
         created_at=row.created_at,
         updated_at=row.updated_at,
         removed_at=row.removed_at,
@@ -196,6 +199,20 @@ async def get_playlist(
     )
 
 
+def _sorted_by(sort: PlaylistSorts) -> tuple[ColumnElement[Any], ...]:
+    playlist = tables.Playlist
+    if sort is PlaylistSorts.NAME:
+        return func.search_fold(playlist.name), playlist.id.asc()
+    if sort is PlaylistSorts.CUSTOM:
+        return (
+            playlist.library_position.asc().nulls_first(),
+            playlist.created_at.desc(),
+            playlist.id.desc(),
+        )
+
+    return playlist.created_at.desc(), playlist.id.desc()
+
+
 async def list_playlists(
     session: AsyncSession,
     user_id: UUID,
@@ -237,13 +254,7 @@ async def list_playlists(
         await session.scalars(
             select(playlist)
             .where(*where)
-            .order_by(
-                *(
-                    (func.search_fold(playlist.name), playlist.id)
-                    if sort is PlaylistSorts.NAME
-                    else (playlist.created_at.desc(), playlist.id.desc())
-                ),
-            )
+            .order_by(playlist.pinned_at.is_(None), *_sorted_by(sort))
             .offset((page - 1) * page_size)
             .limit(page_size),
         ),
@@ -651,4 +662,44 @@ async def set_importing(
         update(link)
         .where(link.playlist_id == playlist_id, link.platform == platform)
         .values(importing=importing, snapshot_id=None),
+    )
+
+
+async def set_pinned(
+    session: AsyncSession,
+    user_id: UUID,
+    playlist_id: UUID,
+    *,
+    pinned_at: datetime | None,
+) -> bool:
+    playlist = tables.Playlist
+    changed = await session.scalar(
+        update(playlist)
+        .where(
+            playlist.id == playlist_id,
+            playlist.user_id == user_id,
+            playlist.removed_at.is_(None),
+        )
+        .values(pinned_at=pinned_at)
+        .returning(playlist.id),
+    )
+
+    return changed is not None
+
+
+async def set_library_order(
+    session: AsyncSession,
+    user_id: UUID,
+    playlist_ids: list[UUID],
+) -> None:
+    playlist = tables.Playlist
+    positions = {playlist_id: index for index, playlist_id in enumerate(playlist_ids)}
+    await session.execute(
+        update(playlist)
+        .where(playlist.user_id == user_id)
+        .values(
+            library_position=case(positions, value=playlist.id, else_=None)
+            if positions
+            else None,
+        ),
     )

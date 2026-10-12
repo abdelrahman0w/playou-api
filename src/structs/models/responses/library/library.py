@@ -63,6 +63,7 @@ class Playlist(BaseModel):
     removed_at: datetime | None = None
     removed_by: RemovedBy | None = None
     on_profile: bool = False
+    pinned: bool = False
 
 
 class PlaylistItem(BaseModel):

@@ -60,6 +60,10 @@ class UpdatePlaylistRequest(BaseModel):
     _trim = field_validator("name", "description", mode="before")(_trimmed)
 
 
+class PlaylistOrderRequest(BaseModel):
+    playlist_ids: list[UUID] = Field(max_length=5000)
+
+
 class PlaylistItemsRequest(BaseModel):
     track_ids: list[UUID] = Field(min_length=1, max_length=100)
 

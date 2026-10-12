@@ -1238,6 +1238,37 @@
         }
       }
     },
+    "/library/playlists/order": {
+      "put": {
+        "summary": "Order Playlists",
+        "operationId": "order_playlists_library_playlists_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaylistOrderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/library/playlists/{playlist_id}": {
       "get": {
         "summary": "Get Playlist",
@@ -1393,6 +1424,70 @@
             }
           }
         },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library/playlists/{playlist_id}/pin": {
+      "put": {
+        "summary": "Pin Playlist",
+        "operationId": "pin_playlist_library_playlists__playlist_id__pin_put",
+        "parameters": [
+          {
+            "name": "playlist_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Playlist Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Unpin Playlist",
+        "operationId": "unpin_playlist_library_playlists__playlist_id__pin_delete",
+        "parameters": [
+          {
+            "name": "playlist_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Playlist Id"
+            }
+          }
+        ],
         "responses": {
           "204": {
             "description": "Successful Response"
@@ -6143,6 +6238,11 @@
             "type": "boolean",
             "title": "On Profile",
             "default": false
+          },
+          "pinned": {
+            "type": "boolean",
+            "title": "Pinned",
+            "default": false
           }
         },
         "type": "object",
@@ -6270,6 +6370,11 @@
           "on_profile": {
             "type": "boolean",
             "title": "On Profile",
+            "default": false
+          },
+          "pinned": {
+            "type": "boolean",
+            "title": "Pinned",
             "default": false
           },
           "items": {
@@ -6408,11 +6513,30 @@
         ],
         "title": "PlaylistLink"
       },
+      "PlaylistOrderRequest": {
+        "properties": {
+          "playlist_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 5000,
+            "title": "Playlist Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "playlist_ids"
+        ],
+        "title": "PlaylistOrderRequest"
+      },
       "PlaylistSorts": {
         "type": "string",
         "enum": [
           "RECENT",
-          "NAME"
+          "NAME",
+          "CUSTOM"
         ],
         "title": "PlaylistSorts"
       },

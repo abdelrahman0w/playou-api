@@ -77,6 +77,8 @@ class Playlist(Base):
         ),
     )
     on_profile: Mapped[bool] = mapped_column(Boolean, server_default=false())
+    pinned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    library_position: Mapped[int | None] = mapped_column(Integer)
 
 
 class PlaylistItem(Base):

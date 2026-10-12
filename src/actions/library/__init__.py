@@ -8,6 +8,7 @@ from .likes import unlike_track
 from .playlists import add_playlist_items
 from .playlists import choose_importing
 from .playlists import create_playlist
+from .playlists import pin_playlist
 from .playlists import remove_playlist
 from .playlists import remove_playlist_item
 from .playlists import update_playlist
@@ -23,6 +24,7 @@ __all__ = [
     "ensure_allowed",
     "leftovers",
     "like_track",
+    "pin_playlist",
     "remove_platform_data",
     "remove_playlist",
     "remove_playlist_item",
