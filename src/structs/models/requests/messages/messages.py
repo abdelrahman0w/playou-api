@@ -62,13 +62,20 @@ class MessagePeopleRequest(BaseModel):
     q: str = Field(default="", max_length=60)
 
 
+EMOJI_STYLE = "\ufe0f"
+
+
 class ReactionRequest(BaseModel):
     emoji: str = Field(min_length=1, max_length=16)
 
     @field_validator("emoji")
     @classmethod
     def one_emoji(cls, value: str) -> str:
-        if not is_emoji(value):
-            raise ValueError("React with one emoji")
+        if is_emoji(value):
+            return value
 
-        return value
+        plain = value.replace(EMOJI_STYLE, "")
+        if plain and is_emoji(plain):
+            return plain
+
+        raise ValueError("React with one emoji")
