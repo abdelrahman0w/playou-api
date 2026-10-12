@@ -24,6 +24,7 @@ MINUTE = 60
 DAY = 24 * 60 * 60
 PEOPLE_SEARCHES_PER_MINUTE = 60
 PEOPLE_RESULTS = 20
+REACTIONS_PER_MINUTE = 60
 
 
 async def _summary(
@@ -222,6 +223,50 @@ async def unsend(
         raise NotFoundError("This message can't be unsent")
 
     return await messages_repositories.members(session, conversation_id)
+
+
+async def react(
+    session: AsyncSession,
+    redis: Redis,
+    conversation_id: UUID,
+    message_id: UUID,
+    *,
+    user_id: UUID,
+    emoji: str | None,
+) -> tuple[list[UUID], UUID | None]:
+    summary = await _summary(session, conversation_id, user_id)
+    if not summary.can_send:
+        raise ForbiddenError("You can't react in this chat")
+
+    result = await rate_limit_actions.hit(
+        redis,
+        f"reactions:{user_id}",
+        limit=REACTIONS_PER_MINUTE,
+        window_seconds=MINUTE,
+    )
+    if not result.allowed:
+        raise TooManyRequestsError(
+            "You have reacted a lot, try again later",
+            retry_after_seconds=result.reset,
+        )
+
+    reacted = await messages_repositories.react(
+        session,
+        conversation_id,
+        message_id,
+        user_id,
+        emoji=emoji,
+    )
+    if reacted is None:
+        raise NotFoundError("This message can't be reacted to")
+
+    sender_id, changed = reacted
+    if not changed:
+        return [], None
+
+    members = await messages_repositories.members(session, conversation_id)
+
+    return members, sender_id if emoji and sender_id != user_id else None
 
 
 async def set_blocked(

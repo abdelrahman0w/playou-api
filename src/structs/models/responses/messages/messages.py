@@ -8,6 +8,11 @@ from src.structs.models.responses.library import CatalogTrack
 from src.structs.models.responses.shares import SharedPlaylist
 
 
+class MessageReaction(BaseModel):
+    emoji: str
+    mine: bool
+
+
 class ChatMessage(BaseModel):
     id: UUID
     mine: bool
@@ -16,6 +21,7 @@ class ChatMessage(BaseModel):
     playlist: SharedPlaylist | None = None
     unsent: bool = False
     via_link: bool = False
+    reactions: list[MessageReaction] = Field(default_factory=list)
     created_at: datetime
 
 

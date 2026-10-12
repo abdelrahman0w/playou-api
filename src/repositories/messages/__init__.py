@@ -10,6 +10,7 @@ from .messages import message_people
 from .messages import message_reports
 from .messages import other_member
 from .messages import pair_of
+from .messages import react
 from .messages import report_message
 from .messages import touch_conversation
 from .messages import unread_in
@@ -37,6 +38,7 @@ __all__ = [
     "message_reports",
     "other_member",
     "pair_of",
+    "react",
     "report_message",
     "save_subscription",
     "subscriptions_of",

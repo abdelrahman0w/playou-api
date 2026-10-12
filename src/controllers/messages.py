@@ -221,6 +221,50 @@ async def unsend(
     await messages_actions.announce(redis, members)
 
 
+async def react(
+    session: AsyncSession,
+    redis: Redis,
+    conversation_id: UUID,
+    message_id: UUID,
+    *,
+    user_id: UUID,
+    emoji: str | None,
+) -> UUID | None:
+    async with session.begin():
+        members, notify = await messages_actions.react(
+            session,
+            redis,
+            conversation_id,
+            message_id,
+            user_id=user_id,
+            emoji=emoji,
+        )
+    await messages_actions.announce(redis, members)
+
+    return notify
+
+
+async def notify_reaction(
+    session_factory: async_sessionmaker[AsyncSession],
+    redis: Redis,
+    conversation_id: UUID,
+    message_id: UUID,
+    *,
+    actor_id: UUID,
+    recipient_id: UUID,
+    emoji: str,
+) -> None:
+    await messages_actions.notify_reaction(
+        session_factory,
+        redis,
+        conversation_id,
+        message_id,
+        actor_id=actor_id,
+        recipient_id=recipient_id,
+        emoji=emoji,
+    )
+
+
 async def set_blocked(
     session: AsyncSession,
     redis: Redis,

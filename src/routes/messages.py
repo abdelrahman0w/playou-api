@@ -25,6 +25,7 @@ from src.structs.models.requests import MessageListRequest
 from src.structs.models.requests import MessagePeopleRequest
 from src.structs.models.requests import PushRemovalRequest
 from src.structs.models.requests import PushSubscriptionRequest
+from src.structs.models.requests import ReactionRequest
 from src.structs.models.requests import SendMessageRequest
 from src.structs.models.responses import ChatMessage
 from src.structs.models.responses import Conversation
@@ -231,6 +232,68 @@ async def unsend(
         message_id,
         user_id=user_id,
         now=now,
+    )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put(
+    "/conversations/{conversation_id}/messages/{message_id}/reaction",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=writes,
+)
+async def react(
+    conversation_id: UUID,
+    message_id: UUID,
+    body: ReactionRequest,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    session_factory: SessionFactoryDep,
+    redis: RedisDep,
+    background: BackgroundTasks,
+) -> Response:
+    notify = await messages_controller.react(
+        session,
+        redis,
+        conversation_id,
+        message_id,
+        user_id=user_id,
+        emoji=body.emoji,
+    )
+    if notify is not None:
+        background.add_task(
+            messages_controller.notify_reaction,
+            session_factory,
+            redis,
+            conversation_id,
+            message_id,
+            actor_id=user_id,
+            recipient_id=notify,
+            emoji=body.emoji,
+        )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/conversations/{conversation_id}/messages/{message_id}/reaction",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=writes,
+)
+async def unreact(
+    conversation_id: UUID,
+    message_id: UUID,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    redis: RedisDep,
+) -> Response:
+    await messages_controller.react(
+        session,
+        redis,
+        conversation_id,
+        message_id,
+        user_id=user_id,
+        emoji=None,
     )
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

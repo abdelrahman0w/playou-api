@@ -78,6 +78,23 @@ class Message(Base):
     )
 
 
+class MessageReaction(Base):
+    __tablename__ = "message_reactions"
+    __table_args__ = (Index(None, "user_id"),)
+
+    message_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("messages.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    emoji: Mapped[str] = mapped_column(String(16))
+
+
 class MessageReport(Base):
     __tablename__ = "message_reports"
     __table_args__ = (UniqueConstraint("user_id", "message_id"),)

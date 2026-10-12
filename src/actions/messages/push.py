@@ -182,3 +182,42 @@ async def notify_follow(
         }
 
     await push_to(session_factory, [recipient_id], payload)
+
+
+REACTION_TEXTS = {
+    "en": "reacted {emoji} to your message",
+    "ar": "تفاعل بـ {emoji} مع رسالتك",
+}
+
+
+async def notify_reaction(
+    session_factory: async_sessionmaker[AsyncSession],
+    redis: Redis,
+    conversation_id: UUID,
+    message_id: UUID,
+    *,
+    actor_id: UUID,
+    recipient_id: UUID,
+    emoji: str,
+) -> None:
+    if not settings.messages.push_enabled or await _viewing(
+        redis,
+        recipient_id,
+        conversation_id,
+    ):
+        return
+
+    async with session_factory() as session:
+        name = await messages_repositories.user_name(session, actor_id)
+
+    def payload(locale: str) -> dict[str, str]:
+        text = REACTION_TEXTS.get(locale, REACTION_TEXTS[BASE_LOCALE])
+
+        return {
+            "title": name or "PlaYou",
+            "body": text.format(emoji=emoji),
+            "url": f"{_prefix(locale)}/messages/{conversation_id}",
+            "tag": f"reaction:{message_id}",
+        }
+
+    await push_to(session_factory, [recipient_id], payload)

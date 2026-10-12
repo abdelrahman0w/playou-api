@@ -18,6 +18,7 @@ from .messages import MessageListRequest
 from .messages import MessagePeopleRequest
 from .messages import PushRemovalRequest
 from .messages import PushSubscriptionRequest
+from .messages import ReactionRequest
 from .messages import SendMessageRequest
 from .people import OnProfileRequest
 from .people import PeoplePageRequest
@@ -57,6 +58,7 @@ __all__ = [
     "PushPreferencesRequest",
     "PushRemovalRequest",
     "PushSubscriptionRequest",
+    "ReactionRequest",
     "RejectedTokenRequest",
     "SavePlaybackSessionRequest",
     "SearchRequest",

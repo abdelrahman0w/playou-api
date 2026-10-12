@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy import Row
 from sqlalchemy import Select
 from sqlalchemy import and_
+from sqlalchemy import delete
 from sqlalchemy import exists
 from sqlalchemy import func
 from sqlalchemy import or_
@@ -26,6 +27,7 @@ from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import ChatMessage
 from src.structs.models.responses import ConversationSummary
 from src.structs.models.responses import MessagePerson
+from src.structs.models.responses import MessageReaction
 from src.structs.models.responses import SharedPlaylist
 from src.utils.sql import any_of
 
@@ -168,6 +170,7 @@ def _message(
     user_id: UUID,
     tracks: dict[UUID, CatalogTrack],
     playlists: dict[UUID, SharedPlaylist],
+    reactions: dict[UUID, list[MessageReaction]],
 ) -> ChatMessage:
     unsent = row.deleted_at is not None
     track = tracks.get(row.track_id) if row.track_id and not unsent else None
@@ -181,6 +184,7 @@ def _message(
         playlist=playlist,
         unsent=unsent,
         via_link=row.via_link,
+        reactions=[] if unsent else reactions.get(row.id, []),
         created_at=row.created_at,
     )
 
@@ -206,8 +210,19 @@ async def _messages(
         else []
     )
     playlists = await shared_playlists(session, shares)
+    reaction = tables.MessageReaction
+    reactions: dict[UUID, list[MessageReaction]] = {}
+    if live:
+        for message_id, reacted_by, emoji in await session.execute(
+            select(reaction.message_id, reaction.user_id, reaction.emoji)
+            .where(any_of(reaction.message_id, {row.id for row in live}))
+            .order_by(reaction.created_at),
+        ):
+            reactions.setdefault(message_id, []).append(
+                MessageReaction(emoji=emoji, mine=reacted_by == user_id),
+            )
 
-    return [_message(row, user_id, tracks, playlists) for row in rows]
+    return [_message(row, user_id, tracks, playlists, reactions) for row in rows]
 
 
 def _summaries_query(user_id: UUID) -> Select[Unpack[tuple[Any, ...]]]:
@@ -492,12 +507,72 @@ async def unsend(
         return False
 
     await session.execute(
+        delete(tables.MessageReaction).where(
+            tables.MessageReaction.message_id == message_id,
+        ),
+    )
+    await session.execute(
         update(tables.Conversation)
         .where(tables.Conversation.id == conversation_id)
         .values(updated_at=func.now()),
     )
 
     return True
+
+
+async def react(
+    session: AsyncSession,
+    conversation_id: UUID,
+    message_id: UUID,
+    user_id: UUID,
+    *,
+    emoji: str | None,
+) -> tuple[UUID, bool] | None:
+    message = tables.Message
+    sender_id = await session.scalar(
+        select(message.sender_id).where(
+            message.id == message_id,
+            message.conversation_id == conversation_id,
+            message.deleted_at.is_(None),
+        ),
+    )
+    if sender_id is None:
+        return None
+
+    reaction = tables.MessageReaction
+    before = await session.scalar(
+        select(reaction.emoji).where(
+            reaction.message_id == message_id,
+            reaction.user_id == user_id,
+        ),
+    )
+    if emoji is None:
+        await session.execute(
+            delete(reaction).where(
+                reaction.message_id == message_id,
+                reaction.user_id == user_id,
+            ),
+        )
+    else:
+        statement = insert(reaction).values(
+            message_id=message_id,
+            user_id=user_id,
+            emoji=emoji,
+        )
+        await session.execute(
+            statement.on_conflict_do_update(
+                index_elements=["message_id", "user_id"],
+                set_={"emoji": emoji, "updated_at": func.now()},
+            ),
+        )
+    if before != emoji:
+        await session.execute(
+            update(tables.Conversation)
+            .where(tables.Conversation.id == conversation_id)
+            .values(updated_at=func.clock_timestamp()),
+        )
+
+    return sender_id, before != emoji
 
 
 async def other_member(

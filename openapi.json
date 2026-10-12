@@ -2365,6 +2365,100 @@
         }
       }
     },
+    "/messages/conversations/{conversation_id}/messages/{message_id}/reaction": {
+      "put": {
+        "summary": "React",
+        "operationId": "react_messages_conversations__conversation_id__messages__message_id__reaction_put",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReactionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Unreact",
+        "operationId": "unreact_messages_conversations__conversation_id__messages__message_id__reaction_delete",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/messages/conversations/{conversation_id}/block": {
       "put": {
         "summary": "Block",
@@ -4483,6 +4577,13 @@
             "title": "Via Link",
             "default": false
           },
+          "reactions": {
+            "items": {
+              "$ref": "#/components/schemas/MessageReaction"
+            },
+            "type": "array",
+            "title": "Reactions"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -5294,6 +5395,24 @@
           "name"
         ],
         "title": "MessagePerson"
+      },
+      "MessageReaction": {
+        "properties": {
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "mine": {
+            "type": "boolean",
+            "title": "Mine"
+          }
+        },
+        "type": "object",
+        "required": [
+          "emoji",
+          "mine"
+        ],
+        "title": "MessageReaction"
       },
       "MessageUpdates": {
         "properties": {
@@ -6861,6 +6980,27 @@
           "keys"
         ],
         "title": "PushSubscriptionRequest"
+      },
+      "ReactionRequest": {
+        "properties": {
+          "emoji": {
+            "type": "string",
+            "enum": [
+              "\u2764\ufe0f",
+              "\ud83d\ude02",
+              "\ud83d\ude2e",
+              "\ud83d\ude22",
+              "\ud83d\udd25",
+              "\ud83d\udc4d"
+            ],
+            "title": "Emoji"
+          }
+        },
+        "type": "object",
+        "required": [
+          "emoji"
+        ],
+        "title": "ReactionRequest"
       },
       "ReadinessResponse": {
         "properties": {

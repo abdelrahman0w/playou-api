@@ -23,6 +23,7 @@ from .library import PlaylistLink  # noqa: E402
 from .messages import Conversation  # noqa: E402
 from .messages import ConversationMember  # noqa: E402
 from .messages import Message  # noqa: E402
+from .messages import MessageReaction  # noqa: E402
 from .messages import MessageReport  # noqa: E402
 from .messages import PushSubscription  # noqa: E402
 from .people import Follow  # noqa: E402
@@ -49,6 +50,7 @@ __all__ = [
     "LinkedAccount",
     "LyricsReport",
     "Message",
+    "MessageReaction",
     "MessageReport",
     "NameChange",
     "PlaybackSession",

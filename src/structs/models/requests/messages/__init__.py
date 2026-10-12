@@ -3,6 +3,7 @@ from .messages import MessageListRequest
 from .messages import MessagePeopleRequest
 from .messages import PushRemovalRequest
 from .messages import PushSubscriptionRequest
+from .messages import ReactionRequest
 from .messages import SendMessageRequest
 
 
@@ -12,5 +13,6 @@ __all__ = [
     "MessagePeopleRequest",
     "PushRemovalRequest",
     "PushSubscriptionRequest",
+    "ReactionRequest",
     "SendMessageRequest",
 ]

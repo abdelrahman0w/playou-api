@@ -1,3 +1,4 @@
+from typing import Literal
 from typing import Self
 from uuid import UUID
 
@@ -59,3 +60,10 @@ class PushRemovalRequest(BaseModel):
 
 class MessagePeopleRequest(BaseModel):
     q: str = Field(default="", max_length=60)
+
+
+Reaction = Literal["❤️", "😂", "😮", "😢", "🔥", "👍"]
+
+
+class ReactionRequest(BaseModel):
+    emoji: Reaction
