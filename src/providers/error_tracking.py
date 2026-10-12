@@ -25,6 +25,15 @@ if TYPE_CHECKING:
 UNTRACED_PREFIXES = ("/health",)
 
 
+EXPECTED = frozenset({"PLATFORM_RATE_LIMITED", "QUOTA_EXHAUSTED"})
+
+
+def drop_expected(event: Any, hint: dict[str, Any]) -> Any:
+    raised = (hint.get("exc_info") or (None, None, None))[1]
+
+    return None if getattr(raised, "error_type", None) in EXPECTED else event
+
+
 def traces_sampler(context: dict[str, Any], *, rate: float) -> float:
     path = (context.get("asgi_scope") or {}).get("path", "")
 
@@ -51,6 +60,7 @@ def setup_error_tracking(
             rate=error_tracking.traces_sample_rate,
         ),
         send_default_pii=False,
+        before_send=drop_expected,
         enable_logs=error_tracking.logs_enabled,
         integrations=[
             StarletteIntegration(),

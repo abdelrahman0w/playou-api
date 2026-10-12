@@ -1,6 +1,5 @@
 import asyncio
 from collections.abc import Awaitable
-from collections.abc import Coroutine
 from datetime import timedelta
 from urllib.parse import urlencode
 
@@ -185,6 +184,24 @@ def _to_track(
     )
 
 
+ENDPOINT_GROUPS = (
+    ("/search", "search"),
+    ("/me/player", "playback"),
+    ("/me/tracks", "library"),
+    ("/me/playlists", "library"),
+    ("/playlists", "library"),
+)
+
+
+def _group(path: str) -> str:
+    endpoint = path.removeprefix("/v1")
+
+    return next(
+        (group for prefix, group in ENDPOINT_GROUPS if endpoint.startswith(prefix)),
+        "other",
+    )
+
+
 class SpotifyService:
     platform = Platforms.SPOTIFY
     capabilities = CAPABILITIES
@@ -211,6 +228,12 @@ class SpotifyService:
         self._search_max_limit = search_max_limit
         self.refresh_token_lifetime = refresh_token_lifetime
         self._pause = pause
+        if pause is not None:
+            api.event_hooks["request"].append(self._paused)
+
+    async def _paused(self, request: httpx.Request) -> None:
+        if self._pause is not None:
+            await self._pause.check(_group(request.url.path))
 
     async def _send(
         self,
@@ -219,15 +242,6 @@ class SpotifyService:
         pausable: bool = True,
     ) -> httpx.Response:
         pause = self._pause if pausable else None
-        if pause is not None:
-            try:
-                await pause.check()
-            except PlatformRateLimitedError:
-                if isinstance(request, Coroutine):
-                    request.close()
-
-                raise
-
         try:
             response = await request
         except httpx.TimeoutException as exc:
@@ -238,7 +252,8 @@ class SpotifyService:
         if response.status_code == httpx.codes.TOO_MANY_REQUESTS:
             seconds = _retry_after(response)
             if pause is not None:
-                raise await pause.pause(seconds)
+                path = response.request.url.path
+                raise await pause.pause(seconds, group=_group(path), path=path)
 
             raise PlatformRateLimitedError(
                 f"Spotify is limiting the requests, try again in {seconds} seconds",

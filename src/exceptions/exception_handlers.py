@@ -84,9 +84,18 @@ def error_response(
     )
 
 
+EXPECTED_OUTAGES = (PlatformRateLimitedError, QuotaExhaustedError)
+
+
 async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
     status_code = status_code_for(exc)
-    if status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+    if isinstance(exc, EXPECTED_OUTAGES):
+        logger.warning(
+            "[Error] Platform Limited",
+            error_type=exc.error_type,
+            reason=exc.message,
+        )
+    elif status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
         logger.exception(
             "[Error] Request Failure",
             exc_info=exc,

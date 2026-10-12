@@ -18,6 +18,9 @@ from src.structs.enums import CacheKeys
 from src.structs.enums import Platforms
 
 
+LONG_PAUSE_SECONDS = 10 * 60
+
+
 class PlatformPause:
     def __init__(
         self,
@@ -38,20 +41,32 @@ class PlatformPause:
             retry_after_seconds=wait,
         )
 
-    async def check(self) -> None:
+    def _key_for(self, group: str | None) -> str:
+        return self._key if group is None else f"{self._key}:{group}"
+
+    async def check(self, group: str | None = None) -> None:
+        keys = [self._key] if group is None else [self._key, self._key_for(group)]
         try:
-            left = await self._redis.pttl(self._key)
+            left = max([await self._redis.pttl(key) for key in keys])
         except RedisError:
             return
 
         if left > 0:
             raise self._limited(left / 1000)
 
-    async def pause(self, seconds: int) -> PlatformRateLimitedError:
+    async def pause(
+        self,
+        seconds: int,
+        *,
+        group: str | None = None,
+        path: str | None = None,
+    ) -> PlatformRateLimitedError:
+        scoped = group if seconds > LONG_PAUSE_SECONDS else None
+        key = self._key_for(scoped)
         milliseconds = max(1, seconds) * 1000
         try:
-            await self._redis.set(self._key, "1", px=milliseconds, nx=True)
-            await self._redis.pexpire(self._key, milliseconds, gt=True)
+            await self._redis.set(key, "1", px=milliseconds, nx=True)
+            await self._redis.pexpire(key, milliseconds, gt=True)
         except RedisError:
             pass
 
@@ -59,6 +74,8 @@ class PlatformPause:
             "[Platforms] Paused - Rate Limited",
             platform=self._name,
             seconds=seconds,
+            path=path,
+            paused=scoped or "everything",
         )
 
         return self._limited(seconds)
