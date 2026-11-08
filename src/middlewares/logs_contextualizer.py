@@ -64,7 +64,6 @@ class LogsContextualizerMiddleware:
             client_ip=get_client_ip(request) or "",
             cf_connecting_ip=request.headers.get("cf-connecting-ip", ""),
             real_ip=request.headers.get("x-real-ip", ""),
-            forwarded_for=request.headers.get("x-forwarded-for", ""),
         ):
             started = time.perf_counter()
 
