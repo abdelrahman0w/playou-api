@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
+import sentry_sdk
 from fastapi import Depends
 from fastapi import Request
 from redis.asyncio import Redis
@@ -120,16 +121,22 @@ async def get_session_user(
     state = request.scope.get("state", {})
     checked = CACHED_USER_ID in state
     cached: auth_actions.SessionUser | None = state.get(CACHED_USER_ID)
-    if cached is not None:
-        return cached
-
-    return await auth_actions.resolve_session(
-        session,
-        redis,
-        token,
-        now=now,
-        check_cache=not checked,
+    user = (
+        cached
+        if cached is not None
+        else await auth_actions.resolve_session(
+            session,
+            redis,
+            token,
+            now=now,
+            check_cache=not checked,
+        )
     )
+    if user is not None:
+        request.state.user_id = str(user.user_id)
+        sentry_sdk.set_user({"id": str(user.user_id)})
+
+    return user
 
 
 SessionUserDep = Annotated[auth_actions.SessionUser | None, Depends(get_session_user)]

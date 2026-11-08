@@ -85,6 +85,8 @@ def _log_request(
         "status_code": status_code,
         "duration_ms": round((time.perf_counter() - started) * 1000, 2),
     }
+    if user_id := scope.get("state", {}).get("user_id"):
+        extra["user_id"] = user_id
 
     if scope["path"].startswith(QUIET_PATH_PREFIX):
         logger.debug(
