@@ -84,7 +84,7 @@ def error_response(
     )
 
 
-EXPECTED_OUTAGES = (PlatformRateLimitedError, QuotaExhaustedError)
+EXPECTED_OUTAGES = (PlatformUnavailableError, QuotaExhaustedError)
 
 
 async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:

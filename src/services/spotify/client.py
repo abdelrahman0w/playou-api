@@ -101,7 +101,10 @@ def _check(
     if response.status_code == httpx.codes.NOT_FOUND:
         raise PlatformNotFoundError("Spotify does not have it anymore")
     if response.is_error:
-        raise PlatformError(
+        failure = (
+            PlatformUnavailableError if response.is_server_error else PlatformError
+        )
+        raise failure(
             f"Spotify responded with status {response.status_code}"
             + (f", {message}" if (message := _message(response)) else ""),
         )

@@ -85,7 +85,7 @@ def _log_request(
             **extra,
         )
     elif status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
-        logger.error(
+        logger.warning(
             "[API Access Request] An Error Occurred",
             **extra,
         )

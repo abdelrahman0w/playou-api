@@ -235,7 +235,10 @@ class YouTubeService:
         ):
             raise await self._quota.spend()
         if response.is_error:
-            raise PlatformError(f"YouTube responded with status {response.status_code}")
+            failure = (
+                PlatformUnavailableError if response.is_server_error else PlatformError
+            )
+            raise failure(f"YouTube responded with status {response.status_code}")
 
         return response
 

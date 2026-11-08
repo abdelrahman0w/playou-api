@@ -25,7 +25,13 @@ if TYPE_CHECKING:
 UNTRACED_PREFIXES = ("/health",)
 
 
-EXPECTED = frozenset({"PLATFORM_RATE_LIMITED", "QUOTA_EXHAUSTED"})
+EXPECTED = frozenset(
+    {"PLATFORM_RATE_LIMITED", "PLATFORM_UNAVAILABLE", "QUOTA_EXHAUSTED"},
+)
+
+
+def _message_only(_: Any) -> str:
+    return "{message}"
 
 
 def drop_expected(event: Any, hint: dict[str, Any]) -> Any:
@@ -60,6 +66,7 @@ def setup_error_tracking(
             rate=error_tracking.traces_sample_rate,
         ),
         send_default_pii=False,
+        include_local_variables=False,
         before_send=drop_expected,
         enable_logs=error_tracking.logs_enabled,
         integrations=[
@@ -68,7 +75,10 @@ def setup_error_tracking(
             SqlalchemyIntegration(),
             RedisIntegration(),
             HttpxIntegration(),
-            LoguruIntegration(),
+            LoguruIntegration(
+                breadcrumb_format=_message_only,
+                event_format=_message_only,
+            ),
             LoggingIntegration(level=None, event_level=None),
         ],
     )

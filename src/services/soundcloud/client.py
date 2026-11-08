@@ -97,7 +97,10 @@ def _check(response: httpx.Response) -> httpx.Response:
     if response.status_code == httpx.codes.NOT_FOUND:
         raise PlatformNotFoundError("SoundCloud does not have it anymore")
     if response.is_error:
-        raise PlatformError(f"SoundCloud responded with status {response.status_code}")
+        failure = (
+            PlatformUnavailableError if response.is_server_error else PlatformError
+        )
+        raise failure(f"SoundCloud responded with status {response.status_code}")
 
     return response
 
