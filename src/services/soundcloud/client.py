@@ -286,7 +286,11 @@ class SoundCloudService:
 
     async def refresh(self, refresh_token: str) -> PlatformTokens:
         token = await self._token(
-            {"grant_type": "refresh_token", "refresh_token": refresh_token},
+            {
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+                "redirect_uri": self._redirect_uri,
+            },
         )
         if isinstance(token, SoundCloudTokenError):
             if token.error == INVALID_GRANT:
