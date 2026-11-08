@@ -1,6 +1,8 @@
 from .client_ip import client_key
 from .client_ip import resolve_client_ip
 from .cron import cron_matches
+from .database import database_unreachable
+from .database import lock_timed_out
 from .encryption import DecryptionError
 from .encryption import decrypt
 from .encryption import encrypt
@@ -22,8 +24,10 @@ __all__ = [
     "client_key",
     "connect_singletons",
     "cron_matches",
+    "database_unreachable",
     "decrypt",
     "encrypt",
+    "lock_timed_out",
     "make_key",
     "make_verifier",
     "params_key",

@@ -1,8 +1,11 @@
+from asyncpg import PostgresError
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 
 from src.exceptions.custom_exceptions import AppError
 from src.exceptions.custom_exceptions import EmailUnavailableError
@@ -31,6 +34,8 @@ from src.providers import logger
 from src.structs.enums import ErrorTypes
 from src.structs.models import ErrorDetail
 from src.structs.models import ErrorResponse
+from src.utils import database_unreachable
+from src.utils import lock_timed_out
 
 
 STATUS_CODES: dict[type[AppError], int] = {
@@ -132,6 +137,36 @@ async def validation_error_handler(
     )
 
 
+async def database_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    if database_unreachable(exc):
+        logger.warning(
+            "[Database] Unavailable",
+            path=request.url.path,
+            error=type(exc).__name__,
+        )
+
+        return error_response(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            ErrorTypes.DATABASE_UNAVAILABLE,
+            "Playou is unavailable for a moment, try again",
+            {"Retry-After": "5"},
+        )
+    if not lock_timed_out(exc):
+        raise exc
+
+    logger.warning(
+        "[Database] Lock Wait Timed Out",
+        path=request.url.path,
+    )
+
+    return error_response(
+        status.HTTP_409_CONFLICT,
+        ErrorTypes.BUSY,
+        "Busy with another change, try again",
+        {"Retry-After": "1"},
+    )
+
+
 async def unhandled_error_handler(_: Request, exc: Exception) -> JSONResponse:
     logger.exception(
         "[Error] Unhandled Error",
@@ -148,4 +183,6 @@ async def unhandled_error_handler(_: Request, exc: Exception) -> JSONResponse:
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
+    for database_error in (DBAPIError, PoolTimeoutError, PostgresError, OSError):
+        app.add_exception_handler(database_error, database_error_handler)
     app.add_exception_handler(Exception, unhandled_error_handler)

@@ -67,6 +67,9 @@ class DatabaseSettings(BaseAppSettings):
     pool_timeout_seconds: float = Field(default=10.0, gt=0)
     pool_recycle_seconds: int = Field(default=30 * 60, ge=-1)
     pool_pre_ping: bool = True
+    statement_timeout_seconds: float = Field(default=30.0, gt=0)
+    lock_timeout_seconds: float = Field(default=15.0, gt=0)
+    idle_in_transaction_timeout_seconds: float = Field(default=30.0, gt=0)
 
     @property
     def url(self) -> URL:

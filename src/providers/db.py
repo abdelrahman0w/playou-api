@@ -8,6 +8,10 @@ from src.settings import settings
 from src.utils import Singleton
 
 
+def _ms(seconds: float) -> str:
+    return str(round(seconds * 1000))
+
+
 class DatabaseConnection(Singleton[AsyncEngine]):
     @classmethod
     def create(cls) -> AsyncEngine:
@@ -20,6 +24,15 @@ class DatabaseConnection(Singleton[AsyncEngine]):
             pool_timeout=database.pool_timeout_seconds,
             pool_recycle=database.pool_recycle_seconds,
             pool_pre_ping=database.pool_pre_ping,
+            connect_args={
+                "server_settings": {
+                    "statement_timeout": _ms(database.statement_timeout_seconds),
+                    "lock_timeout": _ms(database.lock_timeout_seconds),
+                    "idle_in_transaction_session_timeout": _ms(
+                        database.idle_in_transaction_timeout_seconds,
+                    ),
+                },
+            },
         )
 
     @classmethod
