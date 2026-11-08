@@ -11,6 +11,7 @@ from pydantic import SecretStr
 from pydantic import ValidationError
 
 from src.exceptions import InvalidOAuthStateError
+from src.exceptions import NotFoundError
 from src.exceptions import PlatformError
 from src.exceptions import PlatformNotFoundError
 from src.exceptions import PlatformRateLimitedError
@@ -593,7 +594,7 @@ class SoundCloudService:
 
     async def stream_url(self, access_token: str, platform_id: str) -> str:
         if TRACK_URN.fullmatch(platform_id) is None:
-            raise PlatformNotFoundError("SoundCloud has no such track")
+            raise NotFoundError("SoundCloud has no such track")
 
         response = await self._send(
             self._api.get(
@@ -601,13 +602,13 @@ class SoundCloudService:
                 headers=_auth(access_token),
             ),
         )
-        if response.status_code == httpx.codes.FORBIDDEN:
-            raise PlatformNotFoundError("SoundCloud does not stream this track")
+        if response.status_code in {httpx.codes.FORBIDDEN, httpx.codes.NOT_FOUND}:
+            raise NotFoundError("SoundCloud does not stream this track")
 
         streams = _parse(_check(response), SoundCloudStreams)
         url = streams.hls_aac_160_url or streams.hls_aac_96_url
         if url is None:
-            raise PlatformNotFoundError("SoundCloud only has a preview of this track")
+            raise NotFoundError("SoundCloud only has a preview of this track")
 
         return url
 
