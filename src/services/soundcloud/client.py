@@ -610,7 +610,23 @@ class SoundCloudService:
         if url is None:
             raise NotFoundError("SoundCloud only has a preview of this track")
 
-        return url
+        return await self._signed_url(access_token, url)
+
+    async def _signed_url(self, access_token: str, url: str) -> str:
+        if httpx.URL(url).host != self._api.base_url.host:
+            return url
+
+        response = await self._send(self._api.get(url, headers=_auth(access_token)))
+        if response.status_code in {httpx.codes.FORBIDDEN, httpx.codes.NOT_FOUND}:
+            raise NotFoundError("SoundCloud does not stream this track")
+        if response.next_request is None:
+            _check(response)
+
+            raise PlatformError(
+                f"SoundCloud answered the stream with status {response.status_code}",
+            )
+
+        return str(response.next_request.url)
 
     async def devices(self, access_token: str) -> list[PlaybackDevice]:
         _unsupported(access_token)
