@@ -120,7 +120,12 @@ async def estimate_copy(
         playlist_id,
     )
     tracks = await sync_repositories.scope_tracks(session, user_id, scope, playlist_id)
-    missing = await sync_repositories.tracks_without(session, tracks, platform)
+    missing = await sync_repositories.tracks_without(
+        session,
+        user_id,
+        tracks,
+        platform,
+    )
     capabilities = service.capabilities
     days = max(
         _days(len(missing) * capabilities.find_cost, capabilities.daily_find_units),
@@ -197,7 +202,12 @@ async def start_copy(
         scope,
         playlist_id,
         total=len(tracks),
-        missing=await sync_repositories.tracks_without(session, tracks, platform),
+        missing=await sync_repositories.tracks_without(
+            session,
+            user_id,
+            tracks,
+            platform,
+        ),
     )
 
     return await _progress(session, user_id, copy_id)
@@ -650,10 +660,7 @@ async def choose_similar(
 ) -> CatalogTrack | None:
     async with session_factory() as session, session.begin():
         _, account = await _target(session, platforms, user_id, platform)
-        track = (await catalog_repositories.get_tracks(session, [track_id])).get(
-            track_id,
-        )
-        if track is None:
+        if not await catalog_repositories.track_exists(session, track_id):
             raise NotFoundError("The track does not exist")
 
         if platform_id is None:
@@ -667,22 +674,26 @@ async def choose_similar(
             return None
 
         found = await chosen_candidate(redis, account, track_id, platform_id)
-        kept = await attach(session, track, found)
+        (saved,) = await catalog_repositories.save_platform_tracks(session, [found])
+        if saved.id != track_id:
+            await catalog_repositories.pick_source(session, user_id, track_id, found)
         await sync_repositories.settle_track(
             session,
             user_id,
             platform,
-            kept,
+            track_id,
             CopyItemStatuses.FOUND,
         )
-        like = await library_repositories.get_like(session, user_id, kept)
-        sends = [(SyncSubjects.LIKE, kept)] if like and like.removed_at is None else []
+        like = await library_repositories.get_like(session, user_id, track_id)
+        sends = (
+            [(SyncSubjects.LIKE, track_id)] if like and like.removed_at is None else []
+        )
         sends += [
             (SyncSubjects.PLAYLIST, playlist_id)
             for playlist_id in await sync_repositories.playlists_with(
                 session,
                 user_id,
-                kept,
+                track_id,
             )
         ]
         for subject, subject_id in sends:
@@ -695,4 +706,10 @@ async def choose_similar(
                 now=now,
             )
 
-        return (await catalog_repositories.get_tracks(session, [kept]))[kept]
+        return (
+            await catalog_repositories.get_tracks(
+                session,
+                [track_id],
+                user_id=user_id,
+            )
+        )[track_id]

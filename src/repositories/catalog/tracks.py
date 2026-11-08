@@ -7,6 +7,7 @@ from uuid import uuid7
 from sqlalchemy import ARRAY
 from sqlalchemy import Integer
 from sqlalchemy import Row
+from sqlalchemy import Subquery
 from sqlalchemy import Text
 from sqlalchemy import Uuid
 from sqlalchemy import bindparam
@@ -16,6 +17,7 @@ from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy import text
 from sqlalchemy import tuple_
+from sqlalchemy import union_all
 from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -375,9 +377,117 @@ async def save_platform_tracks(
     return [found[track_id] for track_id in ordered]
 
 
+def own_sources(user_id: UUID) -> Subquery:
+    source = tables.TrackSource
+    pick = tables.TrackPick
+    picked = (
+        select(pick.track_id, pick.platform, source.platform_id)
+        .join(source, source.id == pick.source_id)
+        .where(pick.user_id == user_id)
+    )
+    shared = select(source.track_id, source.platform, source.platform_id).where(
+        ~exists().where(
+            pick.user_id == user_id,
+            pick.track_id == source.track_id,
+            pick.platform == source.platform,
+        ),
+    )
+
+    return union_all(picked, shared).subquery()
+
+
+async def pick_source(
+    session: AsyncSession,
+    user_id: UUID,
+    track_id: UUID,
+    found: Track,
+) -> None:
+    source = tables.TrackSource
+    source_id = await session.scalar(
+        select(source.id).where(
+            source.platform == found.platform,
+            source.platform_id == found.platform_id,
+        ),
+    )
+    await session.execute(
+        insert(tables.TrackPick)
+        .values(
+            user_id=user_id,
+            track_id=track_id,
+            platform=found.platform,
+            source_id=source_id,
+        )
+        .on_conflict_do_update(
+            index_elements=["user_id", "track_id", "platform"],
+            set_={"source_id": source_id},
+        ),
+    )
+
+
+async def with_picks(
+    session: AsyncSession,
+    user_id: UUID,
+    platform: Platforms,
+    tracks: list[Track],
+    track_ids: list[UUID],
+) -> list[UUID]:
+    if not tracks:
+        return track_ids
+
+    pick = tables.TrackPick
+    source = tables.TrackSource
+    picked = dict(
+        (
+            await session.execute(
+                select(source.platform_id, pick.track_id)
+                .join(pick, pick.source_id == source.id)
+                .where(
+                    pick.user_id == user_id,
+                    pick.platform == platform,
+                    any_of(source.platform_id, [track.platform_id for track in tracks]),
+                ),
+            )
+        )
+        .tuples()
+        .all(),
+    )
+
+    return [
+        picked.get(track.platform_id, track_id)
+        for track, track_id in zip(tracks, track_ids, strict=True)
+    ]
+
+
+def _to_source(source: tables.TrackSource) -> TrackSource:
+    return TrackSource(
+        platform=source.platform,
+        platform_id=source.platform_id,
+        url=source.url,
+        embed_blocked=source.embed_blocked_at is not None,
+    )
+
+
+async def _picked(
+    session: AsyncSession,
+    user_id: UUID,
+    track_ids: Collection[UUID],
+) -> list[tuple[UUID, TrackSource]]:
+    pick = tables.TrackPick
+    source = tables.TrackSource
+    rows = await session.execute(
+        select(pick.track_id, source)
+        .join(source, source.id == pick.source_id)
+        .where(pick.user_id == user_id, any_of(pick.track_id, track_ids)),
+    )
+
+    return [(track_id, _to_source(found)) for track_id, found in rows]
+
+
 async def get_tracks(
     session: AsyncSession,
     track_ids: Collection[UUID],
+    *,
+    user_id: UUID | None = None,
 ) -> dict[UUID, CatalogTrack]:
     if not track_ids:
         return {}
@@ -393,14 +503,14 @@ async def get_tracks(
 
     by_track: dict[UUID, list[TrackSource]] = {}
     for source in sources:
-        by_track.setdefault(source.track_id, []).append(
-            TrackSource(
-                platform=source.platform,
-                platform_id=source.platform_id,
-                url=source.url,
-                embed_blocked=source.embed_blocked_at is not None,
-            ),
-        )
+        by_track.setdefault(source.track_id, []).append(_to_source(source))
+    if user_id is not None:
+        for track_id, own in await _picked(session, user_id, track_ids):
+            others = by_track.get(track_id, [])
+            by_track[track_id] = [
+                *(other for other in others if other.platform != own.platform),
+                own,
+            ]
 
     return {
         track.id: CatalogTrack(
@@ -454,6 +564,8 @@ async def platform_track_ids(
     session: AsyncSession,
     track_ids: Collection[UUID],
     platform: Platforms,
+    *,
+    user_id: UUID,
 ) -> dict[UUID, str]:
     source = tables.TrackSource
     rows = await session.execute(
@@ -465,6 +577,9 @@ async def platform_track_ids(
     found: dict[UUID, str] = {}
     for track_id, platform_id in rows:
         found.setdefault(track_id, platform_id)
+    for track_id, own in await _picked(session, user_id, track_ids):
+        if own.platform == platform:
+            found[track_id] = own.platform_id
 
     return found
 

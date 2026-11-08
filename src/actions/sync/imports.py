@@ -148,9 +148,13 @@ async def _import_likes(
             platform=account.platform,
             subject=SyncSubjects.LIKE,
         )
-        catalog = await catalog_repositories.save_platform_track_ids(
+        tracks = [item.track for item in kept]
+        catalog = await catalog_repositories.with_picks(
             session,
-            [item.track for item in kept],
+            account.user_id,
+            account.platform,
+            tracks,
+            await catalog_repositories.save_platform_track_ids(session, tracks),
         )
         await library_repositories.import_likes(
             session,
@@ -260,9 +264,15 @@ async def _import_playlists(
                 await library_repositories.reconcile_items(
                     session,
                     playlist_id,
-                    await catalog_repositories.save_platform_track_ids(
+                    await catalog_repositories.with_picks(
                         session,
+                        account.user_id,
+                        account.platform,
                         contents.tracks,
+                        await catalog_repositories.save_platform_track_ids(
+                            session,
+                            contents.tracks,
+                        ),
                     ),
                     now=now,
                 )

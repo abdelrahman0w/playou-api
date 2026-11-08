@@ -15,6 +15,7 @@ from .auth import User  # noqa: E402
 from .catalog import LyricsReport  # noqa: E402
 from .catalog import Track  # noqa: E402
 from .catalog import TrackLyrics  # noqa: E402
+from .catalog import TrackPick  # noqa: E402
 from .catalog import TrackSource  # noqa: E402
 from .library import Like  # noqa: E402
 from .library import Playlist  # noqa: E402
@@ -63,6 +64,7 @@ __all__ = [
     "SyncOperation",
     "Track",
     "TrackLyrics",
+    "TrackPick",
     "TrackSource",
     "User",
     "UserBlock",

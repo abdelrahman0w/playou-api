@@ -125,9 +125,16 @@ async def _from_tracks(
     session: AsyncSession,
     platform: Platforms,
     request: PlayRequest,
+    *,
+    user_id: UUID,
 ) -> PlaybackRequest:
     track_ids = request.track_ids or []
-    found = await catalog_repositories.platform_track_ids(session, track_ids, platform)
+    found = await catalog_repositories.platform_track_ids(
+        session,
+        track_ids,
+        platform,
+        user_id=user_id,
+    )
     playable = [found[track_id] for track_id in track_ids if track_id in found]
     if not playable:
         raise UnsupportedError(f"{platform.title()} has none of these tracks")
@@ -198,7 +205,7 @@ async def playback_request(
 ) -> PlaybackRequest:
     platform = target.account.platform
     if request.track_ids is not None:
-        return await _from_tracks(session, platform, request)
+        return await _from_tracks(session, platform, request, user_id=user_id)
 
     return await _from_playlist(session, platform, request, user_id=user_id)
 

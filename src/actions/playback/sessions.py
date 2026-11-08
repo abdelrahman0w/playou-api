@@ -22,7 +22,11 @@ async def _with_tracks(
     stored: StoredPlaybackSession,
 ) -> PlaybackSession:
     current = stored.current_track_id
-    tracks = await catalog_repositories.get_tracks(session, _queued(stored))
+    tracks = await catalog_repositories.get_tracks(
+        session,
+        _queued(stored),
+        user_id=stored.user_id,
+    )
 
     return PlaybackSession(
         device_id=stored.device_id,

@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.repositories.catalog import get_tracks
+from src.repositories.catalog import own_sources
 from src.structs import tables
 from src.structs.enums import Platforms
 from src.structs.enums import PlaylistImports
@@ -177,7 +178,11 @@ async def get_playlist(
             .order_by(item.removed_at.is_not(None), item.position)
         )
     ).all()
-    tracks = await get_tracks(session, [entry.track_id for entry in items])
+    tracks = await get_tracks(
+        session,
+        [entry.track_id for entry in items],
+        user_id=user_id,
+    )
     summary = _to_playlist(
         row,
         counts={row.id: sum(entry.removed_at is None for entry in items)},
@@ -426,22 +431,22 @@ async def playlist_sync_state(
 ) -> PlaylistSyncState | None:
     playlist = tables.Playlist
     item = tables.PlaylistItem
-    source = tables.TrackSource
     link = tables.PlaylistLink
 
     row = await session.scalar(select(playlist).where(playlist.id == playlist_id))
     if row is None:
         return None
 
+    sources = own_sources(row.user_id)
     remote = await session.scalar(
         select(link).where(link.playlist_id == playlist_id, link.platform == platform),
     )
     items = await session.execute(
-        select(source.platform_id, item.removed_at)
+        select(sources.c.platform_id, item.removed_at)
         .select_from(item)
         .join(
-            source,
-            (source.track_id == item.track_id) & (source.platform == platform),
+            sources,
+            (sources.c.track_id == item.track_id) & (sources.c.platform == platform),
         )
         .where(item.playlist_id == playlist_id)
         .order_by(item.position),

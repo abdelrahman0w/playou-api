@@ -211,6 +211,20 @@ async def merge_track(
         ),
     )
 
+    pick = tables.TrackPick
+    picked = aliased(pick)
+    await session.execute(
+        delete(pick).where(
+            pick.track_id == drop,
+            picked.track_id == keep,
+            picked.user_id == pick.user_id,
+            picked.platform == pick.platform,
+        ),
+    )
+    await session.execute(
+        update(pick).where(pick.track_id == drop).values(track_id=keep),
+    )
+
     await session.execute(delete(tables.Track).where(tables.Track.id == drop))
 
 

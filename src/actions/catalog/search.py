@@ -228,9 +228,13 @@ async def find_on(
         raise PlatformNotLinkedError(f"{platform.title()} is not linked")
 
     async with session_factory() as session:
-        track = (await catalog_repositories.get_tracks(session, [track_id])).get(
-            track_id
-        )
+        track = (
+            await catalog_repositories.get_tracks(
+                session,
+                [track_id],
+                user_id=account.user_id,
+            )
+        ).get(track_id)
     if track is None:
         raise NotFoundError("The track does not exist")
     if any(source.platform == platform for source in track.sources):
@@ -247,6 +251,10 @@ async def find_on(
     )
     async with session_factory() as session, session.begin():
         await catalog_repositories.save_platform_track_ids(session, found)
-        updated = await catalog_repositories.get_tracks(session, [track_id])
+        updated = await catalog_repositories.get_tracks(
+            session,
+            [track_id],
+            user_id=account.user_id,
+        )
 
     return updated.get(track_id, track)

@@ -10,16 +10,20 @@ from sqlalchemy import select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.repositories.catalog import own_sources
 from src.structs import tables
 from src.structs.enums import Platforms
 
 
-def _not_playable_elsewhere(linked: Collection[Platforms]) -> ColumnElement[bool]:
-    source = tables.TrackSource
+def _not_playable_elsewhere(
+    user_id: UUID,
+    linked: Collection[Platforms],
+) -> ColumnElement[bool]:
+    sources = own_sources(user_id)
 
     return ~exists().where(
-        source.track_id == tables.Like.track_id,
-        source.platform.in_(list(linked)),
+        sources.c.track_id == tables.Like.track_id,
+        sources.c.platform.in_(list(linked)),
     )
 
 
@@ -36,7 +40,7 @@ async def leftovers(
             like.user_id == user_id,
             like.imported_from.is_not(None),
             like.imported_from.not_in(list(linked)),
-            _not_playable_elsewhere(linked),
+            _not_playable_elsewhere(user_id, linked),
         )
         .group_by(like.imported_from),
     )
@@ -80,7 +84,7 @@ async def delete_platform_data(
         delete(like).where(
             like.user_id == user_id,
             like.imported_from == platform,
-            _not_playable_elsewhere(linked),
+            _not_playable_elsewhere(user_id, linked),
         ),
     )
     playlists = await _deleted(
@@ -94,6 +98,12 @@ async def delete_platform_data(
         delete(tables.PlaylistLink).where(
             tables.PlaylistLink.user_id == user_id,
             tables.PlaylistLink.platform == platform,
+        ),
+    )
+    await session.execute(
+        delete(tables.TrackPick).where(
+            tables.TrackPick.user_id == user_id,
+            tables.TrackPick.platform == platform,
         ),
     )
     await session.execute(
@@ -112,5 +122,6 @@ async def delete_library(session: AsyncSession, user_id: UUID) -> None:
         tables.Playlist,
         tables.SyncOperation,
         tables.PlaybackSession,
+        tables.TrackPick,
     ):
         await session.execute(delete(table).where(table.user_id == user_id))

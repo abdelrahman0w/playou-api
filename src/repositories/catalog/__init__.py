@@ -12,12 +12,15 @@ from .lyrics import record_report
 from .lyrics import save_lyrics
 from .tracks import block_embedding
 from .tracks import get_tracks
+from .tracks import own_sources
+from .tracks import pick_source
 from .tracks import platform_track_ids
 from .tracks import save_platform_track_ids
 from .tracks import save_platform_tracks
 from .tracks import search_catalog
 from .tracks import track_exists
 from .tracks import tracks_changed
+from .tracks import with_picks
 
 
 __all__ = [
@@ -32,6 +35,8 @@ __all__ = [
     "most_reported",
     "move_lyrics",
     "move_reports",
+    "own_sources",
+    "pick_source",
     "platform_track_ids",
     "record_report",
     "save_lyrics",
@@ -41,4 +46,5 @@ __all__ = [
     "track_exists",
     "tracks_changed",
     "uppercase_isrcs",
+    "with_picks",
 ]

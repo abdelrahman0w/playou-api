@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from src.repositories.catalog import get_tracks
+from src.repositories.catalog import own_sources
 from src.structs import tables
 from src.structs.enums import LikeSorts
 from src.structs.enums import Platforms
@@ -99,7 +100,7 @@ async def get_like(
 
     return _to_liked(
         row,
-        await get_tracks(session, [row.track_id]),
+        await get_tracks(session, [row.track_id], user_id=user_id),
     )
 
 
@@ -136,11 +137,11 @@ async def list_likes(
     if not include_removed:
         where.append(like.removed_at.is_(None))
     if platform is not None:
-        source = tables.TrackSource
+        sources = own_sources(user_id)
         where.append(
             exists().where(
-                source.track_id == like.track_id,
-                source.platform == platform,
+                sources.c.track_id == like.track_id,
+                sources.c.platform == platform,
             ),
         )
     if query:
@@ -170,7 +171,7 @@ async def list_likes(
             .limit(page_size),
         ),
     )
-    tracks = await get_tracks(session, [row.track_id for row in rows])
+    tracks = await get_tracks(session, [row.track_id for row in rows], user_id=user_id)
 
     return Page[LikedTrack](
         items=[_to_liked(row, tracks) for row in rows],
@@ -188,13 +189,13 @@ async def like_sync_states(
     platform: Platforms,
 ) -> dict[UUID, LikeSyncState]:
     like = tables.Like
-    source = tables.TrackSource
+    sources = own_sources(user_id)
     rows = await session.execute(
-        select(like.track_id, like.removed_at, source.platform_id)
+        select(like.track_id, like.removed_at, sources.c.platform_id)
         .select_from(like)
         .outerjoin(
-            source,
-            (source.track_id == like.track_id) & (source.platform == platform),
+            sources,
+            (sources.c.track_id == like.track_id) & (sources.c.platform == platform),
         )
         .where(like.user_id == user_id, any_of(like.track_id, track_ids)),
     )
@@ -211,13 +212,13 @@ async def liked_platform_ids(
     platform: Platforms,
 ) -> dict[str, UUID]:
     like = tables.Like
-    source = tables.TrackSource
+    sources = own_sources(user_id)
     rows = await session.execute(
-        select(source.platform_id, like.track_id)
+        select(sources.c.platform_id, like.track_id)
         .select_from(like)
         .join(
-            source,
-            (source.track_id == like.track_id) & (source.platform == platform),
+            sources,
+            (sources.c.track_id == like.track_id) & (sources.c.platform == platform),
         )
         .where(like.user_id == user_id, like.removed_at.is_(None)),
     )

@@ -21,9 +21,18 @@ from src.structs.models.responses import Lyrics
 from src.structs.models.responses import SearchResults
 
 
-async def get_track(session: AsyncSession, track_id: UUID) -> CatalogTrack:
+async def get_track(
+    session: AsyncSession,
+    track_id: UUID,
+    *,
+    user_id: UUID,
+) -> CatalogTrack:
     async with session.begin():
-        tracks = await catalog_repositories.get_tracks(session, [track_id])
+        tracks = await catalog_repositories.get_tracks(
+            session,
+            [track_id],
+            user_id=user_id,
+        )
     if track_id not in tracks:
         raise NotFoundError("The track does not exist")
 

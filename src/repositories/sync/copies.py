@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.expression import Exists
 
+from src.repositories.catalog import own_sources
 from src.structs import tables
 from src.structs.enums import CopyItemStatuses
 from src.structs.enums import CopyScopes
@@ -29,12 +30,12 @@ from src.utils.sql import any_of
 WITH_LIKES = {CopyScopes.LIKES, CopyScopes.LIBRARY}
 
 
-def _on(platform: Platforms) -> Exists:
-    source = tables.TrackSource
+def _on(user_id: UUID, platform: Platforms) -> Exists:
+    sources = own_sources(user_id)
 
     return exists().where(
-        source.track_id == tables.Track.id,
-        source.platform == platform,
+        sources.c.track_id == tables.Track.id,
+        sources.c.platform == platform,
     )
 
 
@@ -55,11 +56,11 @@ def _missing_on(
     *,
     unsettled: bool,
 ) -> list[ColumnElement[bool]]:
-    source = tables.TrackSource
+    sources = own_sources(user_id)
     item = tables.CopyItem
     copy = tables.Copy
     where = [
-        ~exists().where(source.track_id == track_id, source.platform == platform),
+        ~exists().where(sources.c.track_id == track_id, sources.c.platform == platform),
     ]
     if unsettled:
         where.append(
@@ -121,6 +122,7 @@ async def scope_tracks(
 
 async def tracks_without(
     session: AsyncSession,
+    user_id: UUID,
     track_ids: list[UUID],
     platform: Platforms,
 ) -> list[UUID]:
@@ -130,7 +132,10 @@ async def tracks_without(
     track = tables.Track
     found = set(
         await session.scalars(
-            select(track.id).where(any_of(track.id, track_ids), ~_on(platform)),
+            select(track.id).where(
+                any_of(track.id, track_ids),
+                ~_on(user_id, platform),
+            ),
         ),
     )
 
@@ -313,7 +318,7 @@ async def likes_to_send(
     since: datetime | None = None,
 ) -> list[UUID]:
     like = tables.Like
-    source = tables.TrackSource
+    sources = own_sources(user_id)
     recent = (
         [(like.created_at > since) | (like.liked_at > since)]
         if since is not None
@@ -329,8 +334,8 @@ async def likes_to_send(
                 like.imported_from.is_distinct_from(platform),
                 *recent,
                 exists().where(
-                    source.track_id == like.track_id,
-                    source.platform == platform,
+                    sources.c.track_id == like.track_id,
+                    sources.c.platform == platform,
                 ),
             )
             .order_by(like.liked_at, like.id),

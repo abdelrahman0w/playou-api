@@ -94,3 +94,33 @@ class TrackSource(Base):
     platform_id: Mapped[str] = mapped_column(String(255))
     url: Mapped[str | None] = mapped_column(Text)
     embed_blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class TrackPick(Base):
+    __tablename__ = "track_picks"
+    __table_args__ = (
+        UniqueConstraint("user_id", "track_id", "platform"),
+        Index(None, "track_id"),
+        Index(None, "source_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        server_default=text("uuidv7()"),
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+    )
+    track_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("tracks.id", ondelete="CASCADE"),
+    )
+    platform: Mapped[Platforms] = mapped_column(
+        Enum(Platforms, native_enum=False, length=32, values_callable=_values),
+    )
+    source_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("track_sources.id", ondelete="CASCADE"),
+    )
