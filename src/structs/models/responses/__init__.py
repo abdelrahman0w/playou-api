@@ -7,6 +7,7 @@ from .catalog import Lyrics
 from .catalog import LyricsLine
 from .catalog import PlatformSearchResult
 from .catalog import SearchResults
+from .catalog import TrackMatch
 from .health import LivenessResponse
 from .health import ReadinessResponse
 from .library import AccountSync
@@ -103,6 +104,7 @@ __all__ = [
     "Sharer",
     "StartedChat",
     "TogetherTracks",
+    "TrackMatch",
     "TrackSource",
     "UsernameCheck",
 ]

@@ -45,6 +45,7 @@ from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import CopyEstimate
 from src.structs.models.responses import CopyProgress
 from src.structs.models.responses import MissingTracks
+from src.structs.models.responses import TrackMatch
 
 
 COPIES_A_RUN = 10
@@ -713,3 +714,64 @@ async def choose_similar(
                 user_id=user_id,
             )
         )[track_id]
+
+
+async def list_matches(session: AsyncSession, *, user_id: UUID) -> list[TrackMatch]:
+    picks = await catalog_repositories.list_picks(session, user_id)
+    tracks = await catalog_repositories.get_tracks(
+        session,
+        {song for track_id, _, picked in picks for song in (track_id, picked)},
+    )
+
+    return [
+        TrackMatch(track=tracks[track_id], platform=platform, picked=tracks[picked])
+        for track_id, platform, picked in picks
+    ]
+
+
+async def undo_match(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    track_id: UUID,
+    platform: Platforms,
+    now: datetime,
+) -> CatalogTrack:
+    picked = await catalog_repositories.delete_pick(
+        session,
+        user_id,
+        track_id,
+        platform,
+    )
+    if picked is None:
+        raise NotFoundError("The match does not exist")
+
+    sends: list[tuple[SyncSubjects, UUID]] = []
+    like = await library_repositories.get_like(session, user_id, track_id)
+    if like and like.removed_at is None:
+        await library_repositories.retire_like(session, user_id, picked, now=now)
+        sends.append((SyncSubjects.LIKE, picked))
+    for playlist_id in await sync_repositories.playlists_with(
+        session,
+        user_id,
+        track_id,
+    ):
+        await library_repositories.retire_item(session, playlist_id, picked, now=now)
+        sends.append((SyncSubjects.PLAYLIST, playlist_id))
+    for subject, subject_id in sends:
+        await sync_repositories.enqueue(
+            session,
+            user_id=user_id,
+            platform=platform,
+            subject=subject,
+            subject_id=subject_id,
+            now=now,
+        )
+
+    return (
+        await catalog_repositories.get_tracks(
+            session,
+            [track_id],
+            user_id=user_id,
+        )
+    )[track_id]

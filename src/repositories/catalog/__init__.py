@@ -11,7 +11,9 @@ from .lyrics import move_reports
 from .lyrics import record_report
 from .lyrics import save_lyrics
 from .tracks import block_embedding
+from .tracks import delete_pick
 from .tracks import get_tracks
+from .tracks import list_picks
 from .tracks import own_sources
 from .tracks import pick_source
 from .tracks import platform_track_ids
@@ -26,11 +28,13 @@ from .tracks import with_picks
 __all__ = [
     "block_embedding",
     "count_reports",
+    "delete_pick",
     "find_duplicates",
     "get_lyrics",
     "get_tracks",
     "has_reported",
     "hide_lyrics",
+    "list_picks",
     "merge_track",
     "most_reported",
     "move_lyrics",

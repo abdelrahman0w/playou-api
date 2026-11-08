@@ -9,6 +9,7 @@ from .likes import liked_track_ids
 from .likes import list_likes
 from .likes import remove_like
 from .likes import remove_likes
+from .likes import retire_like
 from .likes import set_like
 from .playlists import add_items
 from .playlists import create_playlist
@@ -24,6 +25,7 @@ from .playlists import reconcile_items
 from .playlists import remove_item
 from .playlists import remove_playlist
 from .playlists import remove_playlists
+from .playlists import retire_item
 from .playlists import save_link
 from .playlists import set_importing
 from .playlists import set_library_order
@@ -61,6 +63,8 @@ __all__ = [
     "remove_likes",
     "remove_playlist",
     "remove_playlists",
+    "retire_item",
+    "retire_like",
     "save_link",
     "set_importing",
     "set_library_order",

@@ -19,6 +19,7 @@ from src.structs.models.responses import Candidate
 from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import Lyrics
 from src.structs.models.responses import SearchResults
+from src.structs.models.responses import TrackMatch
 
 
 async def get_track(
@@ -166,3 +167,26 @@ async def choose_similar(
         platform_id=request.platform_id,
         now=now,
     )
+
+
+async def list_matches(session: AsyncSession, *, user_id: UUID) -> list[TrackMatch]:
+    async with session.begin():
+        return await sync_actions.list_matches(session, user_id=user_id)
+
+
+async def undo_match(
+    session: AsyncSession,
+    track_id: UUID,
+    platform: Platforms,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> CatalogTrack:
+    async with session.begin():
+        return await sync_actions.undo_match(
+            session,
+            user_id=user_id,
+            track_id=track_id,
+            platform=platform,
+            now=now,
+        )

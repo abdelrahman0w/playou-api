@@ -810,6 +810,76 @@
         }
       }
     },
+    "/catalog/matches": {
+      "get": {
+        "summary": "List Matches",
+        "operationId": "list_matches_catalog_matches_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TrackMatch"
+                  },
+                  "type": "array",
+                  "title": "Response List Matches Catalog Matches Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/matches/{track_id}/{platform}": {
+      "delete": {
+        "summary": "Undo Match",
+        "operationId": "undo_match_catalog_matches__track_id___platform__delete",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Track Id"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Platforms"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogTrack"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/library/together": {
       "get": {
         "summary": "Together Tracks",
@@ -7770,6 +7840,26 @@
           "title"
         ],
         "title": "Track"
+      },
+      "TrackMatch": {
+        "properties": {
+          "track": {
+            "$ref": "#/components/schemas/CatalogTrack"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platforms"
+          },
+          "picked": {
+            "$ref": "#/components/schemas/CatalogTrack"
+          }
+        },
+        "type": "object",
+        "required": [
+          "track",
+          "platform",
+          "picked"
+        ],
+        "title": "TrackMatch"
       },
       "TrackSource": {
         "properties": {

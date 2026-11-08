@@ -23,6 +23,7 @@ from src.structs.models.responses import Candidate
 from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import Lyrics
 from src.structs.models.responses import SearchResults
+from src.structs.models.responses import TrackMatch
 
 
 router = APIRouter(prefix="/catalog")
@@ -168,6 +169,34 @@ async def choose_similar(
         track_id,
         platform,
         body,
+        user_id=user_id,
+        now=now,
+    )
+
+
+@router.get("/matches")
+async def list_matches(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> list[TrackMatch]:
+    return await catalog_controller.list_matches(session, user_id=user_id)
+
+
+@router.delete(
+    "/matches/{track_id}/{platform}",
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def undo_match(
+    track_id: UUID,
+    platform: Platforms,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    now: NowDep,
+) -> CatalogTrack:
+    return await catalog_controller.undo_match(
+        session,
+        track_id,
+        platform,
         user_id=user_id,
         now=now,
     )

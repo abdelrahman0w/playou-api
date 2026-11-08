@@ -562,6 +562,27 @@ async def update_from_platform(
     )
 
 
+async def retire_item(
+    session: AsyncSession,
+    playlist_id: UUID,
+    track_id: UUID,
+    *,
+    now: datetime,
+) -> None:
+    await session.execute(
+        insert(tables.PlaylistItem)
+        .values(
+            playlist_id=playlist_id,
+            track_id=track_id,
+            position=0,
+            added_at=now,
+            removed_at=now,
+            removed_by=RemovedBy.USER,
+        )
+        .on_conflict_do_nothing(index_elements=["playlist_id", "track_id"]),
+    )
+
+
 async def reconcile_items(
     session: AsyncSession,
     playlist_id: UUID,

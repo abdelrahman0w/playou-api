@@ -5,10 +5,12 @@ from .copies import dismiss_copy
 from .copies import estimate_copy
 from .copies import keep_in_sync
 from .copies import list_copies
+from .copies import list_matches
 from .copies import list_missing
 from .copies import run_copies
 from .copies import similar_songs
 from .copies import start_copy
+from .copies import undo_match
 from .imports import import_account
 from .imports import import_user
 from .imports import library_sync
@@ -37,6 +39,7 @@ __all__ = [
     "keep_in_sync",
     "library_sync",
     "list_copies",
+    "list_matches",
     "list_missing",
     "next_nudge",
     "nudge",
@@ -49,4 +52,5 @@ __all__ = [
     "similar_songs",
     "start_copy",
     "stop_beating",
+    "undo_match",
 ]

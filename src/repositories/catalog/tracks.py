@@ -11,6 +11,7 @@ from sqlalchemy import Subquery
 from sqlalchemy import Text
 from sqlalchemy import Uuid
 from sqlalchemy import bindparam
+from sqlalchemy import delete
 from sqlalchemy import exists
 from sqlalchemy import func
 from sqlalchemy import or_
@@ -456,6 +457,43 @@ async def with_picks(
         picked.get(track.platform_id, track_id)
         for track, track_id in zip(tracks, track_ids, strict=True)
     ]
+
+
+async def list_picks(
+    session: AsyncSession,
+    user_id: UUID,
+) -> list[tuple[UUID, Platforms, UUID]]:
+    pick = tables.TrackPick
+    source = tables.TrackSource
+    rows = await session.execute(
+        select(pick.track_id, pick.platform, source.track_id)
+        .join(source, source.id == pick.source_id)
+        .where(pick.user_id == user_id, source.track_id != pick.track_id)
+        .order_by(pick.created_at.desc()),
+    )
+
+    return list(rows.tuples())
+
+
+async def delete_pick(
+    session: AsyncSession,
+    user_id: UUID,
+    track_id: UUID,
+    platform: Platforms,
+) -> UUID | None:
+    pick = tables.TrackPick
+    source = tables.TrackSource
+
+    return await session.scalar(
+        delete(pick)
+        .where(
+            pick.user_id == user_id,
+            pick.track_id == track_id,
+            pick.platform == platform,
+            source.id == pick.source_id,
+        )
+        .returning(source.track_id),
+    )
 
 
 def _to_source(source: tables.TrackSource) -> TrackSource:

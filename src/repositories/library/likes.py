@@ -63,6 +63,26 @@ async def set_like(
     )
 
 
+async def retire_like(
+    session: AsyncSession,
+    user_id: UUID,
+    track_id: UUID,
+    *,
+    now: datetime,
+) -> None:
+    await session.execute(
+        insert(tables.Like)
+        .values(
+            user_id=user_id,
+            track_id=track_id,
+            liked_at=now,
+            removed_at=now,
+            removed_by=RemovedBy.USER,
+        )
+        .on_conflict_do_nothing(index_elements=["user_id", "track_id"]),
+    )
+
+
 async def remove_like(
     session: AsyncSession,
     user_id: UUID,
