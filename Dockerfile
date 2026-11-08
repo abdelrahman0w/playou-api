@@ -81,6 +81,10 @@ COPY alembic.ini .
 # compile the app ahead of time
 RUN python -m compileall -q src migrations
 
+# no pip at runtime, the dependencies are already installed
+RUN python -m pip uninstall --yes --no-input pip && \
+    rm -rf /usr/local/lib/python3*/ensurepip
+
 # use the non-root user
 USER ${NON_ROOT_USER}:${NON_ROOT_USER}
 

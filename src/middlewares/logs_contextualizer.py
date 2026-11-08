@@ -1,3 +1,4 @@
+import re
 import time
 import uuid
 
@@ -15,6 +16,7 @@ from src.providers import logger
 
 
 CORRELATION_ID_HEADER = "x-correlation-id"
+CORRELATION_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,128}")
 QUIET_PATH_PREFIX = "/health"
 
 
@@ -41,7 +43,12 @@ class LogsContextualizerMiddleware:
             return
 
         request = Request(scope)
-        correlation_id = request.headers.get(CORRELATION_ID_HEADER) or str(uuid.uuid4())
+        incoming = request.headers.get(CORRELATION_ID_HEADER, "")
+        correlation_id = (
+            incoming
+            if CORRELATION_ID_PATTERN.fullmatch(incoming)
+            else str(uuid.uuid4())
+        )
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
 
         async def send_with_correlation_id(message: Message) -> None:
