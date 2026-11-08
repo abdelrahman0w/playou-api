@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from src.exceptions.custom_exceptions import AppError
@@ -116,6 +117,21 @@ async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
     )
 
 
+async def validation_error_handler(
+    _: Request,
+    exc: RequestValidationError,
+) -> JSONResponse:
+    first = exc.errors()[0] if exc.errors() else {}
+    where = ".".join(str(part) for part in first.get("loc", ()) if part != "body")
+    message = str(first.get("msg", "Invalid request")).removeprefix("Value error, ")
+
+    return error_response(
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        ErrorTypes.VALIDATION,
+        f"{where}: {message}" if where else message,
+    )
+
+
 async def unhandled_error_handler(_: Request, exc: Exception) -> JSONResponse:
     logger.exception(
         "[Error] Unhandled Error",
@@ -131,4 +147,5 @@ async def unhandled_error_handler(_: Request, exc: Exception) -> JSONResponse:
 
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, unhandled_error_handler)

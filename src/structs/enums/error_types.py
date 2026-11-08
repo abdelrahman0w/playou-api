@@ -3,6 +3,7 @@ from enum import StrEnum
 
 class ErrorTypes(StrEnum):
     INTERNAL = "INTERNAL"
+    VALIDATION = "VALIDATION"
     NOT_FOUND = "NOT_FOUND"
     RATE_LIMITED = "RATE_LIMITED"
     NAME_CHANGE_LIMITED = "NAME_CHANGE_LIMITED"
