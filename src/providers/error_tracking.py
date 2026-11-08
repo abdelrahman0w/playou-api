@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 
 UNTRACED_PREFIXES = ("/health",)
+IDENTIFYING_HEADERS = ["-user"]
 
 
 EXPECTED = frozenset(
@@ -65,8 +66,17 @@ def setup_error_tracking(
             traces_sampler,
             rate=error_tracking.traces_sample_rate,
         ),
-        send_default_pii=False,
-        include_local_variables=False,
+        data_collection={
+            "user_info": False,
+            "cookies": {"mode": "off"},
+            "http_headers": {
+                "request": {"mode": "denylist", "terms": IDENTIFYING_HEADERS},
+            },
+            "http_bodies": [],
+            "url_query_params": {"mode": "off"},
+            "database_query_data": False,
+            "stack_frame_variables": False,
+        },
         before_send=drop_expected,
         enable_logs=error_tracking.logs_enabled,
         integrations=[
