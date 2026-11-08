@@ -17,6 +17,7 @@ from src.structs.models.requests import PlayRequest
 from src.structs.models.requests import SavePlaybackSessionRequest
 from src.structs.models.responses import PlaybackSession
 from src.structs.models.responses import PlaybackSessionSaved
+from src.structs.models.responses import PlaybackStream
 from src.structs.models.responses import PlaybackToken
 
 
@@ -43,6 +44,32 @@ async def playback_token(
         target,
         now=now,
         rejected=rejected,
+    )
+
+
+async def stream(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    platforms: dict[Platforms, OAuthPlatform],
+    platform: Platforms,
+    platform_id: str,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> PlaybackStream:
+    async with session.begin():
+        target = await playback_actions.streamable(
+            session,
+            platforms,
+            user_id=user_id,
+            platform=platform,
+        )
+
+    return await playback_actions.stream(
+        session_factory,
+        target,
+        platform_id,
+        now=now,
     )
 
 

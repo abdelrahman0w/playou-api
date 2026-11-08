@@ -36,6 +36,7 @@
     - [Manually](#manually)
     - [Spotify](#spotify)
     - [YouTube](#youtube)
+    - [SoundCloud](#soundcloud)
   - [Testing](#testing)
 
 ## Description
@@ -46,7 +47,7 @@ one player and library over the user's music platforms.
 Users link their platforms' accounts, and search, like, and keep playlists in one place,
 while each track is played by its own platform. The decisions behind it are in [the plan](docs/plan.md).
 
-> Spotify is the first platform, Apple Music, YouTube, and Anghami come next
+> Spotify, YouTube Music, and SoundCloud are linked today, Apple Music and Anghami come next
 
 ## Architecture
 
@@ -86,6 +87,8 @@ playou-api/
 │   │   ├── base.py                 what every music platform does, and its capabilities
 │   │   ├── registry.py             the platforms that are configured
 │   │   ├── spotify/
+│   │   ├── youtube/
+│   │   ├── soundcloud/
 │   │   └── resend/
 │   ├── providers/                  stateful infra, opened in the lifespan
 │   ├── middlewares/
@@ -142,6 +145,8 @@ and declares its `Capabilities`, what it can search, like, and change:
 | Platform | Linking | Search | Like | Playlists | Status |
 | --- | --- | --- | --- | --- | --- |
 | Spotify | OAuth with PKCE, no client secret | Yes | Yes | Yes | Linking, search, syncing the library both ways, and playback |
+| YouTube Music | OAuth with PKCE and a client secret, an api key for search | On demand | Yes | Yes | Linking, search, syncing the library both ways, it plays in the browser's YouTube player |
+| SoundCloud | OAuth with PKCE and a client secret | On demand | Yes | Yes | Linking, search, syncing the library both ways, and playback, it streams in the browser |
 
 > Spotify answers a search with 10 results at most, it refuses a bigger `limit`, so it is capped by `SPOTIFY_SEARCH_MAX_LIMIT`
 
@@ -180,7 +185,7 @@ when it expires within `ACCOUNTS_REFRESH_MARGIN_SECONDS`.
 
 - The account's row is locked while it is refreshed, so concurrent requests refresh once,
     the others wait, then find it fresh. A platform that rotates refresh tokens would refuse a second refresh,
-    Spotify keeps the same one, there it only saves a call
+    Spotify keeps the same one, there it only saves a call, SoundCloud's are single use, there the lock is what keeps the account linked
 - A refused refresh sets the account's `reconnect_required_at`, it is not tried again until it is linked again
 - A call Spotify answers `401`, a token it no longer takes, refreshes the token once and is tried again, `with_token`,
     so an access removed on Spotify's side is caught on the first call, not once the token expires,
@@ -223,6 +228,8 @@ its user links it again.
     since a search is 100 of its 10,000 units a day for the whole app, it is searched with the api key, so its results
     are no one's, cached for `SEARCH_SHARED_CACHE_SECONDS` for everyone, and a spent day is `QUOTA_EXHAUSTED`,
     `YOUTUBE_SEARCH_ON_DEMAND=false` searches it with the others, once the quota allows
+1. SoundCloud is searched on demand too, about 100 requests a minute are shared by the whole app, `SOUNDCLOUD_SEARCH_ON_DEMAND=false` searches it with the others,
+    it is searched with the user's token, so its results are cached per account
 1. A `SKIPPED` platform still answers the songs the catalog has on it, every song any user imported or found,
     searched like the library, every word matching, the closest first, without a unit spent, the videos YouTube refused left out
 1. A result is stored in the catalog, by its isrc, or for youtube, which has none, joined to the song with the same
@@ -317,6 +324,8 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
     `YOUTUBE_DAILY_PUSH_UNITS` a day, over it, or over the app's, a push waits for midnight Pacific time without an attempt,
     finding songs to copy there has its own share, `YOUTUBE_DAILY_FIND_UNITS`, and copies only playlists unless `YOUTUBE_COPY_LIKES` is on,
     and only a song YouTube already has here is pushed, a song only on Spotify is skipped, never searched for
+- SoundCloud's pages have no total, so the likes' count comes from `/me`, pushing is off until turned on, 500 like requests a day are shared by the whole app,
+    it copies only playlists unless `SOUNDCLOUD_COPY_LIKES` is on, and writing a playlist replaces its whole list, so it is read first and left alone if the read came back short
 - A like or a playlist keeps where it was imported from, `imported_from`, null when made here, so what an unlinked platform
     left can be removed, `DELETE /library/data/{platform}`, sparing the likes still playable on a linked platform
 - Deleting only ever deletes here, nothing is sent to the platforms, and `DATA_DELETION_ENABLED=false` refuses it,
@@ -327,7 +336,7 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
 
 The API never streams audio, each platform plays its own, the API tells it what, and on which device.
 Only Spotify plays through these, YouTube Music plays in the browser's own YouTube player, which needs nothing from the API but the songs' video ids,
-the token, devices, and play endpoints answer it `UNSUPPORTED`.
+SoundCloud streams in the browser from a signed HLS link, `GET /playback/{platform}/stream`, the token, devices, and play endpoints answer them `UNSUPPORTED`.
 
 - `GET /playback/{platform}/token` answers the account's access token, refreshed if it has to be, never cached,
     for the Web Playback SDK, which makes the browser a Spotify Connect device
@@ -402,6 +411,7 @@ There is no separate home route, `/` is Home or the landing, whichever fits.
 | `PUT` | `/playback/session` | Saves it from the device playing, with the `version` it last saw, a newer one answers `PLAYBACK_SESSION_CHANGED` |
 | `POST` | `/playback/session/claim` | Continues it on this device, `{"device_id", "device_name"}`, at the position it got to |
 | `DELETE` | `/playback/session` | Forgets it |
+| `GET` | `/playback/{platform}/stream?platform_id=` | A signed HLS link for one track, SoundCloud only, never cached, the whole app has 1,500 of these a day |
 | `POST` | `/playback/youtube/blocked` | Marks `{"platform_id": ...}` as a video YouTube won't play outside its site |
 | `POST` | `/library/playlists` | Makes one, `{"name": "Road", "description": "Trip"}` |
 | `GET` | `/library/playlists/{id}?include_removed=` | A playlist, with its tracks in order |
@@ -507,7 +517,7 @@ IPv6 clients are counted by their `/64`.
 > or does not answer within `RATE_LIMIT_TIMEOUT_SECONDS`
 
 A platform limits the app's requests too, every user's together, so a `429` from it pauses that platform for everyone,
-for as long as its `Retry-After` says, or `SPOTIFY_RATE_LIMIT_SECONDS` without it, through a key in redis every replica and job shares.
+for as long as its `Retry-After` says, or the platform's `*_RATE_LIMIT_SECONDS` without it, SoundCloud's reads `X-RateLimit-Reset` first, through a key in redis every replica and job shares.
 
 - While it is paused, nothing is sent to it, a call fails right away as `PLATFORM_RATE_LIMITED`
 - A search answers the platform as `RATE_LIMITED`, the others still answer
@@ -608,6 +618,7 @@ The ones without a usable default:
 | `ENCRYPTION_KEYS` | Seals the platforms' tokens, accounts cannot be linked without it, make one with `uv run python -c "from src.utils import make_key; print(make_key())"` |
 | `SPOTIFY_CLIENT_ID` | Spotify is not offered without it |
 | `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_API_KEY` | YouTube Music is not offered without them, see [YouTube](#youtube) |
+| `SOUNDCLOUD_CLIENT_ID`, `SOUNDCLOUD_CLIENT_SECRET` | SoundCloud is not offered without them, see [SoundCloud](#soundcloud) |
 | `APP_WEB_URL` | Where the browser is sent back after linking |
 | `CORS_ORIGINS` | The web app's origins |
 | `RESEND_API_KEY` | Without it, codes are logged in `DEV`, and refused in `PROD`, and no reconnect warning is sent |
@@ -729,6 +740,14 @@ reloading on changes.
     and put its id and secret in `.env` as `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET`
 1. Create an api key restricted to the YouTube Data API v3, and put it in `.env` as `YOUTUBE_API_KEY`
 1. While the app is in testing, `YOUTUBE_REFRESH_TOKEN_DAYS=7`, its links last a week, and only its test users, 100 at most, can link
+
+### SoundCloud
+
+1. Add `http://127.0.0.1:8081/accounts/soundcloud/callback` to the redirect uris of your [SoundCloud app](https://soundcloud.com/you/apps)
+1. Put its id and secret in `.env` as `SOUNDCLOUD_CLIENT_ID` and `SOUNDCLOUD_CLIENT_SECRET`, the link is made with PKCE and the secret
+
+> SoundCloud allows 500 like requests a day for the whole app, so an account pushes nothing until it asks to, and likes are copied there only with `SOUNDCLOUD_COPY_LIKES=true`,
+> and a track's id is its urn, `soundcloud:tracks:1`, the numeric ones are deprecated
 
 ## Testing
 

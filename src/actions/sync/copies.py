@@ -389,6 +389,7 @@ def _copy_searches(platform: Platforms) -> int:
     return {
         Platforms.SPOTIFY: settings.spotify.copy_searches,
         Platforms.YOUTUBE: settings.youtube.copy_searches,
+        Platforms.SOUNDCLOUD: settings.soundcloud.copy_searches,
     }.get(platform, 1)
 
 

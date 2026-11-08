@@ -125,6 +125,12 @@ class MusicPlatform(Protocol):
         request: PlaybackRequest,
     ) -> None: ...
 
+    async def stream_url(
+        self,
+        access_token: str,
+        platform_id: str,
+    ) -> str: ...
+
     async def close(self) -> None: ...
 
 

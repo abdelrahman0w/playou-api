@@ -40,6 +40,7 @@ from .people import ProfilePlaylistSongs
 from .people import UsernameCheck
 from .playback import PlaybackSession
 from .playback import PlaybackSessionSaved
+from .playback import PlaybackStream
 from .playback import PlaybackToken
 from .shares import ReceivedShare
 from .shares import SentShare
@@ -78,6 +79,7 @@ __all__ = [
     "PlatformSearchResult",
     "PlaybackSession",
     "PlaybackSessionSaved",
+    "PlaybackStream",
     "PlaybackToken",
     "Playlist",
     "PlaylistDetail",

@@ -307,6 +307,25 @@ class YouTubeSettings(BaseAppSettings):
     timeout_seconds: float = Field(default=10.0, gt=0)
 
 
+class SoundCloudSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="SOUNDCLOUD_",
+    )
+
+    client_id: str | None = None
+    client_secret: SecretStr | None = None
+    redirect_uri: str = "http://127.0.0.1:8081/accounts/soundcloud/callback"
+    search_on_demand: bool = True
+    search_max_limit: int = Field(default=50, ge=1, le=200)
+    copy_likes: bool = False
+    refresh_token_days: int | None = Field(default=None, ge=1)
+    rate_limit_seconds: int = Field(default=30, ge=1)
+    copy_searches: int = Field(default=1, ge=1)
+    accounts_url: str = "https://secure.soundcloud.com"
+    api_url: str = "https://api.soundcloud.com"
+    timeout_seconds: float = Field(default=10.0, gt=0)
+
+
 class DataSettings(BaseAppSettings):
     model_config = SettingsConfigDict(
         env_prefix="DATA_",
@@ -428,6 +447,7 @@ class Settings(BaseAppSettings):
     worker: WorkerSettings = Field(default_factory=WorkerSettings)
     spotify: SpotifySettings = Field(default_factory=SpotifySettings)
     youtube: YouTubeSettings = Field(default_factory=YouTubeSettings)
+    soundcloud: SoundCloudSettings = Field(default_factory=SoundCloudSettings)
     data: DataSettings = Field(default_factory=DataSettings)
     playback: PlaybackSettings = Field(default_factory=PlaybackSettings)
     shares: SharesSettings = Field(default_factory=SharesSettings)

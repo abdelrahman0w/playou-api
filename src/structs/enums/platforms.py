@@ -4,6 +4,7 @@ from enum import StrEnum
 class Platforms(StrEnum):
     SPOTIFY = "spotify"
     YOUTUBE = "youtube"
+    SOUNDCLOUD = "soundcloud"
 
 
 class AccountStatuses(StrEnum):

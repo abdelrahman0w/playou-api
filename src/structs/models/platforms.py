@@ -37,6 +37,7 @@ class Capabilities(BaseModel):
     playlists_write: bool = False
     playlist_remove: bool = False
     playback: bool = False
+    stream: bool = False
 
 
 class PlatformTokens(BaseModel):

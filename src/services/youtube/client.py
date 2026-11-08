@@ -706,6 +706,9 @@ class YouTubeService:
     async def play(self, access_token: str, request: PlaybackRequest) -> None:
         _unsupported(access_token, request)
 
+    async def stream_url(self, access_token: str, platform_id: str) -> str:
+        _unsupported(access_token, platform_id)
+
     async def close(self) -> None:
         for client in (self._accounts, self._token_client, self._userinfo, self._api):
             await client.aclose()

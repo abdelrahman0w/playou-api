@@ -7,6 +7,10 @@ from src.structs.enums import Platforms
 from src.structs.models.responses.library import CatalogTrack
 
 
+class PlaybackStream(BaseModel):
+    url: str
+
+
 class PlaybackToken(BaseModel):
     access_token: str
     expires_at: datetime | None = None

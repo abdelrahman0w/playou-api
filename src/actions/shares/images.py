@@ -22,6 +22,7 @@ COVER_HOSTS = frozenset(
     {
         "i.scdn.co",
         "i.ytimg.com",
+        "i1.sndcdn.com",
         "mosaic.scdn.co",
         "image-cdn-ak.spotifycdn.com",
         "image-cdn-fa.spotifycdn.com",

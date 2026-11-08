@@ -28,6 +28,7 @@ from src.structs.models.requests import RejectedTokenRequest
 from src.structs.models.requests import SavePlaybackSessionRequest
 from src.structs.models.responses import PlaybackSession
 from src.structs.models.responses import PlaybackSessionSaved
+from src.structs.models.responses import PlaybackStream
 from src.structs.models.responses import PlaybackToken
 
 
@@ -183,6 +184,30 @@ async def refresh_playback_token(
         user_id=user_id,
         now=now,
         rejected=request.rejected,
+    )
+
+
+@router.get("/{platform}/stream")
+async def stream(
+    platform: Platforms,
+    platform_id: Annotated[str, Query(max_length=255)],
+    response: Response,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    session_factory: SessionFactoryDep,
+    platforms: PlatformsDep,
+    now: NowDep,
+) -> PlaybackStream:
+    response.headers["Cache-Control"] = "no-store"
+
+    return await playback_controller.stream(
+        session,
+        session_factory,
+        platforms,
+        platform,
+        platform_id,
+        user_id=user_id,
+        now=now,
     )
 
 

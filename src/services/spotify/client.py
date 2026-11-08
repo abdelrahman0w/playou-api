@@ -18,6 +18,7 @@ from src.exceptions import PlatformReconnectRequiredError
 from src.exceptions import PlatformTimeoutError
 from src.exceptions import PlatformTokenRejectedError
 from src.exceptions import PlatformUnavailableError
+from src.exceptions import UnsupportedError
 from src.providers import RedisConnection
 from src.services.limits import PlatformPause
 from src.services.spotify.models import SpotifyDevices
@@ -779,6 +780,13 @@ class SpotifyService:
                 return True
 
         return False
+
+    async def stream_url(
+        self,
+        access_token: str,  # noqa: ARG002
+        platform_id: str,  # noqa: ARG002
+    ) -> str:
+        raise UnsupportedError("Spotify cannot do that")
 
     async def close(self) -> None:
         await self._accounts.aclose()

@@ -3623,6 +3623,54 @@
         }
       }
     },
+    "/playback/{platform}/stream": {
+      "get": {
+        "summary": "Stream",
+        "operationId": "stream_playback__platform__stream_get",
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Platforms"
+            }
+          },
+          {
+            "name": "platform_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255,
+              "title": "Platform Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackStream"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/playback/{platform}/devices": {
       "get": {
         "summary": "List Devices",
@@ -4420,6 +4468,11 @@
           "playback": {
             "type": "boolean",
             "title": "Playback",
+            "default": false
+          },
+          "stream": {
+            "type": "boolean",
+            "title": "Stream",
             "default": false
           }
         },
@@ -5981,7 +6034,8 @@
         "type": "string",
         "enum": [
           "spotify",
-          "youtube"
+          "youtube",
+          "soundcloud"
         ],
         "title": "Platforms"
       },
@@ -6214,6 +6268,19 @@
           "position_at"
         ],
         "title": "PlaybackSessionSaved"
+      },
+      "PlaybackStream": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "PlaybackStream"
       },
       "PlaybackToken": {
         "properties": {

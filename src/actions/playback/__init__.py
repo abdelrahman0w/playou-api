@@ -8,6 +8,8 @@ from .playback import play
 from .playback import playable
 from .playback import playback_request
 from .playback import playback_token
+from .playback import stream
+from .playback import streamable
 from .sessions import SessionRead
 from .sessions import claim_session
 from .sessions import forget_session
@@ -33,4 +35,6 @@ __all__ = [
     "playback_token",
     "save_position",
     "save_session",
+    "stream",
+    "streamable",
 ]

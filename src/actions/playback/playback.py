@@ -19,6 +19,7 @@ from src.structs.models import PlaybackDevice
 from src.structs.models import PlaybackRequest
 from src.structs.models import StoredAccount
 from src.structs.models.requests import PlayRequest
+from src.structs.models.responses import PlaybackStream
 from src.structs.models.responses import PlaybackToken
 
 
@@ -49,6 +50,42 @@ async def playable(
         )
 
     return Playable(service=service, account=account)
+
+
+async def streamable(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    *,
+    user_id: UUID,
+    platform: Platforms,
+) -> Playable:
+    service = platforms.get(platform)
+    if service is None or not service.capabilities.stream:
+        raise UnsupportedError(f"{platform.title()} cannot stream here")
+
+    account = await accounts_repositories.get_account(session, user_id, platform)
+    if account is None:
+        raise PlatformNotLinkedError(f"{platform.title()} is not linked")
+
+    return Playable(service=service, account=account)
+
+
+async def stream(
+    session_factory: async_sessionmaker[AsyncSession],
+    target: Playable,
+    platform_id: str,
+    *,
+    now: datetime,
+) -> PlaybackStream:
+    url = await accounts_actions.with_token(
+        session_factory,
+        target.service,
+        target.account,
+        lambda token: target.service.stream_url(token, platform_id),
+        now=now,
+    )
+
+    return PlaybackStream(url=url)
 
 
 async def playback_token(

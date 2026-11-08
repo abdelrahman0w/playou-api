@@ -5,6 +5,8 @@ from .lrclib import LrclibService
 from .registry import available_platforms
 from .resend import ResendConnection
 from .resend import ResendService
+from .soundcloud import SoundCloudConnection
+from .soundcloud import SoundCloudService
 from .spotify import SpotifyConnection
 from .spotify import SpotifyService
 from .youtube import YouTubeConnection
@@ -18,6 +20,8 @@ __all__ = [
     "OAuthPlatform",
     "ResendConnection",
     "ResendService",
+    "SoundCloudConnection",
+    "SoundCloudService",
     "SpotifyConnection",
     "SpotifyService",
     "YouTubeConnection",
