@@ -31,12 +31,19 @@ async def enqueue_push(
     subject: SyncSubjects,
     subject_id: UUID,
     now: datetime,
+    skip: Platforms | None = None,
+    kept_in_sync: bool = False,
 ) -> int:
     queued = 0
 
     for account in await accounts_repositories.list_accounts(session, user_id):
         platform = platforms.get(account.platform)
-        if platform is None or not _pushes(platform, account, subject):
+        if (
+            platform is None
+            or account.platform is skip
+            or (kept_in_sync and not account.keep_in_sync)
+            or not _pushes(platform, account, subject)
+        ):
             continue
 
         await sync_repositories.enqueue(

@@ -1,10 +1,12 @@
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import ARRAY
 from sqlalchemy import DateTime
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
 from sqlalchemy import Index
+from sqlalchemy import Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import Uuid
 from sqlalchemy import text
@@ -50,4 +52,8 @@ class Like(Base):
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     removed_by: Mapped[RemovedBy | None] = mapped_column(
         Enum(RemovedBy, native_enum=False, length=32, values_callable=_values),
+    )
+    seen_on: Mapped[list[str]] = mapped_column(
+        ARRAY(Text),
+        server_default=text("'{}'"),
     )

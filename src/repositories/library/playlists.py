@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import ColumnElement
+from sqlalchemy import and_
 from sqlalchemy import case
 from sqlalchemy import delete
 from sqlalchemy import exists
@@ -34,8 +35,19 @@ from src.structs.models.responses import PlaylistItem
 from src.structs.models.responses import PlaylistLink
 from src.utils.search import matching
 from src.utils.sql import ROWS_PER_INSERT
+from src.utils.sql import also_seen_on
 from src.utils.sql import any_of
 from src.utils.sql import none_of
+from src.utils.sql import not_seen_on
+from src.utils.sql import only_seen_on
+from src.utils.sql import seen_on
+
+
+MASS_REMOVAL_MIN = 5
+
+
+def too_many_removed(removing: int, kept: int) -> bool:
+    return removing > MASS_REMOVAL_MIN and removing * 2 > kept
 
 
 async def _links(
@@ -354,6 +366,7 @@ async def add_items(
             set_={
                 "position": statement.excluded.position,
                 "added_at": statement.excluded.added_at,
+                "seen_on": only_seen_on(None),
                 "removed_at": None,
                 "removed_by": None,
                 "updated_at": func.now(),
@@ -588,19 +601,38 @@ async def reconcile_items(
     playlist_id: UUID,
     track_ids: list[UUID],
     *,
+    platform: Platforms,
     now: datetime,
-) -> None:
+) -> tuple[int, int]:
     item = tables.PlaylistItem
     ordered = list(dict.fromkeys(track_ids))
-
+    live = (item.playlist_id == playlist_id, item.removed_at.is_(None))
+    gone = (*live, none_of(item.track_id, ordered), seen_on(item.seen_on, platform))
+    removing = await session.scalar(select(func.count()).where(*gone)) or 0
+    kept = await session.scalar(select(func.count()).where(*live)) or 0
+    held = too_many_removed(removing, kept)
+    if removing and not held:
+        await session.execute(
+            update(item)
+            .where(*gone)
+            .values(
+                removed_at=now,
+                removed_by=RemovedBy.PLATFORM,
+                seen_on=not_seen_on(item.seen_on, platform.value),
+            ),
+        )
     await session.execute(
         update(item)
         .where(
             item.playlist_id == playlist_id,
-            item.removed_at.is_(None),
+            item.removed_at.is_not(None),
             none_of(item.track_id, ordered),
+            seen_on(item.seen_on, platform.value),
         )
-        .values(removed_at=now, removed_by=RemovedBy.PLATFORM),
+        .values(
+            seen_on=not_seen_on(item.seen_on, platform.value),
+            updated_at=item.updated_at,
+        ),
     )
     for chunk in batched(enumerate(ordered), ROWS_PER_INSERT, strict=False):
         statement = insert(item).values(
@@ -610,6 +642,7 @@ async def reconcile_items(
                     "track_id": track_id,
                     "position": position,
                     "added_at": now,
+                    "seen_on": [platform.value],
                 }
                 for position, track_id in chunk
             ],
@@ -623,16 +656,123 @@ async def reconcile_items(
                         (item.removed_at.is_(None), item.added_at),
                         else_=statement.excluded.added_at,
                     ),
+                    "seen_on": case(
+                        (
+                            item.removed_at.is_(None),
+                            also_seen_on(item.seen_on, platform.value),
+                        ),
+                        else_=only_seen_on(platform.value),
+                    ),
                     "removed_at": None,
                     "removed_by": None,
-                    "updated_at": func.now(),
+                    "updated_at": case(
+                        (
+                            and_(
+                                item.removed_at.is_(None),
+                                item.position == statement.excluded.position,
+                            ),
+                            item.updated_at,
+                        ),
+                        else_=func.now(),
+                    ),
                 },
                 where=or_(
-                    item.removed_at.is_not(None),
-                    item.position != statement.excluded.position,
+                    and_(
+                        item.removed_at.is_not(None),
+                        ~seen_on(item.seen_on, platform.value),
+                    ),
+                    and_(
+                        item.removed_at.is_(None),
+                        or_(
+                            item.position != statement.excluded.position,
+                            ~seen_on(item.seen_on, platform.value),
+                        ),
+                    ),
                 ),
             ),
         )
+
+    return (0, removing) if held else (removing, 0)
+
+
+async def mark_items_seen(
+    session: AsyncSession,
+    playlist_id: UUID,
+    user_id: UUID,
+    platform: Platforms,
+    platform_ids: list[str],
+) -> None:
+    item = tables.PlaylistItem
+    sources = own_sources(user_id)
+    there = item.track_id.in_(
+        select(sources.c.track_id).where(
+            sources.c.platform == platform,
+            sources.c.platform_id.in_(platform_ids),
+        ),
+    )
+    await session.execute(
+        update(item)
+        .where(
+            item.playlist_id == playlist_id,
+            item.removed_at.is_(None),
+            ~seen_on(item.seen_on, platform.value),
+            there,
+        )
+        .values(
+            seen_on=also_seen_on(item.seen_on, platform.value),
+            updated_at=item.updated_at,
+        ),
+    )
+    await session.execute(
+        update(item)
+        .where(
+            item.playlist_id == playlist_id,
+            item.removed_at.is_not(None),
+            seen_on(item.seen_on, platform.value),
+            ~there,
+        )
+        .values(
+            seen_on=not_seen_on(item.seen_on, platform.value),
+            updated_at=item.updated_at,
+        ),
+    )
+
+
+async def restore_items(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    since: datetime | None,
+    until: datetime | None,
+) -> list[UUID]:
+    item = tables.PlaylistItem
+    playlist = tables.Playlist
+    window = [
+        *([item.removed_at >= since] if since is not None else []),
+        *([item.removed_at < until] if until is not None else []),
+    ]
+    restored = await session.scalars(
+        update(item)
+        .where(
+            item.removed_by == RemovedBy.PLATFORM,
+            *window,
+            item.playlist_id.in_(
+                select(playlist.id).where(
+                    playlist.user_id == user_id,
+                    playlist.removed_at.is_(None),
+                ),
+            ),
+        )
+        .values(
+            removed_at=None,
+            removed_by=None,
+            seen_on=only_seen_on(None),
+            updated_at=func.now(),
+        )
+        .returning(item.playlist_id),
+    )
+
+    return list(dict.fromkeys(restored))
 
 
 async def remove_playlists(

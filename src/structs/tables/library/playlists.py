@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import ARRAY
 from sqlalchemy import Boolean
 from sqlalchemy import DateTime
 from sqlalchemy import Enum
@@ -107,6 +108,10 @@ class PlaylistItem(Base):
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     removed_by: Mapped[RemovedBy | None] = mapped_column(
         Enum(RemovedBy, native_enum=False, length=32, values_callable=_values),
+    )
+    seen_on: Mapped[list[str]] = mapped_column(
+        ARRAY(Text),
+        server_default=text("'{}'"),
     )
 
 

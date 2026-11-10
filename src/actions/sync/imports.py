@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from src.actions import accounts as accounts_actions
 from src.actions.sync.copies import keep_in_sync
 from src.actions.sync.push import fail_attempt
+from src.actions.sync.queue import enqueue_push
 from src.exceptions import PlatformError
 from src.exceptions import PlatformNotLinkedError
 from src.exceptions import PlatformRateLimitedError
@@ -79,6 +80,27 @@ def _imports(platform: OAuthPlatform) -> bool:
     return capabilities.like or capabilities.playlists_read
 
 
+async def _pass_on(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    account: StoredAccount,
+    subject: SyncSubjects,
+    subject_id: UUID,
+    *,
+    now: datetime,
+) -> None:
+    await enqueue_push(
+        session,
+        platforms,
+        user_id=account.user_id,
+        subject=subject,
+        subject_id=subject_id,
+        now=now,
+        skip=account.platform,
+        kept_in_sync=True,
+    )
+
+
 async def _read_saved(
     platform: OAuthPlatform,
     token: str,
@@ -109,6 +131,7 @@ async def _read_saved(
 
 async def _import_likes(
     session_factory: async_sessionmaker[AsyncSession],
+    platforms: dict[Platforms, OAuthPlatform],
     platform: OAuthPlatform,
     account: StoredAccount,
     token: str,
@@ -169,23 +192,53 @@ async def _import_likes(
 
         if read_all:
             there = set(catalog)
-            await library_repositories.remove_likes(
+            await library_repositories.forget_unlisted_likes(
                 session,
                 account.user_id,
-                [
-                    track_id
-                    for track_id in set(known.values())
-                    if track_id not in there and track_id not in pending
-                ],
-                now=now,
-                removed_by=RemovedBy.PLATFORM,
+                account.platform,
+                there,
             )
+            liked = await library_repositories.seen_likes(
+                session,
+                account.user_id,
+                account.platform,
+            )
+            gone = [
+                track_id
+                for track_id in liked
+                if track_id not in there and track_id not in pending
+            ]
+            if library_repositories.too_many_removed(len(gone), len(liked)):
+                logger.warning(
+                    "[Sync] Like Removals Held - Too Many At Once",
+                    platform=account.platform,
+                    account_id=str(account.id),
+                    removals=len(gone),
+                )
+            else:
+                await library_repositories.remove_likes(
+                    session,
+                    account.user_id,
+                    gone,
+                    platform=account.platform,
+                    now=now,
+                )
+                for track_id in gone:
+                    await _pass_on(
+                        session,
+                        platforms,
+                        account,
+                        SyncSubjects.LIKE,
+                        track_id,
+                        now=now,
+                    )
 
     return read_all, total
 
 
 async def _import_playlists(
     session_factory: async_sessionmaker[AsyncSession],
+    platforms: dict[Platforms, OAuthPlatform],
     platform: OAuthPlatform,
     account: StoredAccount,
     token: str,
@@ -261,7 +314,7 @@ async def _import_playlists(
             if skipped:
                 await library_repositories.skip_playlist(session, playlist_id, now=now)
             elif contents is not None:
-                await library_repositories.reconcile_items(
+                removed, held = await library_repositories.reconcile_items(
                     session,
                     playlist_id,
                     await catalog_repositories.with_picks(
@@ -274,8 +327,25 @@ async def _import_playlists(
                             contents.tracks,
                         ),
                     ),
+                    platform=account.platform,
                     now=now,
                 )
+                if removed:
+                    await _pass_on(
+                        session,
+                        platforms,
+                        account,
+                        SyncSubjects.PLAYLIST,
+                        playlist_id,
+                        now=now,
+                    )
+                if held:
+                    logger.warning(
+                        "[Sync] Playlist Removals Held - Too Many At Once",
+                        platform=account.platform,
+                        playlist_id=str(playlist_id),
+                        removals=held,
+                    )
 
             await library_repositories.save_link(
                 session,
@@ -340,6 +410,7 @@ async def import_account(
         likes = (
             await _import_likes(
                 session_factory,
+                platforms,
                 platform,
                 account,
                 token,
@@ -353,6 +424,7 @@ async def import_account(
         if platform.capabilities.playlists_read:
             await _import_playlists(
                 session_factory,
+                platforms,
                 platform,
                 account,
                 token,

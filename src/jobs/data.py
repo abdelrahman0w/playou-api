@@ -17,6 +17,7 @@ from src.providers import logger
 from src.repositories import auth as auth_repositories
 from src.repositories import messages as messages_repositories
 from src.repositories import people as people_repositories
+from src.services import available_platforms
 
 
 def _arguments(parser: argparse.ArgumentParser) -> None:
@@ -104,6 +105,53 @@ async def hide_lyrics(args: argparse.Namespace) -> object:
     return {"hidden": hidden}
 
 
+def _restore_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("email", help="the user's email")
+    parser.add_argument(
+        "since",
+        nargs="?",
+        type=datetime.fromisoformat,
+        help="the earliest removal to undo, 2026-11-09T13:31:00+00:00",
+    )
+    parser.add_argument(
+        "until",
+        nargs="?",
+        type=datetime.fromisoformat,
+        help="the removals before this are undone, 2026-11-09T13:32:00+00:00",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="undo every removal an app's import made, whenever it was, "
+        "the songs removed in playou stay removed",
+    )
+
+
+async def restore_playlist_songs(args: argparse.Namespace) -> object:
+    if args.all == (args.since is not None or args.until is not None) or (
+        not args.all and (args.since is None or args.until is None)
+    ):
+        message = "give either since and until, or --all"
+        raise SystemExit(message)
+
+    async with DatabaseSessions.get()() as session, session.begin():
+        user_id = await auth_repositories.get_user_by_email(session, args.email)
+        if user_id is None:
+            logger.warning("[Data] No User With That Email")
+            return {"restored": []}
+
+        playlist_ids = await library_actions.restore_removed(
+            session,
+            available_platforms(),
+            user_id,
+            since=args.since,
+            until=args.until,
+            now=datetime.now(UTC),
+        )
+
+    return {"restored": [str(playlist_id) for playlist_id in playlist_ids]}
+
+
 async def delete_user_data(args: argparse.Namespace) -> object:
     session_factory = DatabaseSessions.get()
     async with session_factory() as session, session.begin():
@@ -126,6 +174,12 @@ JOBS: dict[str, Job] = {
         help="delete a user's library and linked apps, or with --account everything, "
         "regardless of DATA_DELETION_ENABLED",
         arguments=_arguments,
+    ),
+    "restore_playlist_songs": Job(
+        run=restore_playlist_songs,
+        help="bring back the playlist songs an app's import removed between two times, "
+        "and send them to the linked apps again",
+        arguments=_restore_arguments,
     ),
     "hide_lyrics": Job(
         run=hide_lyrics,

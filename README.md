@@ -316,7 +316,12 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
     a song unliked there is `removed_by` `PLATFORM` here, only once none of its recordings' ids is still liked
 - An owned playlist's tracks are read only when its `snapshot_id` changed, and follow Spotify's, in its order,
     a playlist gone from Spotify is `removed_by` `PLATFORM`
-- A like or a playlist waiting to be pushed wins, the import leaves it, and an import never asks for a push
+- An app only removes what it listed before, each like and playlist song keeps `seen_on`, the apps an import listed it on,
+    or a push saw there after it, so a song never sent there, or whose copy failed, stays, and liking or adding it again in PlaYou,
+    or `restore_playlist_songs`, clears it, and an import that would remove over half, and more than 5, removes none and logs it
+- A song removed by one app is sent on to the apps with `keep_in_sync`, right away, the others keep it,
+    and their imports do not bring it back, only an app that newly has it, after no longer listing it, does
+- A like or a playlist waiting to be pushed wins, the import leaves it, and an import asks for a push only to send a removal on
 - YouTube's liked music is its liked videos in the music category, the others are counted, never liked here,
     its playlists are the user's own, YouTube lists no followed ones, a playlist is read again when its `etag` changed,
     an import is about 2 units for 50 songs
@@ -539,6 +544,7 @@ Jobs are run once by name through `bin/jobs.sh`, `bin/jobs.sh <job> --help` list
 | `forget_disconnected_accounts` | `15 3 * * *` | Unlinks the accounts refused for `ACCOUNTS_FORGET_DISCONNECTED_DAYS`, 7, unless `ACCOUNTS_FORGET_DISCONNECTED` is false, and removes the likes and playlists that came only from them, as YouTube's API policy asks once access is revoked |
 | `prune_auth` | `30 0 * * *` | Drops the expired sessions, the codes used or expired, and the playback sessions untouched for `PLAYBACK_SESSION_DAYS` |
 | `merge_tracks` | by hand | Merges the tracks saved twice for one song and uppercases the isrcs, `--dry-run` only logs them |
+| `restore_playlist_songs` | by hand | Brings back a user's playlist songs that an app's import removed between two times, `email since until`, or ever, `email --all`, and sends them to the linked apps again |
 | `delete_user_data` | by hand | Clears a user's library and linked apps by their email, `--account` deletes the account too, whatever `DATA_DELETION_ENABLED` says |
 
 In production, each job is a schedule in dokploy, in the api's application, under **Schedules**,

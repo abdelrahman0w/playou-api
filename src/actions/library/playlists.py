@@ -245,3 +245,31 @@ async def pin_playlist(
         pinned_at=pinned_at,
     ):
         raise NotFoundError("The playlist does not exist")
+
+
+async def restore_removed(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    user_id: UUID,
+    *,
+    since: datetime | None,
+    until: datetime | None,
+    now: datetime,
+) -> list[UUID]:
+    playlist_ids = await library_repositories.restore_items(
+        session,
+        user_id,
+        since=since,
+        until=until,
+    )
+    for playlist_id in playlist_ids:
+        await enqueue_push(
+            session,
+            platforms,
+            user_id=user_id,
+            subject=SyncSubjects.PLAYLIST,
+            subject_id=playlist_id,
+            now=now,
+        )
+
+    return playlist_ids

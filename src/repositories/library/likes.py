@@ -3,6 +3,7 @@ from datetime import datetime
 from itertools import batched
 from uuid import UUID
 
+from sqlalchemy import and_
 from sqlalchemy import case
 from sqlalchemy import exists
 from sqlalchemy import func
@@ -25,7 +26,12 @@ from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import LikedTrack
 from src.utils.search import matching
 from src.utils.sql import ROWS_PER_INSERT
+from src.utils.sql import also_seen_on
 from src.utils.sql import any_of
+from src.utils.sql import none_of
+from src.utils.sql import not_seen_on
+from src.utils.sql import only_seen_on
+from src.utils.sql import seen_on
 
 
 def _to_liked(
@@ -55,6 +61,10 @@ async def set_like(
             index_elements=["user_id", "track_id"],
             set_={
                 "liked_at": now,
+                "seen_on": case(
+                    (like.removed_at.is_(None), like.seen_on),
+                    else_=only_seen_on(None),
+                ),
                 "removed_at": None,
                 "removed_by": None,
                 "updated_at": func.now(),
@@ -265,6 +275,7 @@ async def import_likes(
                     "track_id": track_id,
                     "liked_at": liked_at,
                     "imported_from": platform,
+                    "seen_on": [platform.value],
                 }
                 for track_id, liked_at in chunk
             ],
@@ -280,16 +291,93 @@ async def import_likes(
                         ),
                         else_=statement.excluded.liked_at,
                     ),
+                    "seen_on": case(
+                        (
+                            like.removed_at.is_(None),
+                            also_seen_on(like.seen_on, platform.value),
+                        ),
+                        else_=only_seen_on(platform.value),
+                    ),
                     "removed_at": None,
                     "removed_by": None,
                     "updated_at": func.now(),
                 },
                 where=or_(
-                    like.removed_at.is_not(None),
-                    like.liked_at < statement.excluded.liked_at,
+                    and_(
+                        like.removed_at.is_not(None),
+                        ~seen_on(like.seen_on, platform.value),
+                    ),
+                    and_(
+                        like.removed_at.is_(None),
+                        or_(
+                            like.liked_at < statement.excluded.liked_at,
+                            ~seen_on(like.seen_on, platform.value),
+                        ),
+                    ),
                 ),
             ),
         )
+
+
+async def mark_likes_seen(
+    session: AsyncSession,
+    user_id: UUID,
+    platform: Platforms,
+    *,
+    liked: list[UUID],
+    unliked: list[UUID],
+) -> None:
+    like = tables.Like
+    for track_ids, changed in (
+        (liked, also_seen_on(like.seen_on, platform.value)),
+        (unliked, not_seen_on(like.seen_on, platform.value)),
+    ):
+        if track_ids:
+            await session.execute(
+                update(like)
+                .where(like.user_id == user_id, any_of(like.track_id, track_ids))
+                .values(seen_on=changed, updated_at=like.updated_at),
+            )
+
+
+async def forget_unlisted_likes(
+    session: AsyncSession,
+    user_id: UUID,
+    platform: Platforms,
+    listed: set[UUID],
+) -> None:
+    like = tables.Like
+    await session.execute(
+        update(like)
+        .where(
+            like.user_id == user_id,
+            like.removed_at.is_not(None),
+            none_of(like.track_id, listed),
+            seen_on(like.seen_on, platform.value),
+        )
+        .values(
+            seen_on=not_seen_on(like.seen_on, platform.value),
+            updated_at=like.updated_at,
+        ),
+    )
+
+
+async def seen_likes(
+    session: AsyncSession,
+    user_id: UUID,
+    platform: Platforms,
+) -> set[UUID]:
+    like = tables.Like
+
+    return set(
+        await session.scalars(
+            select(like.track_id).where(
+                like.user_id == user_id,
+                like.removed_at.is_(None),
+                seen_on(like.seen_on, platform.value),
+            ),
+        ),
+    )
 
 
 async def remove_likes(
@@ -297,8 +385,8 @@ async def remove_likes(
     user_id: UUID,
     track_ids: list[UUID],
     *,
+    platform: Platforms,
     now: datetime,
-    removed_by: RemovedBy,
 ) -> None:
     if not track_ids:
         return
@@ -311,5 +399,9 @@ async def remove_likes(
             any_of(like.track_id, track_ids),
             like.removed_at.is_(None),
         )
-        .values(removed_at=now, removed_by=removed_by),
+        .values(
+            removed_at=now,
+            removed_by=RemovedBy.PLATFORM,
+            seen_on=not_seen_on(like.seen_on, platform.value),
+        ),
     )

@@ -89,6 +89,8 @@ async def _push_likes(
     outcomes: list[_Outcome] = []
     saves: list[str] = []
     unsaves: list[str] = []
+    saved: list[UUID] = []
+    unsaved: list[UUID] = []
     for task in tasks:
         state = states.get(task.subject_id)
         if state is None:
@@ -99,6 +101,7 @@ async def _push_likes(
             )
         else:
             (saves if state.liked else unsaves).append(state.platform_id)
+            (saved if state.liked else unsaved).append(task.subject_id)
             outcomes.append(DONE)
 
     if saves:
@@ -106,7 +109,16 @@ async def _push_likes(
     if unsaves:
         await platform.unsave_tracks(token, unsaves)
 
-    return _Pushed(outcomes)
+    async def seen(session: AsyncSession) -> None:
+        await library_repositories.mark_likes_seen(
+            session,
+            tasks[0].user_id,
+            tasks[0].platform,
+            liked=saved,
+            unliked=unsaved,
+        )
+
+    return _Pushed(outcomes, seen)
 
 
 async def _remember_link(
@@ -217,13 +229,30 @@ async def _push_playlist(
             or snapshot
         )
 
-    return _Pushed(
-        [DONE],
-        _linking(
-            task,
-            PlatformPlaylist(platform_id=remote.platform_id, snapshot_id=snapshot),
-        ),
+    listed: list[str] | None = remote_ids
+    if to_remove or to_add:
+        try:
+            listed = await platform.playlist_track_ids(token, remote.platform_id)
+        except PlatformError:
+            listed = None
+
+    linking = _linking(
+        task,
+        PlatformPlaylist(platform_id=remote.platform_id, snapshot_id=snapshot),
     )
+
+    async def apply(session: AsyncSession) -> None:
+        await linking(session)
+        if listed is not None:
+            await library_repositories.mark_items_seen(
+                session,
+                task.subject_id,
+                task.user_id,
+                task.platform,
+                listed,
+            )
+
+    return _Pushed([DONE], apply)
 
 
 async def _prepare(
