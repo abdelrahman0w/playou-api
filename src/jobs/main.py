@@ -27,6 +27,7 @@ from src.providers import make_redis
 from src.providers import monitor_job
 from src.providers import setup_error_tracking
 from src.providers import setup_logging
+from src.services import AvatarsConnection
 from src.services import ResendConnection
 from src.services import SoundCloudConnection
 from src.services import SpotifyConnection
@@ -46,6 +47,7 @@ SINGLETONS = (
     SpotifyConnection,
     YouTubeConnection,
     SoundCloudConnection,
+    AvatarsConnection,
 )
 
 JOBS: dict[str, Job] = {

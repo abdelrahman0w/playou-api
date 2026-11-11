@@ -398,7 +398,9 @@ There is no separate home route, `/` is Home or the landing, whichever fits.
 | `POST` | `/auth/email/verify` | Signs in with the code, and sets the session cookie, or answers the token with `"transport": "bearer"` |
 | `POST` | `/auth/sign-out` | Ends the session |
 | `GET` | `/auth/me` | The signed in user, and whether they may delete their data, `can_delete_data` |
-| `DELETE` | `/auth/me` | Deletes the account and everything of it, and signs out |
+| `PUT` | `/auth/me/avatar` | Sets the profile picture, the image itself as the body, up to `AVATARS_MAX_BYTES`, 5 MB, a JPEG, PNG, WebP or GIF |
+| `DELETE` | `/auth/me/avatar` | Removes the profile picture |
+| `DELETE` | `/auth/me` | Deletes the account and everything of it, its picture too, and signs out |
 | `GET` | `/accounts` | The linked accounts, with what each platform can do, `expires_soon`, within `ACCOUNTS_EXPIRY_WARNING_DAYS`, and `missing_scopes` |
 | `GET` | `/accounts/{platform}/connect` | Starts linking, redirects to the platform |
 | `GET` | `/accounts/{platform}/callback` | Where the platform sends the browser back, redirects to the web app |
@@ -494,6 +496,7 @@ Errors share a single shape:
 | --- | --- | --- |
 | `400` | `INVALID_CODE` | The code is wrong, expired, or used |
 | `400` | `INVALID_OAUTH_STATE` | A link's state is missing, expired, used, or another user's |
+| `400` | `INVALID_IMAGE` | The profile picture is not a picture, or is over `AVATARS_MAX_BYTES` |
 | `400` | `UNSUPPORTED` | The platform is not available, or cannot do that |
 | `401` | `UNAUTHORIZED` | The endpoint needs a session, and there is none |
 | `403` | `FORBIDDEN` | The request comes from a site that may not make it |
@@ -510,6 +513,7 @@ Errors share a single shape:
 | `503` | `PLATFORM_RATE_LIMITED` | The platform is limiting the app's requests, with `Retry-After` |
 | `503` | `QUOTA_EXHAUSTED` | YouTube's units for the day are spent, back after midnight Pacific time |
 | `503` | `EMAIL_UNAVAILABLE` | The code could not be sent |
+| `503` | `MEDIA_UNAVAILABLE` | The profile picture could not be stored in the bucket |
 | `504` | `PLATFORM_TIMEOUT` | The platform did not respond in time |
 | `500` | `INTERNAL` | Anything unexpected, reported to error tracking |
 
@@ -561,6 +565,7 @@ Jobs are run once by name through `bin/jobs.sh`, `bin/jobs.sh <job> --help` list
 | `prune_auth` | `30 0 * * *` | Drops the expired sessions, the codes used or expired, and the playback sessions untouched for `PLAYBACK_SESSION_DAYS` |
 | `merge_tracks` | by hand | Merges the tracks saved twice for one song and uppercases the isrcs, `--dry-run` only logs them |
 | `restore_playlist_songs` | by hand | Brings back a user's playlist songs that an app's import removed between two times, `email since until`, or ever, `email --all`, and sends them to the linked apps again |
+| `remove_avatar` | by hand | Takes down a user's profile picture by their username, from the database and the bucket |
 | `delete_user_data` | by hand | Clears a user's library and linked apps by their email, `--account` deletes the account too, whatever `DATA_DELETION_ENABLED` says |
 
 In production, each job is a schedule in dokploy, in the api's application, under **Schedules**,
@@ -644,6 +649,7 @@ The ones without a usable default:
 | `APP_WEB_URL` | Where the browser is sent back after linking |
 | `CORS_ORIGINS` | The web app's origins |
 | `RESEND_API_KEY` | Without it, codes are logged in `DEV`, and refused in `PROD`, and no reconnect warning is sent |
+| `MEDIA_*`, `AVATARS_BUCKET`, `AVATARS_PUBLIC_URL` | Profile pictures are off without them, see [profile pictures](#profile-pictures) |
 
 > To rotate `ENCRYPTION_KEYS`, put the new key first and keep the old one after it,
 > the first key seals, every key unseals, on the api and the worker alike
@@ -770,6 +776,27 @@ reloading on changes.
 
 > SoundCloud allows 500 like requests a day for the whole app, so an account pushes nothing until it asks to, and likes are copied there only with `SOUNDCLOUD_COPY_LIKES=true`,
 > and a track's id is its urn, `soundcloud:tracks:1`, the numeric ones are deprecated
+
+### Profile Pictures
+
+They are kept in a bucket of their own, Cloudflare R2's, and served from its public domain, never through the api.
+`MEDIA_*` is the account's S3 api, shared by every bucket, and `AVATARS_*` the pictures' bucket and limits.
+
+1. Create an R2 bucket, and connect a custom domain to it, `avatars.example.com`, so cloudflare caches the pictures,
+    and put the bucket's name and `https://avatars.example.com` in `.env` as `AVATARS_BUCKET` and `AVATARS_PUBLIC_URL`
+1. Put the account's S3 API url, `https://<account id>.r2.cloudflarestorage.com`, in `.env` as `MEDIA_ENDPOINT`
+1. Create an R2 api token with object read and write on that bucket, and put its key id and secret in `.env`
+    as `MEDIA_ACCESS_KEY_ID` and `MEDIA_SECRET_ACCESS_KEY`
+1. The web needs the public domain too, as `PUBLIC_AVATARS_URL`, to let the browser show the pictures
+1. Leave the bucket's CORS policy empty, pictures are shown with `<img>` and uploaded through the api, neither needs it
+
+- An upload is opened with Pillow, as a JPEG, PNG, WebP or GIF only, whatever it claims to be, so its rarer decoders never see one, up to 60 million pixels, turned upright, cut to the middle square, made `AVATARS_PIXELS`, 512, wide,
+    and stored as webp, so no file a user sent, nor its exif, gps or color profile, ever reaches the bucket
+- Each upload gets a new random name, `avatars/<user id>/<random>.webp`, cached for a year, and the old one is deleted after the swap,
+    a failed delete is only logged, and leaves the old file unseen in the bucket
+- `AVATARS_PER_USER_HOUR`, 10, uploads an hour, a private profile's picture is shown like its name,
+    and `bin/jobs.sh remove_avatar <username>` takes one down
+- Requests are signed with AWS signature v4 over httpx, without an S3 library, `MEDIA_REGION` is `auto` for R2
 
 ## Testing
 

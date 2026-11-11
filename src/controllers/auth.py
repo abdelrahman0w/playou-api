@@ -9,6 +9,7 @@ from src.actions import library as library_actions
 from src.exceptions import UnauthorizedError
 from src.repositories import auth as auth_repositories
 from src.repositories import people as people_repositories
+from src.services import MediaService
 from src.services import ResendService
 from src.settings import settings
 from src.structs.models.requests import EmailCodeRequest
@@ -89,6 +90,7 @@ async def _described(
         update={
             "can_delete_data": settings.data.deletion_enabled,
             "lyrics_enabled": settings.lyrics.enabled,
+            "avatars_enabled": settings.avatars_enabled,
         },
     )
 
@@ -144,6 +146,51 @@ async def update_me(
         return await _described(session, user, now=now)
 
 
+async def set_avatar(
+    session: AsyncSession,
+    redis: Redis,
+    media: MediaService | None,
+    user_id: UUID,
+    data: bytes,
+    *,
+    now: datetime,
+) -> AuthUser:
+    key = await auth_actions.store_avatar(redis, media, user_id, data)
+    try:
+        async with session.begin():
+            previous = await auth_actions.set_avatar(session, user_id, key)
+            user = await auth_repositories.get_user(session, user_id)
+            if user is None:
+                raise UnauthorizedError("Sign in to continue")
+            described = await _described(session, user, now=now)
+    except Exception:
+        await auth_actions.forget_avatar(media, key)
+        raise
+
+    await auth_actions.forget_avatar(media, previous)
+
+    return described
+
+
+async def remove_avatar(
+    session: AsyncSession,
+    media: MediaService | None,
+    user_id: UUID,
+    *,
+    now: datetime,
+) -> AuthUser:
+    async with session.begin():
+        previous = await auth_actions.set_avatar(session, user_id, None)
+        user = await auth_repositories.get_user(session, user_id)
+        if user is None:
+            raise UnauthorizedError("Sign in to continue")
+        described = await _described(session, user, now=now)
+
+    await auth_actions.forget_avatar(media, previous)
+
+    return described
+
+
 async def sign_out(
     session: AsyncSession,
     redis: Redis,
@@ -156,8 +203,11 @@ async def sign_out(
 async def delete_me(
     session: AsyncSession,
     redis: Redis,
+    media: MediaService | None,
     user_id: UUID,
 ) -> None:
     library_actions.ensure_allowed()
     async with session.begin():
-        await library_actions.delete_user(session, redis, user_id)
+        avatar = await library_actions.delete_user(session, redis, user_id)
+
+    await auth_actions.forget_avatar(media, avatar)

@@ -26,6 +26,7 @@ from src.routes import messages_router
 from src.routes import people_router
 from src.routes import playback_router
 from src.routes import shares_router
+from src.services import AvatarsConnection
 from src.services import LrclibConnection
 from src.services import ResendConnection
 from src.services import SoundCloudConnection
@@ -54,6 +55,7 @@ SINGLETONS = (
     YouTubeConnection,
     SoundCloudConnection,
     LrclibConnection,
+    AvatarsConnection,
     PlaybackListener,
     MessageListener,
 )

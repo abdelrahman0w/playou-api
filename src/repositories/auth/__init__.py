@@ -16,6 +16,7 @@ from .users import record_name_change
 from .users import session_hashes
 from .users import set_name
 from .users import sign_in_user
+from .users import swap_avatar
 from .users import touch_user
 from .users import update_user
 
@@ -39,6 +40,7 @@ __all__ = [
     "session_hashes",
     "set_name",
     "sign_in_user",
+    "swap_avatar",
     "touch_user",
     "update_user",
 ]

@@ -86,7 +86,12 @@ async def clear_library(
     )
 
 
-async def delete_user(session: AsyncSession, redis: Redis, user_id: UUID) -> None:
+async def delete_user(
+    session: AsyncSession,
+    redis: Redis,
+    user_id: UUID,
+) -> str | None:
+    avatar = await auth_repositories.swap_avatar(session, user_id, None)
     hashes = await auth_repositories.delete_user(session, user_id)
     try:
         if hashes:
@@ -97,3 +102,5 @@ async def delete_user(session: AsyncSession, redis: Redis, user_id: UUID) -> Non
         pass
 
     logger.info("[Data] Account Deleted")
+
+    return avatar

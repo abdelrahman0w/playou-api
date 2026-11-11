@@ -366,6 +366,39 @@ class PlaybackSettings(BaseAppSettings):
     longest_wait_seconds: int = Field(default=20, ge=0)
 
 
+class MediaSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="MEDIA_",
+    )
+
+    endpoint: str | None = None
+    access_key_id: str | None = None
+    secret_access_key: SecretStr | None = None
+    region: str = "auto"
+    timeout_seconds: float = Field(default=10.0, gt=0)
+
+    @property
+    def enabled(self) -> bool:
+        return bool(
+            self.endpoint
+            and self.access_key_id
+            and self.secret_access_key
+            and self.secret_access_key.get_secret_value(),
+        )
+
+
+class AvatarSettings(BaseAppSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="AVATARS_",
+    )
+
+    bucket: str | None = None
+    public_url: str | None = None
+    max_bytes: int = Field(default=5 * 1024 * 1024, ge=1)
+    pixels: int = Field(default=512, ge=32)
+    per_user_hour: int = Field(default=10, ge=1)
+
+
 class LyricsSettings(BaseAppSettings):
     model_config = SettingsConfigDict(
         env_prefix="LYRICS_",
@@ -475,8 +508,16 @@ class Settings(BaseAppSettings):
     playback: PlaybackSettings = Field(default_factory=PlaybackSettings)
     shares: SharesSettings = Field(default_factory=SharesSettings)
     lyrics: LyricsSettings = Field(default_factory=LyricsSettings)
+    media: MediaSettings = Field(default_factory=MediaSettings)
+    avatars: AvatarSettings = Field(default_factory=AvatarSettings)
     messages: MessagesSettings = Field(default_factory=MessagesSettings)
     together: TogetherSettings = Field(default_factory=TogetherSettings)
+
+    @property
+    def avatars_enabled(self) -> bool:
+        return self.media.enabled and bool(
+            self.avatars.bucket and self.avatars.public_url,
+        )
 
     @model_validator(mode="after")
     def secret_outside_dev(self) -> Settings:

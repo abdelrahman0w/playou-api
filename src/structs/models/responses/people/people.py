@@ -10,6 +10,7 @@ from src.structs.models.responses.library import CatalogTrack
 class Person(BaseModel):
     username: str
     name: str
+    avatar_url: str | None = None
     private: bool = False
     you_follow: FollowStates = FollowStates.NONE
     follows_you: bool = False

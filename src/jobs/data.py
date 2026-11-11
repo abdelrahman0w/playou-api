@@ -8,6 +8,7 @@ from uuid import UUID
 from cryptography.hazmat.primitives import serialization
 from py_vapid import Vapid02
 
+from src.actions import auth as auth_actions
 from src.actions import catalog as catalog_actions
 from src.actions import library as library_actions
 from src.jobs import Job
@@ -17,6 +18,7 @@ from src.providers import logger
 from src.repositories import auth as auth_repositories
 from src.repositories import messages as messages_repositories
 from src.repositories import people as people_repositories
+from src.services import AvatarsConnection
 from src.services import available_platforms
 
 
@@ -152,6 +154,24 @@ async def restore_playlist_songs(args: argparse.Namespace) -> object:
     return {"restored": [str(playlist_id) for playlist_id in playlist_ids]}
 
 
+def _avatar_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("username", help="whose profile picture to take down")
+
+
+async def remove_avatar(args: argparse.Namespace) -> object:
+    async with DatabaseSessions.get()() as session, session.begin():
+        user = await people_repositories.by_username(session, args.username)
+        if user is None:
+            logger.warning("[Data] No User With That Username")
+            return {"removed": False}
+
+        avatar = await auth_actions.set_avatar(session, user.id, None)
+
+    await auth_actions.forget_avatar(AvatarsConnection.get(), avatar)
+
+    return {"removed": avatar is not None}
+
+
 async def delete_user_data(args: argparse.Namespace) -> object:
     session_factory = DatabaseSessions.get()
     async with session_factory() as session, session.begin():
@@ -160,10 +180,17 @@ async def delete_user_data(args: argparse.Namespace) -> object:
             logger.warning("[Data] No User With That Email")
             return {"deleted": False}
 
+        avatar = None
         if args.account:
-            await library_actions.delete_user(session, RedisConnection.get(), user_id)
+            avatar = await library_actions.delete_user(
+                session,
+                RedisConnection.get(),
+                user_id,
+            )
         else:
             await library_actions.clear_library(session, user_id, unlink=True)
+
+    await auth_actions.forget_avatar(AvatarsConnection.get(), avatar)
 
     return {"deleted": True, "account": args.account}
 
@@ -180,6 +207,11 @@ JOBS: dict[str, Job] = {
         help="bring back the playlist songs an app's import removed between two times, "
         "and send them to the linked apps again",
         arguments=_restore_arguments,
+    ),
+    "remove_avatar": Job(
+        run=remove_avatar,
+        help="take down a user's profile picture, from the database and the bucket",
+        arguments=_avatar_arguments,
     ),
     "hide_lyrics": Job(
         run=hide_lyrics,

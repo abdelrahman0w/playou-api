@@ -40,6 +40,14 @@ class EmailUnavailableError(AppError):
     error_type = ErrorTypes.EMAIL_UNAVAILABLE
 
 
+class InvalidImageError(AppError):
+    error_type = ErrorTypes.INVALID_IMAGE
+
+
+class MediaUnavailableError(AppError):
+    error_type = ErrorTypes.MEDIA_UNAVAILABLE
+
+
 class TooManyRequestsError(AppError):
     error_type = ErrorTypes.RATE_LIMITED
 

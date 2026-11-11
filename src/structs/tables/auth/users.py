@@ -53,6 +53,7 @@ class User(Base):
     searchable: Mapped[bool] = mapped_column(Boolean, server_default=true())
     private: Mapped[bool] = mapped_column(Boolean, server_default=false())
     locale: Mapped[str] = mapped_column(String(8), default="en")
+    avatar_key: Mapped[str | None] = mapped_column(String(200))
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_sign_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

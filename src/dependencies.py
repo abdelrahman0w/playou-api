@@ -18,8 +18,10 @@ from src.exceptions import ForbiddenError
 from src.exceptions import UnauthorizedError
 from src.providers import DatabaseSessions
 from src.providers import RedisConnection
+from src.services import AvatarsConnection
 from src.services import LrclibConnection
 from src.services import LrclibService
+from src.services import MediaService
 from src.services import OAuthPlatform
 from src.services import ResendConnection
 from src.services import ResendService
@@ -81,6 +83,10 @@ def get_resend() -> ResendService | None:
     return ResendConnection.get()
 
 
+def get_avatars() -> MediaService | None:
+    return AvatarsConnection.get()
+
+
 def get_platforms() -> dict[Platforms, OAuthPlatform]:
     return available_platforms()
 
@@ -101,6 +107,7 @@ SessionFactoryDep = Annotated[
 RedisDep = Annotated[Redis, Depends(get_redis)]
 NowDep = Annotated[datetime, Depends(get_now)]
 ResendDep = Annotated[ResendService | None, Depends(get_resend)]
+AvatarsDep = Annotated[MediaService | None, Depends(get_avatars)]
 LrclibDep = Annotated[LrclibService | None, Depends(get_lrclib)]
 ClientIPDep = Annotated[str | None, Depends(get_client_ip)]
 PlatformsDep = Annotated[dict[Platforms, OAuthPlatform], Depends(get_platforms)]

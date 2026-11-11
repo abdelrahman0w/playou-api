@@ -3,7 +3,9 @@ from .custom_exceptions import EmailUnavailableError
 from .custom_exceptions import ForbiddenError
 from .custom_exceptions import InvalidCodeError
 from .custom_exceptions import InvalidEmailError
+from .custom_exceptions import InvalidImageError
 from .custom_exceptions import InvalidOAuthStateError
+from .custom_exceptions import MediaUnavailableError
 from .custom_exceptions import NameChangeLimitedError
 from .custom_exceptions import NameRequiredError
 from .custom_exceptions import NoActiveDeviceError
@@ -33,7 +35,9 @@ __all__ = [
     "ForbiddenError",
     "InvalidCodeError",
     "InvalidEmailError",
+    "InvalidImageError",
     "InvalidOAuthStateError",
+    "MediaUnavailableError",
     "NameChangeLimitedError",
     "NameRequiredError",
     "NoActiveDeviceError",

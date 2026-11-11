@@ -24,6 +24,7 @@ from src.structs.models import Page
 from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import Person
 from src.structs.models.responses import ProfilePlaylist
+from src.utils.avatars import avatar_url
 from src.utils.search import indexable
 from src.utils.usernames import RESERVED
 
@@ -107,6 +108,7 @@ async def people(
         Person(
             username=user.username,
             name=user.name,
+            avatar_url=avatar_url(user.avatar_key),
             private=user.private,
             you_follow=states.get(user.id, FollowStates.NONE),
             follows_you=user.id in theirs,

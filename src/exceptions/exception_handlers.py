@@ -12,7 +12,9 @@ from src.exceptions.custom_exceptions import EmailUnavailableError
 from src.exceptions.custom_exceptions import ForbiddenError
 from src.exceptions.custom_exceptions import InvalidCodeError
 from src.exceptions.custom_exceptions import InvalidEmailError
+from src.exceptions.custom_exceptions import InvalidImageError
 from src.exceptions.custom_exceptions import InvalidOAuthStateError
+from src.exceptions.custom_exceptions import MediaUnavailableError
 from src.exceptions.custom_exceptions import NameRequiredError
 from src.exceptions.custom_exceptions import NoActiveDeviceError
 from src.exceptions.custom_exceptions import NotFoundError
@@ -47,6 +49,8 @@ STATUS_CODES: dict[type[AppError], int] = {
     InvalidOAuthStateError: status.HTTP_400_BAD_REQUEST,
     TooManyRequestsError: status.HTTP_429_TOO_MANY_REQUESTS,
     EmailUnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,
+    InvalidImageError: status.HTTP_400_BAD_REQUEST,
+    MediaUnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,
     UnsupportedError: status.HTTP_400_BAD_REQUEST,
     PlatformNotLinkedError: status.HTTP_409_CONFLICT,
     PlatformReconnectRequiredError: status.HTTP_409_CONFLICT,

@@ -29,6 +29,7 @@ from src.structs.models.responses import ConversationSummary
 from src.structs.models.responses import MessagePerson
 from src.structs.models.responses import MessageReaction
 from src.structs.models.responses import SharedPlaylist
+from src.utils.avatars import avatar_url
 from src.utils.sql import any_of
 
 
@@ -135,7 +136,7 @@ async def message_people(
         ),
     )
     statement = (
-        select(user.username, user.name, chats.c.id)
+        select(user.username, user.name, user.avatar_key, chats.c.id)
         .outerjoin(chats, chats.c.user_id == user.id)
         .where(
             user.id != viewer_id,
@@ -160,8 +161,13 @@ async def message_people(
     )
 
     return [
-        MessagePerson(username=username, name=name, chat_id=chat_id)
-        for username, name, chat_id in rows
+        MessagePerson(
+            username=username,
+            name=name,
+            avatar_url=avatar_url(avatar_key),
+            chat_id=chat_id,
+        )
+        for username, name, avatar_key, chat_id in rows
     ]
 
 
@@ -237,6 +243,7 @@ def _summaries_query(user_id: UUID) -> Select[Unpack[tuple[Any, ...]]]:
             conversation.last_message_at,
             user.name,
             user.username,
+            user.avatar_key,
             mine.last_read_at,
             exists()
             .where(
@@ -316,6 +323,7 @@ async def _summaries(
             id=row.id,
             name=row.name,
             username=row.username,
+            avatar_url=avatar_url(row.avatar_key),
             last_message=last.get(row.id),
             unread=unread.get(row.id, 0),
             blocked=bool(row.blocked_at),

@@ -29,6 +29,7 @@ class ConversationSummary(BaseModel):
     id: UUID
     name: str | None = None
     username: str | None = None
+    avatar_url: str | None = None
     last_message: ChatMessage | None = None
     unread: int = 0
     blocked: bool = False
@@ -54,6 +55,7 @@ class PushSettings(BaseModel):
 class MessagePerson(BaseModel):
     username: str
     name: str
+    avatar_url: str | None = None
     chat_id: UUID | None = None
 
 

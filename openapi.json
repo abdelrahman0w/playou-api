@@ -200,6 +200,51 @@
         }
       }
     },
+    "/auth/me/avatar": {
+      "put": {
+        "summary": "Set Avatar",
+        "operationId": "set_avatar_auth_me_avatar_put",
+        "requestBody": {
+          "content": {
+            "image/*": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUser"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove Avatar",
+        "operationId": "remove_avatar_auth_me_avatar_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUser"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/accounts": {
       "get": {
         "summary": "List Accounts",
@@ -4312,6 +4357,17 @@
             "title": "Username",
             "default": ""
           },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
           "searchable": {
             "type": "boolean",
             "title": "Searchable",
@@ -4361,6 +4417,11 @@
           "lyrics_enabled": {
             "type": "boolean",
             "title": "Lyrics Enabled",
+            "default": false
+          },
+          "avatars_enabled": {
+            "type": "boolean",
+            "title": "Avatars Enabled",
             "default": false
           },
           "name_changes_left": {
@@ -4787,6 +4848,17 @@
             ],
             "title": "Username"
           },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
           "last_message": {
             "anyOf": [
               {
@@ -4871,6 +4943,17 @@
               }
             ],
             "title": "Username"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
           },
           "last_message": {
             "anyOf": [
@@ -5499,6 +5582,17 @@
             "type": "string",
             "title": "Name"
           },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
           "chat_id": {
             "anyOf": [
               {
@@ -6032,6 +6126,17 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
           },
           "private": {
             "type": "boolean",
@@ -6805,6 +6910,17 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
           },
           "private": {
             "type": "boolean",

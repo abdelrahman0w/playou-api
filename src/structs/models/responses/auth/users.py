@@ -9,6 +9,7 @@ class AuthUser(BaseModel):
     email: str
     name: str
     username: str = ""
+    avatar_url: str | None = None
     searchable: bool = True
     private: bool = False
     followers: int = 0
@@ -18,6 +19,7 @@ class AuthUser(BaseModel):
     last_sign_in_at: datetime | None = None
     can_delete_data: bool = True
     lyrics_enabled: bool = False
+    avatars_enabled: bool = False
     name_changes_left: int = 0
     name_change_at: datetime | None = None
     username_changes_left: int = 0

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.structs import tables
 from src.structs.enums import NameFields
 from src.structs.models.responses import AuthUser
+from src.utils.avatars import avatar_url
 
 
 def _to_user(row: tables.User) -> AuthUser:
@@ -21,6 +22,7 @@ def _to_user(row: tables.User) -> AuthUser:
         email=row.email,
         name=row.name,
         username=row.username,
+        avatar_url=avatar_url(row.avatar_key),
         searchable=row.searchable,
         private=row.private,
         locale=row.locale,
@@ -100,6 +102,20 @@ async def delete_user(session: AsyncSession, user_id: UUID) -> list[str]:
     await session.execute(delete(tables.User).where(tables.User.id == user_id))
 
     return hashes
+
+
+async def swap_avatar(
+    session: AsyncSession,
+    user_id: UUID,
+    key: str | None,
+) -> str | None:
+    user = tables.User
+    previous = await session.scalar(
+        select(user.avatar_key).where(user.id == user_id).with_for_update(),
+    )
+    await session.execute(update(user).where(user.id == user_id).values(avatar_key=key))
+
+    return previous
 
 
 async def get_user_by_email(session: AsyncSession, email: str) -> UUID | None:

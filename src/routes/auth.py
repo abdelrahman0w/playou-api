@@ -5,6 +5,7 @@ from fastapi import Response
 from fastapi import status
 
 from src.controllers import auth as auth_controller
+from src.dependencies import AvatarsDep
 from src.dependencies import ClientIPDep
 from src.dependencies import DBSessionDep
 from src.dependencies import NowDep
@@ -13,6 +14,7 @@ from src.dependencies import ResendDep
 from src.dependencies import UserIDDep
 from src.dependencies import get_session_token
 from src.dependencies import require_trusted_origin
+from src.exceptions import InvalidImageError
 from src.settings import settings
 from src.structs.enums import SessionTransports
 from src.structs.models.requests import EmailCodeRequest
@@ -152,6 +154,64 @@ async def update_me(
     return await auth_controller.update_me(session, user_id, body, now=now)
 
 
+async def _picture(request: Request) -> bytes:
+    limit = settings.avatars.max_bytes
+    too_big = InvalidImageError(
+        f"The picture can be {limit // (1024 * 1024)} MB at most"
+    )
+    if int(request.headers.get("content-length") or 0) > limit:
+        raise too_big
+
+    data = bytearray()
+    async for chunk in request.stream():
+        data += chunk
+        if len(data) > limit:
+            raise too_big
+
+    return bytes(data)
+
+
+@router.put(
+    "/me/avatar",
+    dependencies=[Depends(require_trusted_origin)],
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"image/*": {"schema": {"type": "string", "format": "binary"}}},
+        },
+    },
+)
+async def set_avatar(
+    request: Request,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    redis: RedisDep,
+    media: AvatarsDep,
+    now: NowDep,
+) -> AuthUser:
+    return await auth_controller.set_avatar(
+        session,
+        redis,
+        media,
+        user_id,
+        await _picture(request),
+        now=now,
+    )
+
+
+@router.delete(
+    "/me/avatar",
+    dependencies=[Depends(require_trusted_origin)],
+)
+async def remove_avatar(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    media: AvatarsDep,
+    now: NowDep,
+) -> AuthUser:
+    return await auth_controller.remove_avatar(session, media, user_id, now=now)
+
+
 @router.delete(
     "/me",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -161,8 +221,9 @@ async def delete_me(
     user_id: UserIDDep,
     session: DBSessionDep,
     redis: RedisDep,
+    media: AvatarsDep,
 ) -> Response:
-    await auth_controller.delete_me(session, redis, user_id)
+    await auth_controller.delete_me(session, redis, media, user_id)
 
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     response.delete_cookie(
