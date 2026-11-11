@@ -3,9 +3,14 @@ import asyncio
 import signal
 import time
 from contextlib import nullcontext
+from contextlib import suppress
 from datetime import datetime
+from pathlib import Path
 
 import uvloop
+from alembic.script import ScriptDirectory
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from src.jobs import Job
 from src.jobs import accounts
@@ -52,6 +57,9 @@ JOBS: dict[str, Job] = {
 
 SCHEDULE = "schedule"
 WORKER = "worker"
+
+MIGRATIONS = Path(__file__).resolve().parents[2] / "migrations"
+MIGRATIONS_POLL_SECONDS = 5
 
 
 def _elapsed_ms(
@@ -136,7 +144,32 @@ async def _run_quietly(
         pass
 
 
+async def _wait_for_migrations(stop: asyncio.Event) -> None:
+    script = ScriptDirectory(str(MIGRATIONS))
+    head = script.get_current_head()
+    known = {revision.revision for revision in script.walk_revisions()}
+    told = False
+    while not stop.is_set():
+        try:
+            async with DatabaseSessions.get()() as session:
+                current = await session.scalar(
+                    text("select version_num from alembic_version"),
+                )
+        except DBAPIError:
+            current = None
+
+        if current == head or (current is not None and current not in known):
+            return
+        if not told:
+            logger.info("[Worker] Waiting For Migrations", current=current, head=head)
+            told = True
+
+        with suppress(TimeoutError):
+            await asyncio.wait_for(stop.wait(), MIGRATIONS_POLL_SECONDS)
+
+
 async def work(stop: asyncio.Event) -> None:
+    await _wait_for_migrations(stop)
     waiting = make_redis(socket_timeout=settings.worker.wait_seconds + 5)
     try:
         await SyncWorker(

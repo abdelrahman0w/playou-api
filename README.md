@@ -577,7 +577,7 @@ with the `sh` shell, running `/app/bin/jobs.sh <job>` in the api's container, wi
 
 Pushing, importing and copying run in their own application in dokploy, `playou-worker`, from the api's image,
 running `/app/bin/jobs.sh worker`, with the api's environment, and `DATABASE_POOL_SIZE` of its own, 5 is plenty.
-It runs no migrations, the api does.
+It runs no migrations, the api does, and it waits for them, until the database is at the newest one it knows, or newer.
 
 After a like, an edit, a copy or an import asked for, the api hands the user's work to the worker on the `sync:nudges` list in redis,
 and it starts within milliseconds, pushes `WORKER_PUSH_CONCURRENCY` users at a time, imports and copies `WORKER_CONCURRENCY`,
