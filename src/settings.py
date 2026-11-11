@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from pydantic import Field
 from pydantic import SecretStr
 from pydantic import field_validator
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 from pydantic_settings import SettingsConfigDict
 from sqlalchemy import URL
@@ -461,6 +462,13 @@ class Settings(BaseAppSettings):
     lyrics: LyricsSettings = Field(default_factory=LyricsSettings)
     messages: MessagesSettings = Field(default_factory=MessagesSettings)
     together: TogetherSettings = Field(default_factory=TogetherSettings)
+
+    @model_validator(mode="after")
+    def secret_outside_dev(self) -> Settings:
+        if self.app.environment is not Environment.DEV and self.auth.secret is None:
+            raise ValueError("AUTH_SECRET is required outside DEV")
+
+        return self
 
 
 settings = Settings()
