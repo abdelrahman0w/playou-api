@@ -305,7 +305,8 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
 - An import is a row in the same queue, `IMPORT`, asked for when an account is linked, when the library is opened
     and the last import is older than `IMPORT_STALE_MINUTES`, checked once every `IMPORT_CHECK_SECONDS` a user,
     by `POST /library/import`, and by the worker's sweep for the accounts not imported for `IMPORT_EVERY_MINUTES`,
-    `IMPORT_SCHEDULE_BATCH_SIZE` a sweep, skipping the ones with an import pending, or one that failed within `IMPORT_EVERY_MINUTES`
+    `IMPORT_SCHEDULE_BATCH_SIZE` a sweep, skipping the ones with an import pending, or one that failed within `IMPORT_EVERY_MINUTES`,
+    and the users signed in nowhere, a session lasts `AUTH_SESSION_DAYS` unused, so an idle account costs no quota
 - `POST /library/import` within `IMPORT_COOLDOWN_SECONDS` of the last import starts nothing, it answers the status,
     so tapping sync again and again cannot flood spotify, an import already queued or running is joined, never doubled
 - Linking and `POST /library/import` import right after the response, through the sync worker, without waiting for the sweep,
@@ -313,7 +314,7 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
 - A full read reports how far it got, `progress` in `GET /library/sync`, the liked songs read, then the playlists,
     a refresh, which stops at the first known like, reports none
 - A playlist is linked once per user, two users following the same one each have their own
-- The sweep runs up to `IMPORT_BATCH_SIZE`, one at a time, each leased for `IMPORT_LEASE_MINUTES` when it starts, and renewed every third of it while it runs, so one account is imported once at a time,
+- The sweep runs up to `IMPORT_BATCH_SIZE` at once, sharing the worker's `WORKER_CONCURRENCY` slots, one failing leaves the others, each leased for `IMPORT_LEASE_MINUTES` when it starts, and renewed every third of it while it runs, so one account is imported once at a time,
     an import whose lease ran out without it settling stopped the worker, it counts as a failed attempt, and gives up after `SYNC_MAX_ATTEMPTS`,
     a run that crashes is taken again once its lease is up, and asking again while it runs joins it
 - Liked songs are read newest first, up to the first one already liked, and Spotify's count is compared with the last import's,

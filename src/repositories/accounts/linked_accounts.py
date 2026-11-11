@@ -398,6 +398,7 @@ async def list_accounts_to_import(
 
     account = tables.LinkedAccount
     operation = tables.SyncOperation
+    signed_in = tables.AuthSession
     imports = [
         operation.user_id == account.user_id,
         operation.platform == account.platform,
@@ -411,6 +412,10 @@ async def list_accounts_to_import(
             account.reconnect_required_at.is_(None),
             or_(account.refresh_expires_at.is_(None), account.refresh_expires_at > now),
             or_(account.imported_at.is_(None), account.imported_at < before),
+            exists().where(
+                signed_in.user_id == account.user_id,
+                signed_in.expires_at > now,
+            ),
             ~exists().where(*imports, operation.status == SyncStatuses.PENDING),
             ~exists().where(
                 *imports,

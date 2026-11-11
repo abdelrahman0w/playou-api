@@ -776,6 +776,7 @@ async def run_imports(
     platforms: dict[Platforms, OAuthPlatform],
     *,
     now: datetime,
+    slots: asyncio.Semaphore | None = None,
 ) -> dict[str, int]:
     imports = settings.imports
 
@@ -801,16 +802,34 @@ async def run_imports(
     counts = {"scheduled": len(due), "pending": 0} | {
         outcome.lower(): 0 for outcome in SyncOutcomes
     }
-    ran = 0
-    for _ in range(imports.batch_size):
-        task = await _lease_one(session_factory, now=now)
-        if task is None:
-            break
+    slots = slots or asyncio.Semaphore(settings.worker.concurrency)
 
-        outcome = await _settle_leased(session_factory, platforms, task, now=now)
-        counts[outcome.lower() if outcome is not None else "pending"] += 1
-        ran += 1
+    async def run_one() -> None:
+        async with slots:
+            task = await _lease_one(session_factory, now=now)
+            if task is None:
+                return
 
+            try:
+                outcome = await _settle_leased(
+                    session_factory, platforms, task, now=now
+                )
+            except Exception as error:
+                logger.exception(
+                    "[Imports] Import Failed",
+                    exc_info=error,
+                    operation_id=task.id,
+                    account_id=str(task.subject_id),
+                )
+                outcome = None
+
+            counts[outcome.lower() if outcome is not None else "pending"] += 1
+
+    async with asyncio.TaskGroup() as group:
+        for _ in range(imports.batch_size):
+            group.create_task(run_one())
+
+    ran = sum(counts.values()) - counts["scheduled"]
     if ran or due:
         logger.info(
             "[Imports] Imported",

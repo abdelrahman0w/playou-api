@@ -31,6 +31,7 @@ class LinkedAccount(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "platform"),
         Index(None, "refresh_expires_at"),
+        Index(None, "imported_at"),
     )
 
     id: Mapped[UUID] = mapped_column(

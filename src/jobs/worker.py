@@ -118,6 +118,7 @@ class SyncWorker:
                 self._session_factory,
                 self._platforms,
                 now=self._clock(),
+                slots=self._slots,
             ),
         )
 
