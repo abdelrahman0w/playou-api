@@ -47,9 +47,15 @@ def get_now() -> datetime:
 
 
 def get_client_ip(request: Request) -> str | None:
+    limits = settings.rate_limit
+
     return resolve_client_ip(
         request.client.host if request.client else None,
-        request.headers.get(settings.rate_limit.client_ip_header),
+        [
+            request.headers.get(limits.edge_ip_header),
+            request.headers.get(limits.client_ip_header),
+        ],
+        limits.trusted_proxies,
     )
 
 

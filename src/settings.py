@@ -1,5 +1,8 @@
 import tempfile
 from enum import StrEnum
+from ipaddress import IPv4Network
+from ipaddress import IPv6Network
+from ipaddress import ip_network
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -121,6 +124,20 @@ class RateLimitSettings(BaseAppSettings):
     window_seconds: int = Field(default=60, ge=1)
     timeout_seconds: float = Field(default=0.5, gt=0)
     client_ip_header: str = "CF-Connecting-IP"
+    edge_ip_header: str = "X-Real-IP"
+    trusted_proxies: list[IPv4Network | IPv6Network] = Field(
+        default_factory=lambda: [
+            ip_network(network)
+            for network in (
+                "10.0.0.0/8",
+                "172.16.0.0/12",
+                "192.168.0.0/16",
+                "127.0.0.0/8",
+                "::1/128",
+                "fc00::/7",
+            )
+        ],
+    )
 
 
 class CorsSettings(BaseAppSettings):

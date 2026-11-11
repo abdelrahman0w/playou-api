@@ -522,7 +522,10 @@ Errors share a single shape:
 Every request is limited per signed in user, and per client ip without a session, 120 requests a minute by default,
 over a sliding window in redis, shared by every replica.
 
-The client ip is read from cloudflare's `CF-Connecting-IP` header, and from the peer address without it.
+The client ip is read hop by hop, the peer address, then `RATE_LIMIT_EDGE_IP_HEADER`, `X-Real-IP`, the address traefik saw,
+then `RATE_LIMIT_CLIENT_IP_HEADER`, cloudflare's `CF-Connecting-IP`, each believed only when the hop before it is in `RATE_LIMIT_TRUSTED_PROXIES`,
+private ranges by default, so a request reaching traefik directly is limited by its own address, whatever it sends,
+and cloudflare's ranges have to be added when it connects to traefik directly instead of through a tunnel.
 IPv6 clients are counted by their `/64`.
 
 > The header is trusted as is, which is only safe while the origin is reachable through cloudflare alone
