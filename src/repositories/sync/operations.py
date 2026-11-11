@@ -310,11 +310,12 @@ async def lease_imports(
     session: AsyncSession,
     *,
     now: datetime,
-    until: datetime,
+    seconds: int,
     limit: int,
     user_id: UUID | None = None,
 ) -> list[SyncTask]:
     operation = tables.SyncOperation
+    until = func.now() + timedelta(seconds=seconds)
     rows = list(
         await session.scalars(
             select(operation)

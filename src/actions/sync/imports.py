@@ -686,7 +686,7 @@ async def _lease_one(
             leased = await sync_repositories.lease_imports(
                 session,
                 now=now,
-                until=now + timedelta(minutes=settings.imports.lease_minutes),
+                seconds=settings.imports.lease_minutes * 60,
                 limit=1,
                 user_id=user_id,
             )
