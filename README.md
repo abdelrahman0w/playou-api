@@ -290,7 +290,12 @@ PUT /library/likes/{id} → postgres   (the like, and its operation, one transac
 - The catalog stores tracks in bulk, a few queries for a batch of 500, whatever its size
 - An operation's `status` is a column postgres computes, `PENDING` until `finished_at` is set, then its `outcome`, `DONE`, `SKIPPED`, or `FAILED`, it is never written, so it never disagrees with them
 - An account's status is not a column, it depends on the time, and a computed column cannot, it is `status_at(now)`, from `reconnect_required_at` and the refresh token's expiry
-- `PATCH /accounts/{platform}/preferences` turns pushing likes or playlists to a platform off, or on
+- `PATCH /accounts/{platform}/preferences` chooses what reaches a platform, its likes and playlists, `push_likes` and `push_playlists`,
+    and which changes: the songs added in PlaYou, `playou_additions`, removed in PlaYou, `playou_removals`,
+    added in the other apps, `app_additions`, copied there after every import, null until asked, and removed in them, `app_removals`,
+    a playlist song keeps `added_from`, the app an import brought it from, a like `imported_from`, and a removal `removed_by`,
+    so each push sends only what the options let through, and a copy asked for by hand sends all it adds,
+    while it runs and for an hour after, linking turns them all on for Spotify, and off for YouTube and SoundCloud
 
 ### Imports
 
@@ -319,7 +324,7 @@ and the ones they follow, without their tracks, which Spotify does not give, as 
 - An app only removes what it listed before, each like and playlist song keeps `seen_on`, the apps an import listed it on,
     or a push saw there after it, so a song never sent there, or whose copy failed, stays, and liking or adding it again in PlaYou,
     or `restore_playlist_songs`, clears it, and an import that would remove over half, and more than 5, removes none and logs it
-- A song removed by one app is sent on to the apps with `keep_in_sync`, right away, the others keep it,
+- A song removed by one app is sent on to the apps with `app_removals`, right away, the others keep it,
     and their imports do not bring it back, only an app that newly has it, after no longer listing it, does
 - A like or a playlist waiting to be pushed wins, the import leaves it, and an import asks for a push only to send a removal on
 - YouTube's liked music is its liked videos in the music category, the others are counted, never liked here,
@@ -398,8 +403,8 @@ There is no separate home route, `/` is Home or the landing, whichever fits.
 | `DELETE` | `/accounts/{platform}` | Unlinks the account, with `remove_data=true` also what was imported from it |
 | `GET` | `/catalog/search?q=&limit=&everywhere=` | Searches every linked platform, `limit` up to 50, 20 by default |
 | `POST` | `/catalog/tracks/{track_id}/find/{platform}` | Looks a song up on another linked app, and joins what is the same song |
-| `GET` | `/accounts/{platform}/preferences` | What the library pushes to the platform |
-| `PATCH` | `/accounts/{platform}/preferences` | Turns pushing likes or playlists on or off, `{"push_likes": false}` |
+| `GET` | `/accounts/{platform}/preferences` | What reaches the platform, likes and playlists, and the changes from PlaYou and the other apps |
+| `PATCH` | `/accounts/{platform}/preferences` | Turns them on or off, `{"push_likes": false}`, `{"app_removals": true}` |
 | `GET` | `/library/likes?page=&page_size=&include_removed=&platform=&q=` | The liked tracks, newest first, `q` searches them |
 | `PUT` | `/library/likes/{track_id}` | Likes a track |
 | `DELETE` | `/library/likes/{track_id}` | Unlikes it, the like is kept as removed |

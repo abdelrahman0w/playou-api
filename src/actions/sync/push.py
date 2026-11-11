@@ -73,9 +73,40 @@ class _Pushed:
 
 
 @dataclass(frozen=True)
+class Rules:
+    account: StoredAccount
+    copying: bool = False
+
+    def adds(self, origin: Platforms | None) -> bool:
+        return self.adds_one(
+            from_app=origin is not None and origin is not self.account.platform,
+        )
+
+    def adds_one(self, *, from_app: bool) -> bool:
+        if self.copying:
+            return True
+
+        return (
+            bool(self.account.app_additions)
+            if from_app
+            else self.account.playou_additions
+        )
+
+    def removes(self, removed_by: RemovedBy | None) -> bool:
+        if removed_by is RemovedBy.PLATFORM:
+            return self.account.app_removals
+
+        return self.account.playou_removals
+
+
+NOT_SENT = _Outcome(SyncOutcomes.SKIPPED, "Its sync options do not send it")
+
+
+@dataclass(frozen=True)
 class _Prepared:
     platform: OAuthPlatform
     account: StoredAccount
+    rules: Rules
     likes: dict[UUID, LikeSyncState] = field(default_factory=dict)
     playlist: PlaylistSyncState | None = None
 
@@ -85,6 +116,8 @@ async def _push_likes(
     token: str,
     tasks: list[SyncTask],
     states: dict[UUID, LikeSyncState],
+    *,
+    rules: Rules,
 ) -> _Pushed:
     outcomes: list[_Outcome] = []
     saves: list[str] = []
@@ -99,6 +132,10 @@ async def _push_likes(
             outcomes.append(
                 _Outcome(SyncOutcomes.SKIPPED, "The platform does not have the track"),
             )
+        elif not (
+            rules.adds(state.origin) if state.liked else rules.removes(state.removed_by)
+        ):
+            outcomes.append(NOT_SENT)
         else:
             (saves if state.liked else unsaves).append(state.platform_id)
             (saved if state.liked else unsaved).append(task.subject_id)
@@ -157,6 +194,7 @@ async def _push_playlist(
     task: SyncTask,
     state: PlaylistSyncState | None,
     *,
+    rules: Rules,
     now: datetime,
 ) -> _Pushed:
     if state is None:
@@ -172,6 +210,8 @@ async def _push_playlist(
     if state.removed:
         if remote is None:
             return _Pushed([DONE])
+        if not rules.removes(state.removed_by):
+            return _Pushed([NOT_SENT])
 
         try:
             await platform.delete_playlist(token, remote.platform_id)
@@ -181,6 +221,9 @@ async def _push_playlist(
         return _Pushed([DONE], _linking(task, None))
 
     if remote is None:
+        if not rules.adds(state.origin):
+            return _Pushed([NOT_SENT])
+
         remote = await platform.create_playlist(
             token,
             name=state.name,
@@ -214,8 +257,21 @@ async def _push_playlist(
             )
 
     there = set(remote_ids)
-    to_remove = [pid for pid in state.removed_platform_ids if pid in there]
-    to_add = [pid for pid in dict.fromkeys(state.platform_ids) if pid not in there]
+    from_apps = set(state.app_added_ids)
+    removed_by_apps = set(state.app_removed_ids)
+    to_remove = [
+        pid
+        for pid in state.removed_platform_ids
+        if pid in there
+        and rules.removes(
+            RemovedBy.PLATFORM if pid in removed_by_apps else RemovedBy.USER,
+        )
+    ]
+    to_add = [
+        pid
+        for pid in dict.fromkeys(state.platform_ids)
+        if pid not in there and rules.adds_one(from_app=pid in from_apps)
+    ]
 
     snapshot = remote.snapshot_id
     if to_remove:
@@ -285,10 +341,19 @@ async def _prepare(
     if not wanted:
         return every(_Outcome(SyncOutcomes.SKIPPED, "Pushing it was turned off"))
 
+    rules = Rules(
+        account,
+        copying=await sync_repositories.copying_by_hand(
+            session,
+            first.user_id,
+            first.platform,
+        ),
+    )
     if first.subject is SyncSubjects.LIKE:
         return _Prepared(
             platform,
             account,
+            rules,
             likes=await library_repositories.like_sync_states(
                 session,
                 first.user_id,
@@ -300,6 +365,7 @@ async def _prepare(
     return _Prepared(
         platform,
         account,
+        rules,
         playlist=await library_repositories.playlist_sync_state(
             session,
             first.subject_id,
@@ -322,7 +388,13 @@ async def _push(
 
     async def dispatch(token: str) -> _Pushed:
         if tasks[0].subject is SyncSubjects.LIKE:
-            return await _push_likes(platform, token, tasks, prepared.likes)
+            return await _push_likes(
+                platform,
+                token,
+                tasks,
+                prepared.likes,
+                rules=prepared.rules,
+            )
 
         return await _push_playlist(
             session_factory,
@@ -330,6 +402,7 @@ async def _push(
             token,
             tasks[0],
             prepared.playlist,
+            rules=prepared.rules,
             now=now,
         )
 

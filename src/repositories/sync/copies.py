@@ -1,4 +1,5 @@
 from datetime import datetime
+from datetime import timedelta
 from itertools import batched
 from typing import Any
 from uuid import UUID
@@ -158,6 +159,28 @@ async def running_copy(
             copy.scope == scope,
             copy.playlist_id.is_not_distinct_from(playlist_id),
             copy.status == CopyStatuses.RUNNING,
+        ),
+    )
+
+
+async def copying_by_hand(
+    session: AsyncSession,
+    user_id: UUID,
+    platform: Platforms,
+) -> bool:
+    copy = tables.Copy
+    recent = func.now() - timedelta(hours=1)
+
+    return bool(
+        await session.scalar(
+            select(
+                exists().where(
+                    copy.user_id == user_id,
+                    copy.platform == platform,
+                    copy.auto.is_(False),
+                    (copy.status == CopyStatuses.RUNNING) | (copy.finished_at > recent),
+                ),
+            ),
         ),
     )
 

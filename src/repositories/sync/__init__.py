@@ -1,4 +1,5 @@
 from .copies import copy_missing
+from .copies import copying_by_hand
 from .copies import create_copy
 from .copies import dismiss_copy
 from .copies import due_copies
@@ -37,6 +38,7 @@ __all__ = [
     "claim_alike",
     "claim_next",
     "copy_missing",
+    "copying_by_hand",
     "create_copy",
     "dismiss_copy",
     "due_copies",

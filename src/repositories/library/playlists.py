@@ -366,6 +366,7 @@ async def add_items(
             set_={
                 "position": statement.excluded.position,
                 "added_at": statement.excluded.added_at,
+                "added_from": None,
                 "seen_on": only_seen_on(None),
                 "removed_at": None,
                 "removed_by": None,
@@ -455,7 +456,7 @@ async def playlist_sync_state(
         select(link).where(link.playlist_id == playlist_id, link.platform == platform),
     )
     items = await session.execute(
-        select(sources.c.platform_id, item.removed_at)
+        select(sources.c.platform_id, item.removed_at, item.removed_by, item.added_from)
         .select_from(item)
         .join(
             sources,
@@ -466,10 +467,17 @@ async def playlist_sync_state(
     )
     platform_ids: list[str] = []
     removed_platform_ids: list[str] = []
-    for platform_id, removed_at in items:
-        (platform_ids if removed_at is None else removed_platform_ids).append(
-            platform_id,
-        )
+    app_added_ids: list[str] = []
+    app_removed_ids: list[str] = []
+    for platform_id, removed_at, removed_by, added_from in items:
+        if removed_at is None:
+            platform_ids.append(platform_id)
+            if added_from is not None and added_from is not platform:
+                app_added_ids.append(platform_id)
+        else:
+            removed_platform_ids.append(platform_id)
+            if removed_by is RemovedBy.PLATFORM:
+                app_removed_ids.append(platform_id)
 
     return PlaylistSyncState(
         kind=row.kind,
@@ -485,6 +493,10 @@ async def playlist_sync_state(
         else None,
         platform_ids=platform_ids,
         removed_platform_ids=removed_platform_ids,
+        origin=row.imported_from,
+        removed_by=row.removed_by,
+        app_added_ids=app_added_ids,
+        app_removed_ids=app_removed_ids,
     )
 
 
@@ -642,6 +654,7 @@ async def reconcile_items(
                     "track_id": track_id,
                     "position": position,
                     "added_at": now,
+                    "added_from": platform,
                     "seen_on": [platform.value],
                 }
                 for position, track_id in chunk
@@ -655,6 +668,10 @@ async def reconcile_items(
                     "added_at": case(
                         (item.removed_at.is_(None), item.added_at),
                         else_=statement.excluded.added_at,
+                    ),
+                    "added_from": case(
+                        (item.removed_at.is_(None), item.added_from),
+                        else_=statement.excluded.added_from,
                     ),
                     "seen_on": case(
                         (

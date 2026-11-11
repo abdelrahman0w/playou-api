@@ -333,7 +333,7 @@ async def keep_in_sync(
     for account in await accounts_repositories.list_accounts(session, user_id):
         service = platforms.get(account.platform)
         if (
-            not account.keep_in_sync
+            not account.app_additions
             or service is None
             or not service.capabilities.copy_to
             or account.status_at(now) is AccountStatuses.NEEDS_RECONNECT

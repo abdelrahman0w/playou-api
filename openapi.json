@@ -7000,7 +7000,15 @@
             "type": "boolean",
             "title": "Push Playlists"
           },
-          "keep_in_sync": {
+          "playou_additions": {
+            "type": "boolean",
+            "title": "Playou Additions"
+          },
+          "playou_removals": {
+            "type": "boolean",
+            "title": "Playou Removals"
+          },
+          "app_additions": {
             "anyOf": [
               {
                 "type": "boolean"
@@ -7009,14 +7017,21 @@
                 "type": "null"
               }
             ],
-            "title": "Keep In Sync"
+            "title": "App Additions"
+          },
+          "app_removals": {
+            "type": "boolean",
+            "title": "App Removals"
           }
         },
         "type": "object",
         "required": [
           "platform",
           "push_likes",
-          "push_playlists"
+          "push_playlists",
+          "playou_additions",
+          "playou_removals",
+          "app_removals"
         ],
         "title": "PushPreferences"
       },
@@ -7044,7 +7059,7 @@
             ],
             "title": "Push Playlists"
           },
-          "keep_in_sync": {
+          "playou_additions": {
             "anyOf": [
               {
                 "type": "boolean"
@@ -7053,7 +7068,40 @@
                 "type": "null"
               }
             ],
-            "title": "Keep In Sync"
+            "title": "Playou Additions"
+          },
+          "playou_removals": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playou Removals"
+          },
+          "app_additions": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Additions"
+          },
+          "app_removals": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Removals"
           }
         },
         "type": "object",

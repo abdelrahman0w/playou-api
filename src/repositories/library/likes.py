@@ -221,7 +221,13 @@ async def like_sync_states(
     like = tables.Like
     sources = own_sources(user_id)
     rows = await session.execute(
-        select(like.track_id, like.removed_at, sources.c.platform_id)
+        select(
+            like.track_id,
+            like.removed_at,
+            sources.c.platform_id,
+            like.imported_from,
+            like.removed_by,
+        )
         .select_from(like)
         .outerjoin(
             sources,
@@ -231,8 +237,13 @@ async def like_sync_states(
     )
 
     return {
-        track_id: LikeSyncState(liked=removed_at is None, platform_id=platform_id)
-        for track_id, removed_at, platform_id in rows
+        track_id: LikeSyncState(
+            liked=removed_at is None,
+            platform_id=platform_id,
+            origin=imported_from,
+            removed_by=removed_by,
+        )
+        for track_id, removed_at, platform_id, imported_from, removed_by in rows
     }
 
 

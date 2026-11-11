@@ -97,7 +97,7 @@ async def _pass_on(
         subject_id=subject_id,
         now=now,
         skip=account.platform,
-        kept_in_sync=True,
+        app_removal=True,
     )
 
 

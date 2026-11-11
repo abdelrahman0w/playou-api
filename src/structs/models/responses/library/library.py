@@ -88,7 +88,10 @@ class PushPreferences(BaseModel):
     platform: Platforms
     push_likes: bool
     push_playlists: bool
-    keep_in_sync: bool | None = None
+    playou_additions: bool
+    playou_removals: bool
+    app_additions: bool | None = None
+    app_removals: bool
 
 
 class Progress(BaseModel):

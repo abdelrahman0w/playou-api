@@ -43,7 +43,10 @@ def _to_account(row: tables.LinkedAccount) -> StoredAccount:
         scopes=list(row.scopes),
         push_likes=row.push_likes,
         push_playlists=row.push_playlists,
-        keep_in_sync=row.keep_in_sync,
+        playou_additions=row.playou_additions,
+        playou_removals=row.playou_removals,
+        app_additions=row.app_additions,
+        app_removals=row.app_removals,
         synced_at=row.synced_at,
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -82,6 +85,9 @@ async def upsert_account(
         platform=platform,
         push_likes=push_by_default,
         push_playlists=push_by_default,
+        playou_additions=push_by_default,
+        playou_removals=push_by_default,
+        app_removals=push_by_default,
         **values,
     )
     row = (
@@ -330,7 +336,10 @@ async def set_push_preferences(
     *,
     push_likes: bool | None,
     push_playlists: bool | None,
-    keep_in_sync: bool | None = None,
+    playou_additions: bool | None = None,
+    playou_removals: bool | None = None,
+    app_additions: bool | None = None,
+    app_removals: bool | None = None,
 ) -> StoredAccount | None:
     account = tables.LinkedAccount
     values = {
@@ -338,7 +347,10 @@ async def set_push_preferences(
         for key, value in (
             ("push_likes", push_likes),
             ("push_playlists", push_playlists),
-            ("keep_in_sync", keep_in_sync),
+            ("playou_additions", playou_additions),
+            ("playou_removals", playou_removals),
+            ("app_additions", app_additions),
+            ("app_removals", app_removals),
         )
         if value is not None
     }

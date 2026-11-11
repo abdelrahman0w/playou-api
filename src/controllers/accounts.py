@@ -157,7 +157,10 @@ def _preferences(account: StoredAccount) -> PushPreferences:
         platform=account.platform,
         push_likes=account.push_likes,
         push_playlists=account.push_playlists,
-        keep_in_sync=account.keep_in_sync,
+        playou_additions=account.playou_additions,
+        playou_removals=account.playou_removals,
+        app_additions=account.app_additions,
+        app_removals=account.app_removals,
     )
 
 
@@ -170,7 +173,7 @@ async def set_preferences(
     user_id: UUID,
     now: datetime,
 ) -> PushPreferences:
-    syncing = request.keep_in_sync is True
+    syncing = request.app_additions is True
     async with session.begin():
         account = await accounts_repositories.set_push_preferences(
             session,
@@ -178,7 +181,10 @@ async def set_preferences(
             platform,
             push_likes=True if syncing else request.push_likes,
             push_playlists=True if syncing else request.push_playlists,
-            keep_in_sync=request.keep_in_sync,
+            playou_additions=request.playou_additions,
+            playou_removals=request.playou_removals,
+            app_additions=request.app_additions,
+            app_removals=request.app_removals,
         )
         if account is not None and syncing:
             await sync_actions.keep_in_sync(

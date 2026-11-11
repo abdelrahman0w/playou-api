@@ -12,6 +12,7 @@ from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import Uuid
+from sqlalchemy import false
 from sqlalchemy import text
 from sqlalchemy import true
 from sqlalchemy.orm import Mapped
@@ -67,5 +68,8 @@ class LinkedAccount(Base):
     likes_total: Mapped[int | None] = mapped_column(Integer)
     push_likes: Mapped[bool] = mapped_column(Boolean, server_default=true())
     push_playlists: Mapped[bool] = mapped_column(Boolean, server_default=true())
-    keep_in_sync: Mapped[bool | None] = mapped_column(Boolean)
+    playou_additions: Mapped[bool] = mapped_column(Boolean, server_default=true())
+    playou_removals: Mapped[bool] = mapped_column(Boolean, server_default=true())
+    app_additions: Mapped[bool | None] = mapped_column(Boolean)
+    app_removals: Mapped[bool] = mapped_column(Boolean, server_default=false())
     synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

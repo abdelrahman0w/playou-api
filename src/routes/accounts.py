@@ -161,7 +161,7 @@ async def set_preferences(
         user_id=user_id,
         now=now,
     )
-    if body.keep_in_sync:
+    if body.app_additions:
         await copier.run()
 
     return preferences

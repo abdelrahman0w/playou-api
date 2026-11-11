@@ -105,6 +105,9 @@ class PlaylistItem(Base):
     )
     position: Mapped[int] = mapped_column(Integer)
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    added_from: Mapped[Platforms | None] = mapped_column(
+        Enum(Platforms, native_enum=False, length=32, values_callable=_values),
+    )
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     removed_by: Mapped[RemovedBy | None] = mapped_column(
         Enum(RemovedBy, native_enum=False, length=32, values_callable=_values),

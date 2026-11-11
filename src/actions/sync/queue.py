@@ -32,7 +32,7 @@ async def enqueue_push(
     subject_id: UUID,
     now: datetime,
     skip: Platforms | None = None,
-    kept_in_sync: bool = False,
+    app_removal: bool = False,
 ) -> int:
     queued = 0
 
@@ -41,7 +41,7 @@ async def enqueue_push(
         if (
             platform is None
             or account.platform is skip
-            or (kept_in_sync and not account.keep_in_sync)
+            or (app_removal and not account.app_removals)
             or not _pushes(platform, account, subject)
         ):
             continue
