@@ -93,7 +93,7 @@ playou-api/
 │   ├── providers/                  stateful infra, opened in the lifespan
 │   ├── middlewares/
 │   │   ├── logs_contextualizer.py  the request's context on every log line, and its log
-│   │   └── rate_limit.py           the sliding window, per user or client ip
+│   │   └── rate_limit.py           GCRA, a token bucket, per user or client ip
 │   ├── utils/                      pure helpers, pkce and encryption among them
 │   ├── structs/
 │   │   ├── enums/
@@ -521,7 +521,10 @@ Errors share a single shape:
 ### Rate Limiting
 
 Every request is limited per signed in user, and per client ip without a session, 120 requests a minute by default,
-over a sliding window in redis, shared by every replica.
+with GCRA in redis, a token bucket kept as one time per client, shared by every replica,
+the whole limit at once, then one more every window / limit, half a second for 120 a minute,
+a refused request uses nothing, and redis being down lets requests through.
+The same limiter keeps the hourly and daily limits, 5 codes an hour to an email is 5 at once, then one every 12 minutes.
 
 The client ip is read hop by hop, the peer address, then `RATE_LIMIT_EDGE_IP_HEADER`, `X-Real-IP`, the address traefik saw,
 then `RATE_LIMIT_CLIENT_IP_HEADER`, cloudflare's `CF-Connecting-IP`, each believed only when the hop before it is in `RATE_LIMIT_TRUSTED_PROXIES`,

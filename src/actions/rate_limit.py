@@ -1,7 +1,5 @@
 import asyncio
-import math
 import time
-import uuid
 from dataclasses import dataclass
 
 from redis.asyncio import Redis
@@ -9,6 +7,22 @@ from redis.exceptions import RedisError
 
 from src.providers import logger
 from src.structs.enums import CacheKeys
+
+
+_GCRA = """
+local now = tonumber(ARGV[1])
+local interval = tonumber(ARGV[2])
+local window = tonumber(ARGV[3])
+local full_at = math.max(tonumber(redis.call('GET', KEYS[1]) or now), now)
+local next_full_at = full_at + interval
+if next_full_at - window > now then
+    return {0, 0, math.ceil((next_full_at - window - now) / 1000000)}
+end
+redis.call('SET', KEYS[1], string.format('%d', next_full_at), 'PX',
+    math.ceil((next_full_at - now) / 1000))
+return {1, math.floor((now + window - next_full_at) / interval),
+    math.ceil((next_full_at - now) / 1000000)}
+"""
 
 
 @dataclass(frozen=True)
@@ -28,22 +42,15 @@ async def hit(
     timeout_seconds: float = 0.5,
     now_ms: int | None = None,
 ) -> RateLimitResult:
-    now = now_ms if now_ms is not None else time.time_ns() // 1_000_000
-    window_ms = window_seconds * 1000
-    key = CacheKeys.RATE_LIMIT.format(client=client)
-    member = f"{now}-{uuid.uuid4().hex[:12]}"
+    now = now_ms * 1000 if now_ms is not None else time.time_ns() // 1000
+    window = window_seconds * 1_000_000
 
     try:
         async with asyncio.timeout(timeout_seconds):
-            async with redis.pipeline(transaction=True) as pipeline:
-                pipeline.zremrangebyscore(key, 0, now - window_ms)
-                pipeline.zadd(key, {member: now})
-                pipeline.zremrangebyrank(key, 0, -(limit + 2))
-                pipeline.zcard(key)
-                pipeline.zrange(key, -limit, -limit, withscores=True)
-                pipeline.zrange(key, 0, 0, withscores=True)
-                pipeline.pexpire(key, window_ms)
-                _, _, _, count, blocking, oldest, _ = await pipeline.execute()
+            allowed, remaining, reset = await redis.register_script(_GCRA)(
+                keys=[CacheKeys.RATE_LIMIT.format(client=client)],
+                args=[now, max(1, window // limit), window],
+            )
     except RedisError, TimeoutError:
         logger.warning(
             "[Rate Limiting] Skipping - Redis Is Unavailable",
@@ -56,12 +63,9 @@ async def hit(
             reset=window_seconds,
         )
 
-    allowed = count <= limit
-    frees_at = (oldest if allowed else blocking)[0][1] + window_ms
-
     return RateLimitResult(
-        allowed=allowed,
+        allowed=bool(allowed),
         limit=limit,
-        remaining=max(limit - count, 0),
-        reset=max(1, math.ceil((frees_at - now) / 1000)),
+        remaining=int(remaining),
+        reset=max(1, int(reset)),
     )

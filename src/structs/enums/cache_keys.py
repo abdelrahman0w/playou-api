@@ -2,7 +2,7 @@ from enum import StrEnum
 
 
 class CacheKeys(StrEnum):
-    RATE_LIMIT = "ratelimit:{client}"
+    RATE_LIMIT = "ratelimit:v2:{client}"
     AUTH_SESSION = "auth:session:v3:{token}"
     AUTH_CODE_COOLDOWN = "auth:code-cooldown:{email}"
     ACCOUNTS_LINK = "accounts:link:{state}"
