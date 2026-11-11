@@ -5,6 +5,7 @@ from contextvars import ContextVar
 from datetime import datetime
 from datetime import time
 from datetime import timedelta
+from time import monotonic
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -19,9 +20,20 @@ from src.structs.enums import Platforms
 
 
 LONG_PAUSE_SECONDS = 10 * 60
+UNKNOWN_WAIT_SECONDS = 30
+
+
+def _unknown(what: str) -> PlatformRateLimitedError:
+    return PlatformRateLimitedError(
+        f"{what} cannot be checked right now, "
+        f"try again in {UNKNOWN_WAIT_SECONDS} seconds",
+        retry_after_seconds=UNKNOWN_WAIT_SECONDS,
+    )
 
 
 class PlatformPause:
+    closed_when_unknown = False
+
     def __init__(
         self,
         redis: Redis,
@@ -32,6 +44,7 @@ class PlatformPause:
         self._redis = redis
         self._key = CacheKeys.PLATFORM_PAUSED.format(platform=platform)
         self._name = name
+        self._seen: dict[str, float] = {}
 
     def _limited(self, seconds: float) -> PlatformRateLimitedError:
         wait = max(1, math.ceil(seconds))
@@ -46,13 +59,19 @@ class PlatformPause:
 
     async def check(self, group: str | None = None) -> None:
         keys = [self._key] if group is None else [self._key, self._key_for(group)]
-        try:
-            left = max([await self._redis.pttl(key) for key in keys])
-        except RedisError:
-            return
+        now = monotonic()
+        seen = max(self._seen.get(key, now) - now for key in keys)
 
-        if left > 0:
-            raise self._limited(left / 1000)
+        try:
+            shared = max([await self._redis.pttl(key) for key in keys]) / 1000
+        except RedisError:
+            if seen <= 0 and self.closed_when_unknown:
+                raise _unknown(f"{self._name}'s pauses") from None
+
+            shared = 0
+
+        if (left := max(seen, shared)) > 0:
+            raise self._limited(left)
 
     async def pause(
         self,
@@ -64,6 +83,9 @@ class PlatformPause:
         scoped = group if seconds > LONG_PAUSE_SECONDS else None
         key = self._key_for(scoped)
         milliseconds = max(1, seconds) * 1000
+        until = monotonic() + max(1, seconds)
+        self._seen[key] = max(self._seen.get(key, until), until)
+
         try:
             await self._redis.set(key, "1", px=milliseconds, nx=True)
             await self._redis.pexpire(key, milliseconds, gt=True)
@@ -175,7 +197,7 @@ class Quota:
             if not await self._take(self._key(moment), units, self._daily):
                 raise self._exhausted(moment)
         except RedisError:
-            return
+            raise _unknown(f"{self._name}'s quota") from None
 
     async def spend(self, *, now: datetime | None = None) -> QuotaExhaustedError:
         moment = now or datetime.now(PACIFIC)

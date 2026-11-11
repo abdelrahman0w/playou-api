@@ -532,10 +532,9 @@ private ranges by default, so a request reaching traefik directly is limited by 
 and cloudflare's ranges have to be added when it connects to traefik directly instead of through a tunnel.
 IPv6 clients are counted by their `/64`.
 
-> The header is trusted as is, which is only safe while the origin is reachable through cloudflare alone
-
 > The health probes are never limited, and requests go through when redis is down,
-> or does not answer within `RATE_LIMIT_TIMEOUT_SECONDS`
+> or does not answer within `RATE_LIMIT_TIMEOUT_SECONDS`, except a sign-in code, which is not sent,
+> `EMAIL_UNAVAILABLE`, rather than let anyone flood an inbox
 
 A platform limits the app's requests too, every user's together, so a `429` from it pauses that platform for everyone,
 for as long as its `Retry-After` says, or the platform's `*_RATE_LIMIT_SECONDS` without it, SoundCloud's reads `X-RateLimit-Reset` first, through a key in redis every replica and job shares.
@@ -543,7 +542,11 @@ for as long as its `Retry-After` says, or the platform's `*_RATE_LIMIT_SECONDS` 
 - While it is paused, nothing is sent to it, a call fails right away as `PLATFORM_RATE_LIMITED`
 - A search answers the platform as `RATE_LIMITED`, the others still answer
 - A push waits for the pause to end, without using an attempt
-- A longer pause is never cut short by a shorter one, and without redis nothing is paused
+- A longer pause is never cut short by a shorter one
+- Each process also keeps the pauses it saw, so they hold when redis is down, or loses them,
+    and without redis the jobs and the worker call no platform for 30 seconds at a time, their work waits in postgres,
+    while the api goes on, so search and playback keep working
+- Without redis, YouTube is not called, as its quota cannot be counted, and a copy does not run, as it cannot be locked
 
 ### Jobs
 

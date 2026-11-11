@@ -49,14 +49,21 @@ def code_hash(
     ).hexdigest()
 
 
+def _unsendable() -> EmailUnavailableError:
+    return EmailUnavailableError("Codes cannot be sent right now, try again shortly")
+
+
 async def _limit(
     redis: Redis,
     key: str,
     *,
     limit: int,
     message: str,
+    closed: bool = False,
 ) -> None:
     result = await rate_limit_actions.hit(redis, key, limit=limit, window_seconds=HOUR)
+    if closed and not result.counted:
+        raise _unsendable()
     if not result.allowed:
         raise TooManyRequestsError(message, retry_after_seconds=result.reset)
 
@@ -89,14 +96,16 @@ async def send_email_code(
             )
     except RedisError:
         logger.warning(
-            "[Auth] Code Cooldown Skipped - Redis Is Unavailable",
+            "[Auth] Code Not Sent - Redis Is Unavailable",
         )
+        raise _unsendable() from None
 
     await _limit(
         redis,
         f"auth-codes-email:{email}",
         limit=auth.codes_per_email_hour,
         message="Too many codes were sent to this address, try again later",
+        closed=True,
     )
     if ip is not None:
         await _limit(
@@ -104,6 +113,7 @@ async def send_email_code(
             f"auth-codes-ip:{ip}",
             limit=auth.codes_per_ip_hour,
             message="Too many codes were asked for, try again later",
+            closed=True,
         )
 
     code = f"{secrets.randbelow(1_000_000):06d}"

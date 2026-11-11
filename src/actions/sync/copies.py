@@ -559,7 +559,7 @@ async def _lock(redis: Redis, copy_id: UUID) -> bool:
             ),
         )
     except RedisError:
-        return True
+        return False
 
 
 async def _unlock(redis: Redis, copy_id: UUID) -> None:

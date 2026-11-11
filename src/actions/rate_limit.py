@@ -31,6 +31,7 @@ class RateLimitResult:
     limit: int
     remaining: int
     reset: int
+    counted: bool = True
 
 
 async def hit(
@@ -61,6 +62,7 @@ async def hit(
             limit=limit,
             remaining=limit,
             reset=window_seconds,
+            counted=False,
         )
 
     return RateLimitResult(

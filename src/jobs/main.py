@@ -32,6 +32,7 @@ from src.services import SoundCloudConnection
 from src.services import SpotifyConnection
 from src.services import YouTubeConnection
 from src.services import available_platforms
+from src.services.limits import PlatformPause
 from src.settings import settings
 from src.utils import connect_singletons
 from src.utils import cron_matches
@@ -238,6 +239,7 @@ def main(
         settings.app,
     )
 
+    PlatformPause.closed_when_unknown = True
     uvloop.run(run(parse_args(argv)))
 
 
