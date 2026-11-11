@@ -24,6 +24,7 @@ from src.structs.models import Page
 from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import Person
 from src.structs.models.responses import ProfilePlaylist
+from src.utils.search import indexable
 from src.utils.usernames import RESERVED
 
 
@@ -125,16 +126,21 @@ async def search(
     text = query.strip().removeprefix("@").lower()
     username = func.lower(user.username)
     name = func.lower(user.name)
+    found = (
+        or_(
+            username.contains(text, autoescape=True),
+            name.contains(text, autoescape=True),
+        )
+        if indexable(text)
+        else username == text
+    )
     rows = list(
         await session.scalars(
             select(user)
             .where(
                 user.searchable.is_(True),
                 user.id != viewer_id,
-                or_(
-                    username.contains(text, autoescape=True),
-                    name.contains(text, autoescape=True),
-                ),
+                found,
                 ~_blocked_either(viewer_id, user.id),
             )
             .order_by(

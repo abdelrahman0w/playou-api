@@ -231,7 +231,8 @@ its user links it again.
 1. SoundCloud is searched on demand too, about 100 requests a minute are shared by the whole app, `SOUNDCLOUD_SEARCH_ON_DEMAND=false` searches it with the others,
     it is searched with the user's token, so its results are cached per account
 1. A `SKIPPED` platform still answers the songs the catalog has on it, every song any user imported or found,
-    searched like the library, every word matching, the closest first, without a unit spent, the videos YouTube refused left out
+    searched like the library, every word matching, the closest first, without a unit spent, the videos YouTube refused left out,
+    and only when a word has 3 letters, a trigram index needs them, shorter ones would read the whole catalog
 1. A result is stored in the catalog, by its isrc, or for youtube, which has none, joined to the song with the same
     title and artist within 3 seconds of its length, so a song on Spotify and YouTube is one, with both its sources,
     and a source without an isrc never rewrites the details of a song that has one

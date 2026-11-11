@@ -32,6 +32,7 @@ from src.structs.models.responses import TrackSource
 from src.utils.matching import SAME_DURATION_MS
 from src.utils.matching import normalize_title
 from src.utils.matching import same_song
+from src.utils.search import indexable
 from src.utils.search import matching
 from src.utils.sql import any_of
 
@@ -647,6 +648,9 @@ async def search_catalog(
     *,
     limit: int,
 ) -> list[CatalogTrack]:
+    if not indexable(query):
+        return []
+
     track = tables.Track
     source = tables.TrackSource
     searched = func.track_search_text(track.title, track.artists, track.album)
