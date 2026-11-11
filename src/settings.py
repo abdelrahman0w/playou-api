@@ -102,6 +102,7 @@ class RedisSettings(BaseAppSettings):
     retries: int = Field(default=1, ge=0)
     health_check_seconds: int = Field(default=30, ge=0)
     max_connections: int = Field(default=100, ge=1)
+    pool_timeout_seconds: float = Field(default=0.2, gt=0)
 
 
 class ErrorTrackingSettings(BaseAppSettings):
