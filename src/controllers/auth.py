@@ -134,8 +134,6 @@ async def update_me(
             values["private"] = request.private
             if not request.private:
                 await people_repositories.accept_all(session, user_id, now=now)
-        if request.keep_history is not None:
-            values["keep_history"] = request.keep_history
         if values:
             await auth_repositories.update_user(session, user_id, **values)
 

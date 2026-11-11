@@ -1,6 +1,5 @@
 import asyncio
 from collections.abc import Awaitable
-from datetime import datetime
 from datetime import timedelta
 from urllib.parse import urlencode
 
@@ -30,7 +29,6 @@ from src.services.spotify.models import SpotifyPlayer
 from src.services.spotify.models import SpotifyPlaylist
 from src.services.spotify.models import SpotifyPlaylistItems
 from src.services.spotify.models import SpotifyPlaylistTracks
-from src.services.spotify.models import SpotifyRecentlyPlayed
 from src.services.spotify.models import SpotifySavedTracks
 from src.services.spotify.models import SpotifySearch
 from src.services.spotify.models import SpotifySnapshot
@@ -47,7 +45,6 @@ from src.structs.models import PlatformProfile
 from src.structs.models import PlatformTokens
 from src.structs.models import PlaybackDevice
 from src.structs.models import PlaybackRequest
-from src.structs.models import PlayedTrack
 from src.structs.models import PlaylistTracks
 from src.structs.models import RemotePlaylist
 from src.structs.models import SavedTrack
@@ -78,8 +75,6 @@ PLAYBACK_SCOPES = [
     "user-read-playback-state",
     "user-modify-playback-state",
 ]
-HISTORY_SCOPES = ["user-read-recently-played"]
-HISTORY_PAGE = 50
 
 LIBRARY_BATCH = 40
 PLAYLIST_BATCH = 100
@@ -215,7 +210,6 @@ class SpotifyService:
     platform = Platforms.SPOTIFY
     capabilities = CAPABILITIES
     playback_scopes = PLAYBACK_SCOPES
-    history_scopes = HISTORY_SCOPES
     refresh_extends_lifetime = False
 
     def __init__(
@@ -428,30 +422,6 @@ class SpotifyService:
             items=items,
             next=str(offset + len(page.items)) if more else None,
         )
-
-    async def recently_played(
-        self,
-        access_token: str,
-        *,
-        after: datetime | None,
-    ) -> list[PlayedTrack]:
-        params: dict[str, int] = {"limit": HISTORY_PAGE}
-        if after is not None:
-            params["after"] = int(after.timestamp() * 1000)
-
-        response = await self._call(
-            self._api.get(
-                "/me/player/recently-played",
-                params=params,
-                headers=_bearer(access_token),
-            ),
-        )
-
-        return [
-            PlayedTrack(track=_to_track(item.track), played_at=item.played_at)
-            for item in _parse(response, SpotifyRecentlyPlayed).items
-            if item.track is not None
-        ]
 
     async def user_playlists(
         self,

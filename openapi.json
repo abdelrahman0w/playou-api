@@ -1026,97 +1026,6 @@
         }
       }
     },
-    "/library/history": {
-      "get": {
-        "summary": "List History",
-        "operationId": "list_history_library_history_get",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 1,
-              "title": "Page"
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 100,
-              "minimum": 1,
-              "default": 50,
-              "title": "Page Size"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Page_ListenedTrack_"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "summary": "Record Listen",
-        "operationId": "record_listen_library_history_post",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ListenRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "Clear History",
-        "operationId": "clear_history_library_history_delete",
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          }
-        }
-      }
-    },
     "/library/likes/{track_id}": {
       "put": {
         "summary": "Like",
@@ -4413,11 +4322,6 @@
             "title": "Private",
             "default": false
           },
-          "keep_history": {
-            "type": "boolean",
-            "title": "Keep History",
-            "default": true
-          },
           "followers": {
             "type": "integer",
             "title": "Followers",
@@ -5500,46 +5404,6 @@
         ],
         "title": "LinkedAccount"
       },
-      "ListenRequest": {
-        "properties": {
-          "track_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Track Id"
-          },
-          "platform": {
-            "$ref": "#/components/schemas/Platforms"
-          }
-        },
-        "type": "object",
-        "required": [
-          "track_id",
-          "platform"
-        ],
-        "title": "ListenRequest"
-      },
-      "ListenedTrack": {
-        "properties": {
-          "track": {
-            "$ref": "#/components/schemas/CatalogTrack"
-          },
-          "platform": {
-            "$ref": "#/components/schemas/Platforms"
-          },
-          "played_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Played At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "track",
-          "platform",
-          "played_at"
-        ],
-        "title": "ListenedTrack"
-      },
       "LivenessResponse": {
         "properties": {
           "status": {
@@ -5755,17 +5619,6 @@
               }
             ],
             "title": "Private"
-          },
-          "keep_history": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Keep History"
           }
         },
         "type": "object",
@@ -5941,63 +5794,6 @@
         },
         "type": "object",
         "title": "Page[LikedTrack]"
-      },
-      "Page_ListenedTrack_": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ListenedTrack"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "page": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Page"
-          },
-          "page_size": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Page Size"
-          },
-          "total_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Total Count"
-          },
-          "total_pages": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Total Pages"
-          }
-        },
-        "type": "object",
-        "title": "Page[ListenedTrack]"
       },
       "Page_Person_": {
         "properties": {

@@ -1,6 +1,5 @@
 from collections.abc import Awaitable
 from collections.abc import Coroutine
-from datetime import datetime
 from datetime import timedelta
 from typing import NoReturn
 from urllib.parse import urlencode
@@ -44,7 +43,6 @@ from src.structs.models import PlatformProfile
 from src.structs.models import PlatformTokens
 from src.structs.models import PlaybackDevice
 from src.structs.models import PlaybackRequest
-from src.structs.models import PlayedTrack
 from src.structs.models import PlaylistTracks
 from src.structs.models import RemotePlaylist
 from src.structs.models import SavedTrack
@@ -166,7 +164,6 @@ class YouTubeService:
     platform = Platforms.YOUTUBE
     capabilities = CAPABILITIES
     playback_scopes: list[str] = []
-    history_scopes: list[str] = []
     refresh_extends_lifetime = False
 
     def __init__(
@@ -705,14 +702,6 @@ class YouTubeService:
             )
 
         return None
-
-    async def recently_played(
-        self,
-        access_token: str,
-        *,
-        after: datetime | None,
-    ) -> list[PlayedTrack]:
-        _unsupported(access_token, after)
 
     async def devices(self, access_token: str) -> list[PlaybackDevice]:
         _unsupported(access_token)

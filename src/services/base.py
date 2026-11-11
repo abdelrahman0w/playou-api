@@ -1,4 +1,3 @@
-from datetime import datetime
 from datetime import timedelta
 from typing import Protocol
 
@@ -9,7 +8,6 @@ from src.structs.models import PlatformProfile
 from src.structs.models import PlatformTokens
 from src.structs.models import PlaybackDevice
 from src.structs.models import PlaybackRequest
-from src.structs.models import PlayedTrack
 from src.structs.models import PlaylistTracks
 from src.structs.models import RemotePlaylist
 from src.structs.models import SavedTracksPage
@@ -33,9 +31,6 @@ class MusicPlatform(Protocol):
     def playback_scopes(self) -> list[str]: ...
 
     @property
-    def history_scopes(self) -> list[str]: ...
-
-    @property
     def refresh_extends_lifetime(self) -> bool: ...
 
     async def search(
@@ -52,13 +47,6 @@ class MusicPlatform(Protocol):
         *,
         cursor: str | None,
     ) -> SavedTracksPage: ...
-
-    async def recently_played(
-        self,
-        access_token: str,
-        *,
-        after: datetime | None,
-    ) -> list[PlayedTrack]: ...
 
     async def user_playlists(
         self,
@@ -170,9 +158,3 @@ class OAuthPlatform(MusicPlatform, Protocol):
         self,
         access_token: str,
     ) -> PlatformProfile: ...
-
-
-def reads_history(platform: MusicPlatform, scopes: list[str]) -> bool:
-    history = platform.history_scopes
-
-    return bool(history) and all(scope in scopes for scope in history)

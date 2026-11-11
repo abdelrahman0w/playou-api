@@ -225,12 +225,6 @@ async def merge_track(
         update(pick).where(pick.track_id == drop).values(track_id=keep),
     )
 
-    await session.execute(
-        update(tables.Listen)
-        .where(tables.Listen.track_id == drop)
-        .values(track_id=keep),
-    )
-
     await session.execute(delete(tables.Track).where(tables.Track.id == drop))
 
 

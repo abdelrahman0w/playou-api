@@ -1,7 +1,6 @@
 import re
 import time
 from collections.abc import Awaitable
-from datetime import datetime
 from datetime import timedelta
 from typing import NoReturn
 from urllib.parse import urlencode
@@ -40,7 +39,6 @@ from src.structs.models import PlatformProfile
 from src.structs.models import PlatformTokens
 from src.structs.models import PlaybackDevice
 from src.structs.models import PlaybackRequest
-from src.structs.models import PlayedTrack
 from src.structs.models import PlaylistTracks
 from src.structs.models import RemotePlaylist
 from src.structs.models import SavedTrack
@@ -174,7 +172,6 @@ class SoundCloudService:
     capabilities = CAPABILITIES
     scopes: list[str] = []
     playback_scopes: list[str] = []
-    history_scopes: list[str] = []
     refresh_extends_lifetime = False
 
     def __init__(
@@ -633,14 +630,6 @@ class SoundCloudService:
             )
 
         return str(response.next_request.url)
-
-    async def recently_played(
-        self,
-        access_token: str,
-        *,
-        after: datetime | None,
-    ) -> list[PlayedTrack]:
-        _unsupported(access_token, after)
 
     async def devices(self, access_token: str) -> list[PlaybackDevice]:
         _unsupported(access_token)

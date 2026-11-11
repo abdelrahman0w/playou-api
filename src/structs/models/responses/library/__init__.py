@@ -4,7 +4,6 @@ from .library import CopyEstimate
 from .library import CopyProgress
 from .library import ImportProgress
 from .library import LikedTrack
-from .library import ListenedTrack
 from .library import MissingTracks
 from .library import PlatformData
 from .library import Playlist
@@ -24,7 +23,6 @@ __all__ = [
     "CopyProgress",
     "ImportProgress",
     "LikedTrack",
-    "ListenedTrack",
     "MissingTracks",
     "PlatformData",
     "Playlist",

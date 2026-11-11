@@ -18,7 +18,6 @@ from .catalog import TrackLyrics  # noqa: E402
 from .catalog import TrackPick  # noqa: E402
 from .catalog import TrackSource  # noqa: E402
 from .library import Like  # noqa: E402
-from .library import Listen  # noqa: E402
 from .library import Playlist  # noqa: E402
 from .library import PlaylistItem  # noqa: E402
 from .library import PlaylistLink  # noqa: E402
@@ -50,7 +49,6 @@ __all__ = [
     "Follow",
     "Like",
     "LinkedAccount",
-    "Listen",
     "LyricsReport",
     "Message",
     "MessageReaction",

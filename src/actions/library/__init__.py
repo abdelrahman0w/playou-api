@@ -3,8 +3,6 @@ from .data import delete_user
 from .data import ensure_allowed
 from .data import leftovers
 from .data import remove_platform_data
-from .history import prune_history
-from .history import record_listen
 from .likes import like_track
 from .likes import unlike_track
 from .playlists import add_playlist_items
@@ -28,8 +26,6 @@ __all__ = [
     "leftovers",
     "like_track",
     "pin_playlist",
-    "prune_history",
-    "record_listen",
     "remove_platform_data",
     "remove_playlist",
     "remove_playlist_item",

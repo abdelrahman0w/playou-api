@@ -410,9 +410,6 @@ There is no separate home route, `/` is Home or the landing, whichever fits.
 | `GET` | `/library/likes?page=&page_size=&include_removed=&platform=&q=` | The liked tracks, newest first, `q` searches them |
 | `PUT` | `/library/likes/{track_id}` | Likes a track |
 | `DELETE` | `/library/likes/{track_id}` | Unlikes it, the like is kept as removed |
-| `GET` | `/library/history?page=&page_size=` | The songs played in the last `DATA_HISTORY_SHOWN_DAYS`, newest first |
-| `POST` | `/library/history` | Records a song as played, unless the user paused their history, or the app keeps its own history, Spotify's is read on each import |
-| `DELETE` | `/library/history` | Clears the songs played |
 | `GET` | `/library/playlists?page=&page_size=&include_removed=&kind=&platform=&q=&sort=` | The playlists, pinned first, then newest, by `NAME`, or in the user's own order with `CUSTOM`, `OWNED` or `FOLLOWED`, `q` searches their names |
 | `GET` | `/library/sync` | Each linked account's import, `IDLE`, `SYNCING`, or `FAILED` |
 | `GET` | `/library/data` | What the unlinked platforms left, their imported likes and playlists |
@@ -561,7 +558,6 @@ Jobs are run once by name through `bin/jobs.sh`, `bin/jobs.sh <job> --help` list
 | `check_expiring_accounts` | `0 3 * * *` | Emails the users of the accounts expiring within `ACCOUNTS_EXPIRY_WARNING_DAYS` to reconnect, once, then refreshes the ones expiring within `ACCOUNTS_KEEP_ALIVE_DAYS`, on the platforms whose refresh extends the lifetime, the soonest first, `ACCOUNTS_KEEP_ALIVE_BATCH_SIZE` a run, one at a time. A refused refresh sets `reconnect_required_at`, a failed one is tried again the next run |
 | `warn_disconnected_accounts` | `*/5 * * * *` | Emails the users whose platform refused their account, once, until it is linked again |
 | `forget_disconnected_accounts` | `15 3 * * *` | Unlinks the accounts refused for `ACCOUNTS_FORGET_DISCONNECTED_DAYS`, 7, unless `ACCOUNTS_FORGET_DISCONNECTED` is false, and removes the likes and playlists that came only from them, as YouTube's API policy asks once access is revoked |
-| `prune_history` | `45 0 * * *` | Drops the plays older than `DATA_HISTORY_DAYS`, 13 months, so a year's recap still has all of last year |
 | `prune_auth` | `30 0 * * *` | Drops the expired sessions, the codes used or expired, and the playback sessions untouched for `PLAYBACK_SESSION_DAYS` |
 | `merge_tracks` | by hand | Merges the tracks saved twice for one song and uppercases the isrcs, `--dry-run` only logs them |
 | `restore_playlist_songs` | by hand | Brings back a user's playlist songs that an app's import removed between two times, `email since until`, or ever, `email --all`, and sends them to the linked apps again |
@@ -577,7 +573,6 @@ with the `sh` shell, running `/app/bin/jobs.sh <job>` in the api's container, wi
 | `warn_disconnected_accounts` | `*/5 * * * *` | `/app/bin/jobs.sh warn_disconnected_accounts` | Yes |
 | `forget_disconnected_accounts` | `15 3 * * *` | `/app/bin/jobs.sh forget_disconnected_accounts` | Yes |
 | `prune_auth` | `30 0 * * *` | `/app/bin/jobs.sh prune_auth` | Yes |
-| `prune_history` | `45 0 * * *` | `/app/bin/jobs.sh prune_history` | Yes |
 
 > Any hour does for them, they follow the server's clock, and a day missed is made up the next one,
 > the keep alive starts `ACCOUNTS_KEEP_ALIVE_DAYS` before an expiry, and an account past it is marked by the next run

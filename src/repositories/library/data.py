@@ -123,6 +123,5 @@ async def delete_library(session: AsyncSession, user_id: UUID) -> None:
         tables.SyncOperation,
         tables.PlaybackSession,
         tables.TrackPick,
-        tables.Listen,
     ):
         await session.execute(delete(table).where(table.user_id == user_id))

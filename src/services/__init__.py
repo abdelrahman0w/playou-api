@@ -1,6 +1,5 @@
 from .base import MusicPlatform
 from .base import OAuthPlatform
-from .base import reads_history
 from .lrclib import LrclibConnection
 from .lrclib import LrclibService
 from .registry import available_platforms
@@ -28,5 +27,4 @@ __all__ = [
     "YouTubeConnection",
     "YouTubeService",
     "available_platforms",
-    "reads_history",
 ]

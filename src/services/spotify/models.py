@@ -102,15 +102,6 @@ class SpotifySavedTrack(BaseModel):
     track: SpotifyTrack | None = None
 
 
-class SpotifyPlayHistory(BaseModel):
-    played_at: datetime
-    track: SpotifyTrack | None = None
-
-
-class SpotifyRecentlyPlayed(BaseModel):
-    items: list[SpotifyPlayHistory] = Field(default_factory=list)
-
-
 class SpotifySavedTracks(BaseModel):
     total: int = 0
     items: list[SpotifySavedTrack] = Field(default_factory=list)
