@@ -587,6 +587,21 @@ async def update_from_platform(
     )
 
 
+async def refresh_cover(
+    session: AsyncSession,
+    playlist_id: UUID,
+    cover_url: str | None,
+) -> None:
+    playlist = tables.Playlist
+    await session.execute(
+        update(playlist)
+        .where(
+            playlist.id == playlist_id, playlist.cover_url.is_distinct_from(cover_url)
+        )
+        .values(cover_url=cover_url),
+    )
+
+
 async def retire_item(
     session: AsyncSession,
     playlist_id: UUID,

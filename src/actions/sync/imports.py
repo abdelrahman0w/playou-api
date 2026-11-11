@@ -272,14 +272,19 @@ async def _import_playlists(
         )
         kind = PlaylistKinds.OWNED if owned else PlaylistKinds.FOLLOWED
         link = links.get(playlist.platform_id)
-        if link is not None and link.playlist_id in pending:
-            continue
-
         importing = link.importing if link is not None else PlaylistImports.AUTO
         unchanged = link is not None and link.snapshot_id == playlist.snapshot_id
-        if importing is PlaylistImports.NEVER or (
-            link is not None and link.skipped and unchanged
+        if link is not None and (
+            link.playlist_id in pending
+            or importing is PlaylistImports.NEVER
+            or (link.skipped and unchanged)
         ):
+            async with session_factory() as session, session.begin():
+                await library_repositories.refresh_cover(
+                    session,
+                    link.playlist_id,
+                    playlist.cover_url,
+                )
             continue
 
         changed = (

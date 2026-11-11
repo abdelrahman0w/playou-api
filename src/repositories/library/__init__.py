@@ -31,6 +31,7 @@ from .playlists import mark_items_seen
 from .playlists import platform_links
 from .playlists import playlist_sync_state
 from .playlists import reconcile_items
+from .playlists import refresh_cover
 from .playlists import remove_item
 from .playlists import remove_playlist
 from .playlists import remove_playlists
@@ -77,6 +78,7 @@ __all__ = [
     "prune_listens",
     "reconcile_items",
     "record_listen",
+    "refresh_cover",
     "remove_item",
     "remove_like",
     "remove_likes",
