@@ -25,6 +25,7 @@ from src.structs.models import StoredAccount
 
 
 REPLACED_KEPT = 8
+UNTIMED_KEPT = timedelta(hours=1)
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,7 @@ class _Newest:
     access_token: str
     expires_at: datetime | None
     replaced: tuple[str, ...]
+    forget_at: datetime
 
 
 _newest: dict[UUID, _Newest] = {}
@@ -66,16 +68,28 @@ def _fresh_until(
     return expires - margin > now
 
 
+def _forget_expired(now: datetime) -> None:
+    while _newest:
+        account_id, oldest = next(iter(_newest.items()))
+        if oldest.forget_at > now:
+            return
+
+        del _newest[account_id]
+
+
 def _remember(
     account: StoredAccount,
     token: str | None,
     expires: datetime | None,
+    *,
+    now: datetime,
 ) -> None:
+    _forget_expired(now)
     held = unseal(account.access_token)
     if token is None or token == held:
         return
 
-    known = _newest.get(account.id)
+    known = _newest.pop(account.id, None)
     replaced = (*known.replaced, known.access_token) if known else ()
     _newest[account.id] = _Newest(
         access_token=token,
@@ -83,6 +97,7 @@ def _remember(
         replaced=tuple(
             dict.fromkeys(old for old in (*replaced, held) if old != token),
         )[-REPLACED_KEPT:],
+        forget_at=expires or now + UNTIMED_KEPT,
     )
 
 
@@ -250,7 +265,7 @@ async def _refresh_when_due(
 
             raise refreshed.reconnect
 
-    _remember(account, refreshed.access_token, refreshed.expires_at)
+    _remember(account, refreshed.access_token, refreshed.expires_at, now=now)
 
     return refreshed
 
