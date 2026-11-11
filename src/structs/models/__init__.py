@@ -14,6 +14,7 @@ from .platforms import PlatformProfile
 from .platforms import PlatformTokens
 from .platforms import PlaybackDevice
 from .platforms import PlaybackRequest
+from .platforms import PlayedTrack
 from .platforms import PlaylistSyncState
 from .platforms import PlaylistTracks
 from .platforms import RemotePlaylist
@@ -42,6 +43,7 @@ __all__ = [
     "PlatformTokens",
     "PlaybackDevice",
     "PlaybackRequest",
+    "PlayedTrack",
     "PlaylistSyncState",
     "PlaylistTracks",
     "RemotePlaylist",

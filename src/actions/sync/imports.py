@@ -25,6 +25,7 @@ from src.repositories import catalog as catalog_repositories
 from src.repositories import library as library_repositories
 from src.repositories import sync as sync_repositories
 from src.services import OAuthPlatform
+from src.services import reads_history
 from src.settings import settings
 from src.structs.enums import AccountStatuses
 from src.structs.enums import CacheKeys
@@ -44,6 +45,8 @@ from src.structs.models.responses import AccountSync
 from src.structs.models.responses import ImportProgress
 from src.structs.models.responses import Progress
 
+
+LISTENS_MARGIN_MINUTES = 10
 
 type OnPage = Callable[[int, int], Awaitable[None]]
 
@@ -384,6 +387,49 @@ async def _import_playlists(
         )
 
 
+async def _import_listens(
+    session_factory: async_sessionmaker[AsyncSession],
+    platform: OAuthPlatform,
+    account: StoredAccount,
+    token: str,
+) -> None:
+    async with session_factory() as session:
+        after = await library_repositories.last_listen(
+            session,
+            account.user_id,
+            account.platform,
+        )
+    if account.imported_at is not None:
+        since = account.imported_at - timedelta(minutes=LISTENS_MARGIN_MINUTES)
+        after = max(after, since) if after is not None else since
+
+    played = await platform.recently_played(token, after=after)
+    if not played:
+        return
+
+    async with session_factory() as session, session.begin():
+        tracks = list({item.track.platform_id: item.track for item in played}.values())
+        catalog = await catalog_repositories.with_picks(
+            session,
+            account.user_id,
+            account.platform,
+            tracks,
+            await catalog_repositories.save_platform_track_ids(session, tracks),
+        )
+        track_ids = {
+            track.platform_id: track_id
+            for track, track_id in zip(tracks, catalog, strict=True)
+        }
+        for item in played:
+            await library_repositories.record_listen(
+                session,
+                account.user_id,
+                track_ids[item.track.platform_id],
+                account.platform,
+                now=item.played_at,
+            )
+
+
 async def import_account(
     session_factory: async_sessionmaker[AsyncSession],
     platforms: dict[Platforms, OAuthPlatform],
@@ -431,6 +477,15 @@ async def import_account(
                 now=now,
                 reporter=reporter,
             )
+        if reads_history(platform, account.scopes):
+            try:
+                await _import_listens(session_factory, platform, account, token)
+            except PlatformError:
+                logger.warning(
+                    "[Sync] Plays Not Read",
+                    platform=account.platform,
+                    account_id=str(account.id),
+                )
 
         return likes
 

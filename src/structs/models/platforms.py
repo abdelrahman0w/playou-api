@@ -91,6 +91,11 @@ class SavedTrack(BaseModel):
     ignored: bool = False
 
 
+class PlayedTrack(BaseModel):
+    track: Track
+    played_at: datetime
+
+
 class SavedTracksPage(BaseModel):
     total: int
     items: list[SavedTrack] = Field(default_factory=list)

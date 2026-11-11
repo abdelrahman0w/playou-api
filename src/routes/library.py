@@ -20,7 +20,9 @@ from src.structs.enums import Platforms
 from src.structs.enums import SyncNudges
 from src.structs.models import Page
 from src.structs.models.requests import CreatePlaylistRequest
+from src.structs.models.requests import HistoryListRequest
 from src.structs.models.requests import LikeListRequest
+from src.structs.models.requests import ListenRequest
 from src.structs.models.requests import PlaylistImportingRequest
 from src.structs.models.requests import PlaylistItemsRequest
 from src.structs.models.requests import PlaylistListRequest
@@ -32,6 +34,7 @@ from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import CopyEstimate
 from src.structs.models.responses import CopyProgress
 from src.structs.models.responses import LikedTrack
+from src.structs.models.responses import ListenedTrack
 from src.structs.models.responses import MissingTracks
 from src.structs.models.responses import PlatformData
 from src.structs.models.responses import Playlist
@@ -147,6 +150,58 @@ async def list_likes(
         user_id=user_id,
         now=now,
     )
+
+
+@router.get("/history")
+async def list_history(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    request: Annotated[HistoryListRequest, Query()],
+    now: NowDep,
+) -> Page[ListenedTrack]:
+    return await library_controller.list_history(
+        session,
+        request,
+        user_id=user_id,
+        now=now,
+    )
+
+
+@router.post(
+    "/history",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=writes,
+)
+async def record_listen(
+    body: ListenRequest,
+    user_id: UserIDDep,
+    session: DBSessionDep,
+    platforms: PlatformsDep,
+    now: NowDep,
+) -> Response:
+    await library_controller.record_listen(
+        session,
+        platforms,
+        body,
+        user_id=user_id,
+        now=now,
+    )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/history",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=writes,
+)
+async def clear_history(
+    user_id: UserIDDep,
+    session: DBSessionDep,
+) -> Response:
+    await library_controller.clear_history(session, user_id=user_id)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.put(

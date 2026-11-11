@@ -16,7 +16,9 @@ from src.structs.enums import Platforms
 from src.structs.enums import SyncNudges
 from src.structs.models import Page
 from src.structs.models.requests import CreatePlaylistRequest
+from src.structs.models.requests import HistoryListRequest
 from src.structs.models.requests import LikeListRequest
+from src.structs.models.requests import ListenRequest
 from src.structs.models.requests import PlaylistImportingRequest
 from src.structs.models.requests import PlaylistItemsRequest
 from src.structs.models.requests import PlaylistListRequest
@@ -28,6 +30,7 @@ from src.structs.models.responses import CatalogTrack
 from src.structs.models.responses import CopyEstimate
 from src.structs.models.responses import CopyProgress
 from src.structs.models.responses import LikedTrack
+from src.structs.models.responses import ListenedTrack
 from src.structs.models.responses import MissingTracks
 from src.structs.models.responses import PlatformData
 from src.structs.models.responses import Playlist
@@ -45,6 +48,47 @@ async def together_tracks(
 ) -> TogetherTracks:
     async with session.begin():
         return await library_actions.together_tracks(session, user_id)
+
+
+async def record_listen(
+    session: AsyncSession,
+    platforms: dict[Platforms, OAuthPlatform],
+    request: ListenRequest,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> None:
+    async with session.begin():
+        await library_actions.record_listen(
+            session,
+            platforms,
+            user_id,
+            request.track_id,
+            request.platform,
+            now=now,
+        )
+
+
+async def list_history(
+    session: AsyncSession,
+    request: HistoryListRequest,
+    *,
+    user_id: UUID,
+    now: datetime,
+) -> Page[ListenedTrack]:
+    async with session.begin():
+        return await library_repositories.list_history(
+            session,
+            user_id,
+            since=now - timedelta(days=settings.data.history_shown_days),
+            page=request.page,
+            page_size=request.page_size,
+        )
+
+
+async def clear_history(session: AsyncSession, *, user_id: UUID) -> None:
+    async with session.begin():
+        await library_repositories.clear_history(session, user_id)
 
 
 async def liked_track_ids(

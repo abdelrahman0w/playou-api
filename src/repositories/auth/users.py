@@ -23,6 +23,7 @@ def _to_user(row: tables.User) -> AuthUser:
         username=row.username,
         searchable=row.searchable,
         private=row.private,
+        keep_history=row.keep_history,
         locale=row.locale,
         created_at=row.created_at,
         last_sign_in_at=row.last_sign_in_at,

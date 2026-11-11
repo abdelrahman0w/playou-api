@@ -105,6 +105,13 @@ async def hide_lyrics(args: argparse.Namespace) -> object:
     return {"hidden": hidden}
 
 
+async def prune_history(_: argparse.Namespace) -> object:
+    return await library_actions.prune_history(
+        DatabaseSessions.get(),
+        now=datetime.now(UTC),
+    )
+
+
 def _restore_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("email", help="the user's email")
     parser.add_argument(
@@ -169,6 +176,12 @@ async def delete_user_data(args: argparse.Namespace) -> object:
 
 
 JOBS: dict[str, Job] = {
+    "prune_history": Job(
+        run=prune_history,
+        help="drop the plays older than DATA_HISTORY_DAYS",
+        monitor_every_seconds=24 * 60 * 60,
+        cron="45 0 * * *",
+    ),
     "delete_user_data": Job(
         run=delete_user_data,
         help="delete a user's library and linked apps, or with --account everything, "

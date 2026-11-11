@@ -10,6 +10,7 @@ class NameRequest(BaseModel):
     username: str | None = None
     searchable: bool | None = None
     private: bool | None = None
+    keep_history: bool | None = None
 
     @field_validator("name")
     @classmethod

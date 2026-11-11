@@ -270,6 +270,7 @@ class SpotifySettings(BaseAppSettings):
             "streaming",
             "user-read-playback-state",
             "user-modify-playback-state",
+            "user-read-recently-played",
         ],
     )
     refresh_token_days: int | None = Field(default=180, ge=1)
@@ -336,6 +337,8 @@ class DataSettings(BaseAppSettings):
     )
 
     deletion_enabled: bool = True
+    history_days: int = Field(default=396, ge=1)
+    history_shown_days: int = Field(default=7, ge=1)
 
 
 class PlaybackSettings(BaseAppSettings):

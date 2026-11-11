@@ -41,6 +41,12 @@ class LikedTrack(BaseModel):
     removed_by: RemovedBy | None = None
 
 
+class ListenedTrack(BaseModel):
+    track: CatalogTrack
+    platform: Platforms
+    played_at: datetime
+
+
 class PlaylistLink(BaseModel):
     platform: Platforms
     platform_playlist_id: str

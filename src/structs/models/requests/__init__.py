@@ -4,8 +4,10 @@ from .auth import NameRequest
 from .catalog import ChooseSimilarRequest
 from .catalog import SearchRequest
 from .library import CreatePlaylistRequest
+from .library import HistoryListRequest
 from .library import LibraryListRequest
 from .library import LikeListRequest
+from .library import ListenRequest
 from .library import PlaylistImportingRequest
 from .library import PlaylistItemsRequest
 from .library import PlaylistListRequest
@@ -41,8 +43,10 @@ __all__ = [
     "EmailCodeRequest",
     "EmailVerifyRequest",
     "EmbedBlockedRequest",
+    "HistoryListRequest",
     "LibraryListRequest",
     "LikeListRequest",
+    "ListenRequest",
     "MessageListRequest",
     "MessagePeopleRequest",
     "NameRequest",

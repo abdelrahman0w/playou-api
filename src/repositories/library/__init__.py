@@ -1,6 +1,11 @@
 from .data import delete_library
 from .data import delete_platform_data
 from .data import leftovers
+from .history import clear_history
+from .history import last_listen
+from .history import list_history
+from .history import prune_listens
+from .history import record_listen
 from .likes import forget_unlisted_likes
 from .likes import get_like
 from .likes import import_likes
@@ -45,6 +50,7 @@ from .together import user_ids_by_email
 
 __all__ = [
     "add_items",
+    "clear_history",
     "create_playlist",
     "delete_library",
     "delete_platform_data",
@@ -56,17 +62,21 @@ __all__ = [
     "get_playlist_summary",
     "import_likes",
     "import_playlist",
+    "last_listen",
     "leftovers",
     "like_sync_states",
     "liked_platform_ids",
     "liked_track_ids",
+    "list_history",
     "list_likes",
     "list_playlists",
     "mark_items_seen",
     "mark_likes_seen",
     "platform_links",
     "playlist_sync_state",
+    "prune_listens",
     "reconcile_items",
+    "record_listen",
     "remove_item",
     "remove_like",
     "remove_likes",

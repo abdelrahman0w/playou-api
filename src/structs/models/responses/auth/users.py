@@ -11,6 +11,7 @@ class AuthUser(BaseModel):
     username: str = ""
     searchable: bool = True
     private: bool = False
+    keep_history: bool = True
     followers: int = 0
     following: int = 0
     locale: str
