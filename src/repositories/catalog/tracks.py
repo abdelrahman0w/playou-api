@@ -17,6 +17,7 @@ from sqlalchemy import func
 from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy import text
+from sqlalchemy import true
 from sqlalchemy import tuple_
 from sqlalchemy import union_all
 from sqlalchemy import update
@@ -566,6 +567,50 @@ async def get_tracks(
         )
         for track in tracks
     }
+
+
+MOSAIC = 4
+MOSAIC_LOOKAHEAD = 40
+
+
+async def playlist_artworks(
+    session: AsyncSession,
+    playlist_ids: Collection[UUID],
+) -> dict[UUID, list[str]]:
+    if not playlist_ids:
+        return {}
+
+    playlist = tables.Playlist
+    item = tables.PlaylistItem
+    track = tables.Track
+    art = func.coalesce(track.thumbnail_url, track.artwork_url)
+    first = (
+        select(art.label("art"), item.position)
+        .select_from(item)
+        .join(track, track.id == item.track_id)
+        .where(
+            item.playlist_id == playlist.id,
+            item.removed_at.is_(None),
+            art.is_not(None),
+        )
+        .order_by(item.position)
+        .limit(MOSAIC_LOOKAHEAD)
+        .lateral()
+    )
+    rows = await session.execute(
+        select(playlist.id, first.c.art)
+        .join(first, true())
+        .where(any_of(playlist.id, playlist_ids))
+        .order_by(playlist.id, first.c.position),
+    )
+
+    found: dict[UUID, list[str]] = {}
+    for playlist_id, url in rows:
+        urls = found.setdefault(playlist_id, [])
+        if url not in urls and len(urls) < MOSAIC:
+            urls.append(url)
+
+    return found
 
 
 async def tracks_changed(

@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.repositories.catalog import get_tracks
+from src.repositories.catalog import playlist_artworks
 from src.structs import tables
 from src.structs.enums import PlaylistKinds
 from src.structs.enums import ShareSubjects
@@ -90,6 +91,7 @@ async def shared_playlists(
         .where(any_of(playlist.id, wanted), playlist.removed_at.is_(None)),
     )
     by_playlist = {row.id: (row, songs) for row, songs in rows}
+    artworks = await playlist_artworks(session, list(by_playlist))
 
     return {
         share.id: SharedPlaylist(
@@ -97,6 +99,7 @@ async def shared_playlists(
             name=found[0].name,
             description=found[0].description,
             cover_url=found[0].cover_url,
+            artworks=artworks.get(found[0].id, []),
             item_count=found[1],
         )
         for share in shares

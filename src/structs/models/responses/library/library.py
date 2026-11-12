@@ -54,6 +54,7 @@ class Playlist(BaseModel):
     description: str | None = None
     owner_name: str | None = None
     cover_url: str | None = None
+    artworks: list[str] = Field(default_factory=list)
     url: str | None = None
     item_count: int = 0
     links: list[PlaylistLink] = Field(default_factory=list)

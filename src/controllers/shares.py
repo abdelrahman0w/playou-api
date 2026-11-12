@@ -58,7 +58,8 @@ async def share_image(session: AsyncSession, redis: Redis, code: str) -> bytes:
             redis,
             title=shared.playlist.name,
             subtitle=f"♫ {shared.playlist.item_count}",
-            cover_url=shared.playlist.cover_url,
+            cover_url=shared.playlist.cover_url
+            or next(iter(shared.playlist.artworks), None),
         )
 
     track = shared.track

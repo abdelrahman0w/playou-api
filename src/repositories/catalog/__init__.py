@@ -17,6 +17,7 @@ from .tracks import list_picks
 from .tracks import own_sources
 from .tracks import pick_source
 from .tracks import platform_track_ids
+from .tracks import playlist_artworks
 from .tracks import save_platform_track_ids
 from .tracks import save_platform_tracks
 from .tracks import search_catalog
@@ -42,6 +43,7 @@ __all__ = [
     "own_sources",
     "pick_source",
     "platform_track_ids",
+    "playlist_artworks",
     "record_report",
     "save_lyrics",
     "save_platform_track_ids",

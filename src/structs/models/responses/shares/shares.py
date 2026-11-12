@@ -21,6 +21,7 @@ class SharedPlaylist(BaseModel):
     name: str
     description: str | None = None
     cover_url: str | None = None
+    artworks: list[str] = Field(default_factory=list)
     item_count: int = 0
 
 

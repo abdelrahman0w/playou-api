@@ -6530,6 +6530,13 @@
             ],
             "title": "Cover Url"
           },
+          "artworks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Artworks"
+          },
           "url": {
             "anyOf": [
               {
@@ -6662,6 +6669,13 @@
               }
             ],
             "title": "Cover Url"
+          },
+          "artworks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Artworks"
           },
           "url": {
             "anyOf": [
@@ -7025,6 +7039,13 @@
               }
             ],
             "title": "Cover Url"
+          },
+          "artworks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Artworks"
           },
           "item_count": {
             "type": "integer",
@@ -7801,6 +7822,13 @@
               }
             ],
             "title": "Cover Url"
+          },
+          "artworks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Artworks"
           },
           "item_count": {
             "type": "integer",

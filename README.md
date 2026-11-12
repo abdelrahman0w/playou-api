@@ -304,6 +304,8 @@ The platforms' libraries come in too, the user's liked songs, their own and coll
 and the ones they follow, without their tracks, which Spotify does not give, as `FOLLOWED`, read only, with their owner, cover, and link.
 A playlist's name, description, owner, cover and link come from the app it was imported from, the other apps it was copied to
 only keep it in the library, and one made in PlaYou takes them from any app, except a missing cover, which never replaces one.
+Every playlist also carries `artworks`, up to 4 distinct covers of its first 40 songs, in order, for the web to show a mosaic
+when it has no cover, or its cover, an app's link that may expire, fails to load, and a share's preview image falls back to the first.
 
 - An import is a row in the same queue, `IMPORT`, asked for when an account is linked, when the library is opened
     and the last import is older than `IMPORT_STALE_MINUTES`, checked once every `IMPORT_CHECK_SECONDS` a user,

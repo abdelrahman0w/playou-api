@@ -17,6 +17,7 @@ from sqlalchemy.orm import QueryableAttribute
 from sqlalchemy.orm import aliased
 
 from src.repositories.catalog import get_tracks
+from src.repositories.catalog import playlist_artworks
 from src.structs import tables
 from src.structs.enums import FollowStates
 from src.structs.enums import PlaylistKinds
@@ -413,12 +414,15 @@ async def profile_playlists(
     session: AsyncSession, user_id: UUID
 ) -> list[ProfilePlaylist]:
     playlist = tables.Playlist
-    rows = await session.execute(
-        _profile_playlists_query(user_id).order_by(
-            playlist.updated_at.desc(),
-            playlist.id,
-        ),
-    )
+    rows = (
+        await session.execute(
+            _profile_playlists_query(user_id).order_by(
+                playlist.updated_at.desc(),
+                playlist.id,
+            ),
+        )
+    ).all()
+    artworks = await playlist_artworks(session, [row.id for row, _ in rows])
 
     return [
         ProfilePlaylist(
@@ -426,6 +430,7 @@ async def profile_playlists(
             name=row.name,
             description=row.description,
             cover_url=row.cover_url,
+            artworks=artworks.get(row.id, []),
             item_count=songs,
         )
         for row, songs in rows
@@ -448,12 +453,14 @@ async def profile_playlist(
         return None
 
     row, songs = found
+    artworks = await playlist_artworks(session, [row.id])
 
     return ProfilePlaylist(
         id=row.id,
         name=row.name,
         description=row.description,
         cover_url=row.cover_url,
+        artworks=artworks.get(row.id, []),
         item_count=songs,
     )
 

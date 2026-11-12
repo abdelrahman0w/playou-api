@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.repositories.catalog import get_tracks
 from src.repositories.catalog import own_sources
+from src.repositories.catalog import playlist_artworks
 from src.structs import tables
 from src.structs.enums import Platforms
 from src.structs.enums import PlaylistImports
@@ -92,6 +93,7 @@ def _to_playlist(
     *,
     counts: dict[UUID, int],
     links: dict[UUID, list[PlaylistLink]],
+    artworks: dict[UUID, list[str]],
 ) -> Playlist:
     return Playlist(
         id=row.id,
@@ -100,6 +102,7 @@ def _to_playlist(
         description=row.description,
         owner_name=row.owner_name,
         cover_url=row.cover_url,
+        artworks=artworks.get(row.id, []),
         url=row.url,
         item_count=counts.get(row.id, 0),
         links=links.get(row.id, []),
@@ -159,6 +162,7 @@ async def get_playlist_summary(
         row,
         counts=await _item_counts(session, [row.id]),
         links=await _links(session, [row.id]),
+        artworks=await playlist_artworks(session, [row.id]),
     )
 
 
@@ -199,6 +203,7 @@ async def get_playlist(
         row,
         counts={row.id: sum(entry.removed_at is None for entry in items)},
         links=await _links(session, [row.id]),
+        artworks=await playlist_artworks(session, [row.id]),
     )
 
     return PlaylistDetail(
@@ -279,9 +284,13 @@ async def list_playlists(
     ids = [row.id for row in rows]
     counts = await _item_counts(session, ids)
     links = await _links(session, ids)
+    artworks = await playlist_artworks(session, ids)
 
     return Page[Playlist](
-        items=[_to_playlist(row, counts=counts, links=links) for row in rows],
+        items=[
+            _to_playlist(row, counts=counts, links=links, artworks=artworks)
+            for row in rows
+        ],
         page=page,
         page_size=page_size,
         total_count=total or 0,
