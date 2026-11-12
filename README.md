@@ -302,6 +302,8 @@ PUT /library/likes/{id} → postgres   (the like, and its operation, one transac
 
 The platforms' libraries come in too, the user's liked songs, their own and collaborative playlists with their tracks,
 and the ones they follow, without their tracks, which Spotify does not give, as `FOLLOWED`, read only, with their owner, cover, and link.
+A playlist's name, description, owner, cover and link come from the app it was imported from, the other apps it was copied to
+only keep it in the library, and one made in PlaYou takes them from any app, except a missing cover, which never replaces one.
 
 - An import is a row in the same queue, `IMPORT`, asked for when an account is linked, when the library is opened
     and the last import is older than `IMPORT_STALE_MINUTES`, checked once every `IMPORT_CHECK_SECONDS` a user,

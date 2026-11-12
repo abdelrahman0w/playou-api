@@ -564,25 +564,45 @@ async def import_playlist(
     return playlist.id
 
 
+def _from(platform: Platforms) -> ColumnElement[bool]:
+    playlist = tables.Playlist
+
+    return or_(playlist.imported_from == platform, playlist.imported_from.is_(None))
+
+
+def _cover(platform: Platforms, cover_url: str | None) -> ColumnElement[str | None]:
+    playlist = tables.Playlist
+
+    return case(
+        (playlist.imported_from == platform, cover_url),
+        else_=func.coalesce(cover_url, playlist.cover_url),
+    )
+
+
 async def update_from_platform(
     session: AsyncSession,
     playlist_id: UUID,
+    platform: Platforms,
     remote: RemotePlaylist,
     *,
     kind: PlaylistKinds,
 ) -> None:
+    playlist = tables.Playlist
     await session.execute(
-        update(tables.Playlist)
-        .where(tables.Playlist.id == playlist_id)
+        update(playlist)
+        .where(playlist.id == playlist_id)
+        .values(removed_at=None, removed_by=None),
+    )
+    await session.execute(
+        update(playlist)
+        .where(playlist.id == playlist_id, _from(platform))
         .values(
             kind=kind,
             name=remote.name[:200] or "Untitled",
             description=remote.description,
             owner_name=remote.owner_name,
-            cover_url=remote.cover_url,
+            cover_url=_cover(platform, remote.cover_url),
             url=remote.url,
-            removed_at=None,
-            removed_by=None,
         ),
     )
 
@@ -590,15 +610,19 @@ async def update_from_platform(
 async def refresh_cover(
     session: AsyncSession,
     playlist_id: UUID,
+    platform: Platforms,
     cover_url: str | None,
 ) -> None:
     playlist = tables.Playlist
+    cover = _cover(platform, cover_url)
     await session.execute(
         update(playlist)
         .where(
-            playlist.id == playlist_id, playlist.cover_url.is_distinct_from(cover_url)
+            playlist.id == playlist_id,
+            _from(platform),
+            playlist.cover_url.is_distinct_from(cover),
         )
-        .values(cover_url=cover_url),
+        .values(cover_url=cover),
     )
 
 

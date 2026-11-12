@@ -280,6 +280,7 @@ async def _import_playlists(
                 await library_repositories.refresh_cover(
                     session,
                     link.playlist_id,
+                    account.platform,
                     playlist.cover_url,
                 )
             continue
@@ -312,6 +313,7 @@ async def _import_playlists(
                 await library_repositories.update_from_platform(
                     session,
                     playlist_id,
+                    account.platform,
                     playlist,
                     kind=kind,
                 )
